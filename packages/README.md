@@ -8,3 +8,7 @@ Package metadata for AegisOS base components.
 Validation command:
 
 - `python scripts/validate_packages.py`
+
+Manifest note:
+
+- `schema_version: 1` is required in each core/profile manifest.

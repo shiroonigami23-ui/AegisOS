@@ -44,13 +44,15 @@ def parse_simple_yaml(path):
 
 
 def validate_core_manifest(path):
-  req = ["name", "version", "summary", "license", "source", "dependencies"]
+  req = ["schema_version", "name", "version", "summary", "license", "source", "dependencies"]
   data = parse_simple_yaml(path)
   missing = [k for k in req if k not in data]
   if missing:
     raise ValueError(f"{path}: missing keys: {', '.join(missing)}")
   if not isinstance(data["dependencies"], list):
     raise ValueError(f"{path}: dependencies must be a list")
+  if str(data["schema_version"]) != "1":
+    raise ValueError(f"{path}: unsupported schema_version {data['schema_version']}")
   if not data["name"].startswith("aegis-"):
     raise ValueError(f"{path}: package name must start with aegis-")
   if data["license"] != "Apache-2.0":
@@ -59,13 +61,15 @@ def validate_core_manifest(path):
 
 
 def validate_profile_manifest(path, known_packages):
-  req = ["profile", "description", "packages"]
+  req = ["schema_version", "profile", "description", "packages"]
   data = parse_simple_yaml(path)
   missing = [k for k in req if k not in data]
   if missing:
     raise ValueError(f"{path}: missing keys: {', '.join(missing)}")
   if not isinstance(data["packages"], list):
     raise ValueError(f"{path}: packages must be a list")
+  if str(data["schema_version"]) != "1":
+    raise ValueError(f"{path}: unsupported schema_version {data['schema_version']}")
   unknown = [p for p in data["packages"] if p not in known_packages]
   if unknown:
     raise ValueError(f"{path}: unknown packages: {', '.join(unknown)}")

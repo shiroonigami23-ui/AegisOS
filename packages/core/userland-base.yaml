@@ -1,3 +1,4 @@
+schema_version: 1
 name: aegis-userland-base
 version: 0.1.0
 summary: Base userspace services for AegisOS
@@ -5,4 +6,3 @@ license: Apache-2.0
 source: userland/
 dependencies:
   - aegis-kernel
-

@@ -1,6 +1,6 @@
+schema_version: 1
 profile: desktop
 description: Default desktop profile for AegisOS
 packages:
   - aegis-kernel
   - aegis-userland-base
-

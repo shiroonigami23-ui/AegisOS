@@ -1,7 +1,7 @@
+schema_version: 1
 name: aegis-kernel
 version: 0.1.0
 summary: AegisOS kernel package
 license: Apache-2.0
 source: kernel/
 dependencies: []
-
