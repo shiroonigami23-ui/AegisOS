@@ -44,6 +44,59 @@ static void append_trace(char *trace, size_t trace_size, const char *fmt, ...) {
   (void)written;
 }
 
+static int append_json(char *out, size_t out_size, size_t *offset, const char *fmt, ...) {
+  int written;
+  va_list args;
+  if (out == 0 || offset == 0 || fmt == 0 || *offset >= out_size) {
+    return -1;
+  }
+  va_start(args, fmt);
+  written = vsnprintf(out + *offset, out_size - *offset, fmt, args);
+  va_end(args);
+  if (written < 0 || (size_t)written >= (out_size - *offset)) {
+    return -1;
+  }
+  *offset += (size_t)written;
+  return 0;
+}
+
+static int append_json_escaped_string(char *out, size_t out_size, size_t *offset, const char *src) {
+  size_t i = 0;
+  if (src == 0) {
+    return 0;
+  }
+  while (src[i] != '\0') {
+    unsigned char c = (unsigned char)src[i];
+    if (c == '\\' || c == '"') {
+      if (append_json(out, out_size, offset, "\\%c", c) != 0) {
+        return -1;
+      }
+    } else if (c == '\n') {
+      if (append_json(out, out_size, offset, "\\n") != 0) {
+        return -1;
+      }
+    } else if (c == '\r') {
+      if (append_json(out, out_size, offset, "\\r") != 0) {
+        return -1;
+      }
+    } else if (c == '\t') {
+      if (append_json(out, out_size, offset, "\\t") != 0) {
+        return -1;
+      }
+    } else if (c < 0x20u) {
+      if (append_json(out, out_size, offset, "\\u%04x", (unsigned int)c) != 0) {
+        return -1;
+      }
+    } else {
+      if (append_json(out, out_size, offset, "%c", c) != 0) {
+        return -1;
+      }
+    }
+    i += 1;
+  }
+  return 0;
+}
+
 typedef struct {
   int matched_rules;
   int winner_rule_index;
@@ -1198,38 +1251,55 @@ int aegis_policy_engine_check_network_with_ip_trace_json(const aegis_policy_engi
                                                          aegis_policy_decision_t *decision) {
   aegis_net_trace_stats_t stats;
   int rc;
-  int written;
+  size_t offset = 0;
+  const char *safe_host = host != 0 ? host : "";
+  const char *safe_reason = decision != 0 ? decision->reason : "";
   if (json_trace == 0 || json_trace_size == 0u) {
     return -1;
   }
   json_trace[0] = '\0';
   rc = check_network_with_ip_internal(engine, store, process_id, action, host, port, protocol,
                                       resolved_ipv4, resolved_ipv6, 0, 0u, &stats, decision);
-  written = snprintf(json_trace, json_trace_size,
-                     "{\"trace_schema_version\":%u,\"trace_format_version\":%u,"
-                     "\"process_id\":%u,\"host\":\"%s\",\"port\":%u,\"protocol\":%u,"
-                     "\"matched_rules\":%d,\"winner_rule_index\":%d,\"winner_score\":%d,"
-                     "\"tie_break_deny\":%u,\"dns_resolved_ipv4_present\":%u,"
-                     "\"dns_resolved_ipv6_present\":%u,\"dns_pin_match\":%u,"
-                     "\"dns_pin_has_ipv4\":%u,\"dns_pin_has_ipv6\":%u,\"dns_strict_mode\":%u,"
-                     "\"dns_strict_gate_blocked\":%u,\"dns_strict_gate_passed\":%u,"
-                     "\"decision_allowed\":%u,\"decision_reason\":\"%s\"}",
-                     (unsigned int)AEGIS_NETWORK_TRACE_SCHEMA_VERSION,
-                     (unsigned int)AEGIS_NETWORK_TRACE_FORMAT_VERSION,
-                     process_id, host != 0 ? host : "", (unsigned int)port, (unsigned int)protocol,
-                     stats.matched_rules, stats.winner_rule_index, stats.winner_score,
-                     (unsigned int)stats.tie_break_deny,
-                     (unsigned int)stats.dns_resolved_ipv4_present,
-                     (unsigned int)stats.dns_resolved_ipv6_present,
-                     (unsigned int)stats.dns_pin_match,
-                     (unsigned int)stats.dns_pin_has_ipv4,
-                     (unsigned int)stats.dns_pin_has_ipv6,
-                     (unsigned int)stats.dns_strict_mode,
-                     (unsigned int)stats.dns_strict_gate_blocked,
-                     (unsigned int)stats.dns_strict_gate_passed,
-                     (unsigned int)(decision != 0 ? decision->allowed : 0u),
-                     decision != 0 ? decision->reason : "");
-  if (written < 0 || (size_t)written >= json_trace_size) {
+  if (append_json(json_trace, json_trace_size, &offset,
+                  "{\"trace_schema_version\":%u,\"trace_format_version\":%u,"
+                  "\"process_id\":%u,\"host\":\"",
+                  (unsigned int)AEGIS_NETWORK_TRACE_SCHEMA_VERSION,
+                  (unsigned int)AEGIS_NETWORK_TRACE_FORMAT_VERSION,
+                  process_id) != 0) {
+    return -1;
+  }
+  if (append_json_escaped_string(json_trace, json_trace_size, &offset, safe_host) != 0) {
+    return -1;
+  }
+  if (append_json(json_trace, json_trace_size, &offset,
+                  "\",\"port\":%u,\"protocol\":%u,"
+                  "\"matched_rules\":%d,\"winner_rule_index\":%d,\"winner_score\":%d,"
+                  "\"tie_break_deny\":%u,\"dns_resolved_ipv4_present\":%u,"
+                  "\"dns_resolved_ipv6_present\":%u,\"dns_pin_match\":%u,"
+                  "\"dns_pin_has_ipv4\":%u,\"dns_pin_has_ipv6\":%u,\"dns_strict_mode\":%u,"
+                  "\"dns_strict_gate_blocked\":%u,\"dns_strict_gate_passed\":%u,"
+                  "\"decision_allowed\":%u,\"decision_reason\":\"",
+                  (unsigned int)port,
+                  (unsigned int)protocol,
+                  stats.matched_rules,
+                  stats.winner_rule_index,
+                  stats.winner_score,
+                  (unsigned int)stats.tie_break_deny,
+                  (unsigned int)stats.dns_resolved_ipv4_present,
+                  (unsigned int)stats.dns_resolved_ipv6_present,
+                  (unsigned int)stats.dns_pin_match,
+                  (unsigned int)stats.dns_pin_has_ipv4,
+                  (unsigned int)stats.dns_pin_has_ipv6,
+                  (unsigned int)stats.dns_strict_mode,
+                  (unsigned int)stats.dns_strict_gate_blocked,
+                  (unsigned int)stats.dns_strict_gate_passed,
+                  (unsigned int)(decision != 0 ? decision->allowed : 0u)) != 0) {
+    return -1;
+  }
+  if (append_json_escaped_string(json_trace, json_trace_size, &offset, safe_reason) != 0) {
+    return -1;
+  }
+  if (append_json(json_trace, json_trace_size, &offset, "\"}") != 0) {
     return -1;
   }
   return rc;

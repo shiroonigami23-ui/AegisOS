@@ -416,6 +416,53 @@ static int test_network_scope_debug_trace_json(void) {
   return 0;
 }
 
+static int test_network_scope_debug_trace_json_escaping(void) {
+  aegis_capability_store_t cap_store;
+  aegis_policy_engine_t engine;
+  aegis_sandbox_policy_t policy = {
+      4005u, AEGIS_CAP_NET_CLIENT, 0u, 0u, 1u, 0u, 0u};
+  aegis_policy_decision_t decision;
+  char json_trace[1024];
+  const char *weird_host = "api\\\"bad.local";
+
+  aegis_capability_store_init(&cap_store);
+  aegis_policy_engine_init(&engine);
+  if (aegis_capability_issue(&cap_store, 4005u, AEGIS_CAP_NET_CLIENT) != 0) {
+    fprintf(stderr, "json escaping capability issue failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_set_policy(&engine, &policy) != 0) {
+    fprintf(stderr, "json escaping set policy failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_add_net_rule(
+          &engine, 4005u, weird_host, 443, 443, AEGIS_NET_PROTO_TCP, 1u, 0u, 1u) != 0) {
+    fprintf(stderr, "json escaping add allow rule failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check_network_with_ip_trace_json(&engine,
+                                                           &cap_store,
+                                                           4005u,
+                                                           AEGIS_ACTION_NET_CONNECT,
+                                                           weird_host,
+                                                           443,
+                                                           AEGIS_NET_PROTO_TCP,
+                                                           0u,
+                                                           0,
+                                                           json_trace,
+                                                           sizeof(json_trace),
+                                                           &decision) != 1) {
+    fprintf(stderr, "expected json escaping allow path\n");
+    return 1;
+  }
+  if (strstr(json_trace, "\"host\":\"api\\\\\\\"bad.local\"") == 0 ||
+      strstr(json_trace, "\"decision_reason\":\"allowed by network scope\"") == 0) {
+    fprintf(stderr, "json trace missing escaped host/reason fields: %s\n", json_trace);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_symlink_scope_resolution(void) {
   aegis_capability_store_t cap_store;
   aegis_policy_engine_t engine;
@@ -921,6 +968,9 @@ int main(void) {
     return 1;
   }
   if (test_network_scope_debug_trace_json() != 0) {
+    return 1;
+  }
+  if (test_network_scope_debug_trace_json_escaping() != 0) {
     return 1;
   }
   if (test_symlink_scope_resolution() != 0) {
