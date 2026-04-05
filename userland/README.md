@@ -38,3 +38,4 @@ Core userspace services, shell tools, and runtime components live here.
   - supports pluggable filesystem resolver backend hook for real metadata/symlink lookup integration.
   - supports policy hot reload with validation and safe replacement semantics.
   - hot reload enforces monotonic `policy_revision` to block stale policy rollback.
+  - includes policy-evaluation trace summary counters and JSON endpoint for allow/deny cause aggregation.

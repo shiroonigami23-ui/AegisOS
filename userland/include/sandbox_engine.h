@@ -23,6 +23,18 @@ typedef struct {
   char reason[96];
 } aegis_policy_decision_t;
 
+typedef struct {
+  uint64_t total_decisions;
+  uint64_t allow_decisions;
+  uint64_t deny_decisions;
+  uint64_t deny_missing_capability;
+  uint64_t deny_policy_gate;
+  uint64_t deny_fs_scope;
+  uint64_t deny_net_scope;
+  uint64_t deny_dns_rebinding;
+  uint64_t deny_other;
+} aegis_policy_eval_trace_summary_t;
+
 typedef enum {
   AEGIS_FS_SCOPE_DENY = 0,
   AEGIS_FS_SCOPE_READ_ONLY = 1,
@@ -202,5 +214,8 @@ int aegis_policy_engine_check_network_with_ip_trace_json(const aegis_policy_engi
                                                          char *json_trace,
                                                          size_t json_trace_size,
                                                          aegis_policy_decision_t *decision);
+void aegis_policy_eval_trace_reset(void);
+int aegis_policy_eval_trace_snapshot(aegis_policy_eval_trace_summary_t *summary);
+int aegis_policy_eval_trace_summary_json(char *out, size_t out_size);
 
 #endif

@@ -4,6 +4,34 @@
 #include <stdarg.h>
 #include <string.h>
 
+static aegis_policy_eval_trace_summary_t g_eval_trace_summary;
+
+static void eval_trace_note(const char *message, uint8_t allowed) {
+  g_eval_trace_summary.total_decisions += 1u;
+  if (allowed != 0u) {
+    g_eval_trace_summary.allow_decisions += 1u;
+    return;
+  }
+  g_eval_trace_summary.deny_decisions += 1u;
+  if (message == 0) {
+    g_eval_trace_summary.deny_other += 1u;
+    return;
+  }
+  if (strstr(message, "missing capability token permission") != 0) {
+    g_eval_trace_summary.deny_missing_capability += 1u;
+  } else if (strstr(message, "blocked by sandbox policy gate") != 0) {
+    g_eval_trace_summary.deny_policy_gate += 1u;
+  } else if (strstr(message, "filesystem") != 0 || strstr(message, "symlink") != 0) {
+    g_eval_trace_summary.deny_fs_scope += 1u;
+  } else if (strstr(message, "network scope") != 0) {
+    g_eval_trace_summary.deny_net_scope += 1u;
+  } else if (strstr(message, "dns rebinding guard") != 0) {
+    g_eval_trace_summary.deny_dns_rebinding += 1u;
+  } else {
+    g_eval_trace_summary.deny_other += 1u;
+  }
+}
+
 static void set_reason(aegis_policy_decision_t *decision, const char *message, uint8_t allowed) {
   if (decision == 0) {
     return;
@@ -14,6 +42,7 @@ static void set_reason(aegis_policy_decision_t *decision, const char *message, u
     return;
   }
   snprintf(decision->reason, sizeof(decision->reason), "%s", message);
+  eval_trace_note(message, allowed);
 }
 
 static void set_trace(char *trace, size_t trace_size, const char *message) {
@@ -1337,4 +1366,42 @@ int aegis_policy_engine_check_network_with_ip_trace_json(const aegis_policy_engi
     return -1;
   }
   return rc;
+}
+
+void aegis_policy_eval_trace_reset(void) {
+  memset(&g_eval_trace_summary, 0, sizeof(g_eval_trace_summary));
+}
+
+int aegis_policy_eval_trace_snapshot(aegis_policy_eval_trace_summary_t *summary) {
+  if (summary == 0) {
+    return -1;
+  }
+  *summary = g_eval_trace_summary;
+  return 0;
+}
+
+int aegis_policy_eval_trace_summary_json(char *out, size_t out_size) {
+  int written;
+  if (out == 0 || out_size == 0u) {
+    return -1;
+  }
+  written = snprintf(out,
+                     out_size,
+                     "{\"schema_version\":1,\"total_decisions\":%llu,\"allow_decisions\":%llu,"
+                     "\"deny_decisions\":%llu,\"deny_missing_capability\":%llu,"
+                     "\"deny_policy_gate\":%llu,\"deny_fs_scope\":%llu,\"deny_net_scope\":%llu,"
+                     "\"deny_dns_rebinding\":%llu,\"deny_other\":%llu}",
+                     (unsigned long long)g_eval_trace_summary.total_decisions,
+                     (unsigned long long)g_eval_trace_summary.allow_decisions,
+                     (unsigned long long)g_eval_trace_summary.deny_decisions,
+                     (unsigned long long)g_eval_trace_summary.deny_missing_capability,
+                     (unsigned long long)g_eval_trace_summary.deny_policy_gate,
+                     (unsigned long long)g_eval_trace_summary.deny_fs_scope,
+                     (unsigned long long)g_eval_trace_summary.deny_net_scope,
+                     (unsigned long long)g_eval_trace_summary.deny_dns_rebinding,
+                     (unsigned long long)g_eval_trace_summary.deny_other);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
 }

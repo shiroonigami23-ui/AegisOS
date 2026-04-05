@@ -1247,6 +1247,71 @@ static int test_policy_hot_reload(void) {
   return 0;
 }
 
+static int test_policy_evaluation_trace_summary(void) {
+  aegis_capability_store_t cap_store;
+  aegis_policy_engine_t engine;
+  aegis_sandbox_policy_t policy = {
+      5400u, AEGIS_CAP_FS_READ | AEGIS_CAP_NET_CLIENT, 1u, 0u, 1u, 0u, 0u};
+  aegis_policy_decision_t decision;
+  aegis_policy_eval_trace_summary_t summary;
+  char json[512];
+  aegis_capability_store_init(&cap_store);
+  aegis_policy_engine_init(&engine);
+  aegis_policy_eval_trace_reset();
+
+  if (aegis_capability_issue(&cap_store, 5400u, AEGIS_CAP_FS_READ | AEGIS_CAP_NET_CLIENT) != 0) {
+    fprintf(stderr, "trace summary capability issue failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_set_policy(&engine, &policy) != 0) {
+    fprintf(stderr, "trace summary set policy failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check(&engine, &cap_store, 5400u, AEGIS_ACTION_FS_READ, &decision) != 1) {
+    fprintf(stderr, "trace summary expected FS_READ allow\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check(&engine, &cap_store, 5400u, AEGIS_ACTION_FS_WRITE, &decision) != 0) {
+    fprintf(stderr, "trace summary expected FS_WRITE deny by gate\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check(&engine, &cap_store, 5400u, AEGIS_ACTION_DEVICE_IO, &decision) != 0) {
+    fprintf(stderr, "trace summary expected DEVICE_IO deny by gate\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check(&engine, &cap_store, 9999u, AEGIS_ACTION_FS_READ, &decision) != 0) {
+    fprintf(stderr, "trace summary expected unknown process deny\n");
+    return 1;
+  }
+  if (aegis_policy_eval_trace_snapshot(&summary) != 0) {
+    fprintf(stderr, "trace summary snapshot failed\n");
+    return 1;
+  }
+  if (summary.total_decisions < 4u || summary.allow_decisions == 0u || summary.deny_decisions == 0u) {
+    fprintf(stderr, "trace summary counters unexpected\n");
+    return 1;
+  }
+  if (summary.deny_policy_gate < 2u) {
+    fprintf(stderr, "trace summary expected policy gate deny count\n");
+    return 1;
+  }
+  if (summary.deny_other == 0u) {
+    fprintf(stderr, "trace summary expected deny_other bucket coverage\n");
+    return 1;
+  }
+  if (aegis_policy_eval_trace_summary_json(json, sizeof(json)) <= 0) {
+    fprintf(stderr, "trace summary json export failed\n");
+    return 1;
+  }
+  if (strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"total_decisions\":") == 0 ||
+      strstr(json, "\"deny_policy_gate\":") == 0) {
+    fprintf(stderr, "trace summary json missing fields: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_allow_path() != 0) {
     return 1;
@@ -1312,6 +1377,9 @@ int main(void) {
     return 1;
   }
   if (test_policy_hot_reload() != 0) {
+    return 1;
+  }
+  if (test_policy_evaluation_trace_summary() != 0) {
     return 1;
   }
   puts("sandbox engine tests passed");
