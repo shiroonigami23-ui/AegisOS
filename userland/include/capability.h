@@ -81,6 +81,8 @@ typedef struct {
   char key[32];
   uint8_t value[64];
   uint32_t value_size;
+  uint64_t created_at_epoch;
+  uint64_t updated_at_epoch;
   uint8_t active;
 } aegis_secret_entry_t;
 
@@ -88,6 +90,12 @@ typedef struct {
   aegis_secret_entry_t entries[128];
   size_t count;
 } aegis_secret_store_t;
+
+typedef struct {
+  uint64_t created_at_epoch;
+  uint64_t updated_at_epoch;
+  uint8_t active;
+} aegis_secret_metadata_t;
 
 int aegis_capability_validate(const aegis_capability_token_t *token,
                               uint32_t requested_permissions);
@@ -153,12 +161,22 @@ int aegis_secret_put(aegis_secret_store_t *store,
                      const char *key,
                      const uint8_t *value,
                      uint32_t value_size);
+int aegis_secret_put_at(aegis_secret_store_t *store,
+                        const char *key,
+                        const uint8_t *value,
+                        uint32_t value_size,
+                        uint64_t now_epoch);
 int aegis_secret_get(const aegis_secret_store_t *store,
                      const char *key,
                      uint8_t *value_out,
                      uint32_t value_out_size,
                      uint32_t *value_size_out);
+int aegis_secret_metadata_get(const aegis_secret_store_t *store,
+                              const char *key,
+                              aegis_secret_metadata_t *metadata_out);
 int aegis_secret_delete(aegis_secret_store_t *store, const char *key);
 int aegis_secret_list_json(const aegis_secret_store_t *store, char *out, size_t out_size);
+int aegis_secret_snapshot_export(const aegis_secret_store_t *store, char *out, size_t out_size);
+int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snapshot);
 
 #endif

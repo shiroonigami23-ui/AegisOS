@@ -11,7 +11,8 @@ Core userspace services, shell tools, and runtime components live here.
   - includes actor registry (`register`, `lookup`, `revoke`) and identity lifecycle enforcement hooks.
   - rotate/revoke identity paths now require active non-revoked actor registry entries.
   - includes actor registry snapshot/restore APIs for persistence across reboot/restart boundaries.
-  - includes in-memory secret key storage skeleton (`put`, `get`, `delete`, `list_json`) for key-service evolution.
+  - includes in-memory secret key storage skeleton (`put`, `put_at`, `get`, `metadata_get`, `delete`, `list_json`) for key-service evolution.
+  - includes secret snapshot export/restore format for reboot continuity with `created_at`/`updated_at` metadata timestamps.
   - includes audit export API for JSON/CSV snapshots (latest ring window), pagination cursors, and sink chunk naming.
   - includes timestamp-based audit cursor seek helper for faster export triage in large rings.
   - includes audit sink retention planning helpers for chunk rotation/pruning guidance.

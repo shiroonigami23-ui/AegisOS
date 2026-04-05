@@ -545,19 +545,28 @@ static int test_actor_registry_snapshot_restore(void) {
 
 static int test_secret_store_skeleton(void) {
   aegis_secret_store_t store;
+  aegis_secret_store_t restored;
+  aegis_secret_metadata_t metadata;
   const uint8_t v1[] = {1u, 2u, 3u, 4u};
   const uint8_t v2[] = {9u, 8u};
   uint8_t out[16];
   uint32_t out_size = 0u;
   char json[256];
+  char snapshot[2048];
   aegis_secret_store_init(&store);
+  aegis_secret_store_init(&restored);
 
-  if (aegis_secret_put(&store, "db.master", v1, (uint32_t)sizeof(v1)) != 0) {
+  if (aegis_secret_put_at(&store, "db.master", v1, (uint32_t)sizeof(v1), 1000u) != 0) {
     fprintf(stderr, "secret put v1 failed\n");
     return 1;
   }
-  if (aegis_secret_put(&store, "db.master", v2, (uint32_t)sizeof(v2)) != 0) {
+  if (aegis_secret_put_at(&store, "db.master", v2, (uint32_t)sizeof(v2), 1010u) != 0) {
     fprintf(stderr, "secret put update failed\n");
+    return 1;
+  }
+  if (aegis_secret_metadata_get(&store, "db.master", &metadata) != 0 ||
+      metadata.created_at_epoch != 1000u || metadata.updated_at_epoch != 1010u) {
+    fprintf(stderr, "secret metadata get mismatch\n");
     return 1;
   }
   if (aegis_secret_get(&store, "db.master", out, (uint32_t)sizeof(out), &out_size) != 0 ||
@@ -578,6 +587,26 @@ static int test_secret_store_skeleton(void) {
   }
   if (aegis_secret_get(&store, "db.master", out, 1u, &out_size) == 0) {
     fprintf(stderr, "secret get should reject undersized output buffer\n");
+    return 1;
+  }
+  if (aegis_secret_snapshot_export(&store, snapshot, sizeof(snapshot)) <= 0 ||
+      strstr(snapshot, "schema_version=1") == 0 ||
+      strstr(snapshot, "key=db.master") == 0) {
+    fprintf(stderr, "secret snapshot export failed\n");
+    return 1;
+  }
+  if (aegis_secret_snapshot_restore(&restored, snapshot) != 1) {
+    fprintf(stderr, "secret snapshot restore failed\n");
+    return 1;
+  }
+  if (aegis_secret_get(&restored, "db.master", out, (uint32_t)sizeof(out), &out_size) != 0 ||
+      out_size != (uint32_t)sizeof(v2) || out[0] != 9u || out[1] != 8u) {
+    fprintf(stderr, "secret restored value mismatch\n");
+    return 1;
+  }
+  if (aegis_secret_metadata_get(&restored, "db.master", &metadata) != 0 ||
+      metadata.created_at_epoch != 1000u || metadata.updated_at_epoch != 1010u) {
+    fprintf(stderr, "secret restored metadata mismatch\n");
     return 1;
   }
   if (aegis_secret_delete(&store, "db.master") != 0 || store.count != 0u) {

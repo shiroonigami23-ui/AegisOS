@@ -789,6 +789,64 @@ static int secret_find_index(const aegis_secret_store_t *store, const char *key,
   return 0;
 }
 
+static char hex_char(unsigned int v) {
+  if (v < 10u) {
+    return (char)('0' + (char)v);
+  }
+  return (char)('a' + (char)(v - 10u));
+}
+
+static int hex_value(char c) {
+  if (c >= '0' && c <= '9') {
+    return (int)(c - '0');
+  }
+  if (c >= 'a' && c <= 'f') {
+    return 10 + (int)(c - 'a');
+  }
+  if (c >= 'A' && c <= 'F') {
+    return 10 + (int)(c - 'A');
+  }
+  return -1;
+}
+
+static int secret_value_to_hex(const uint8_t *value, uint32_t value_size, char *hex_out, size_t hex_out_size) {
+  uint32_t i;
+  if (value == 0 || hex_out == 0 || hex_out_size < ((size_t)value_size * 2u + 1u)) {
+    return -1;
+  }
+  for (i = 0; i < value_size; ++i) {
+    hex_out[(size_t)i * 2u] = hex_char((unsigned int)(value[i] >> 4));
+    hex_out[(size_t)i * 2u + 1u] = hex_char((unsigned int)(value[i] & 0x0Fu));
+  }
+  hex_out[(size_t)value_size * 2u] = '\0';
+  return 0;
+}
+
+static int secret_hex_to_value(const char *hex, uint8_t *value_out, uint32_t value_out_cap, uint32_t *value_size_out) {
+  uint32_t i;
+  size_t hex_len;
+  if (hex == 0 || value_out == 0 || value_size_out == 0) {
+    return -1;
+  }
+  hex_len = strlen(hex);
+  if ((hex_len % 2u) != 0u) {
+    return -1;
+  }
+  if ((hex_len / 2u) > value_out_cap) {
+    return -1;
+  }
+  for (i = 0; i < (uint32_t)(hex_len / 2u); ++i) {
+    int hi = hex_value(hex[(size_t)i * 2u]);
+    int lo = hex_value(hex[(size_t)i * 2u + 1u]);
+    if (hi < 0 || lo < 0) {
+      return -1;
+    }
+    value_out[i] = (uint8_t)((hi << 4) | lo);
+  }
+  *value_size_out = (uint32_t)(hex_len / 2u);
+  return 0;
+}
+
 void aegis_secret_store_init(aegis_secret_store_t *store) {
   size_t i;
   if (store == 0) {
@@ -799,6 +857,8 @@ void aegis_secret_store_init(aegis_secret_store_t *store) {
     store->entries[i].key[0] = '\0';
     memset(store->entries[i].value, 0, sizeof(store->entries[i].value));
     store->entries[i].value_size = 0u;
+    store->entries[i].created_at_epoch = 0u;
+    store->entries[i].updated_at_epoch = 0u;
     store->entries[i].active = 0u;
   }
 }
@@ -807,6 +867,14 @@ int aegis_secret_put(aegis_secret_store_t *store,
                      const char *key,
                      const uint8_t *value,
                      uint32_t value_size) {
+  return aegis_secret_put_at(store, key, value, value_size, 0u);
+}
+
+int aegis_secret_put_at(aegis_secret_store_t *store,
+                        const char *key,
+                        const uint8_t *value,
+                        uint32_t value_size,
+                        uint64_t now_epoch) {
   size_t i;
   size_t index = 0u;
   if (store == 0 || !secret_key_valid(key) || value == 0 || value_size == 0u || value_size > 64u) {
@@ -818,6 +886,10 @@ int aegis_secret_put(aegis_secret_store_t *store,
       memset(store->entries[index].value + value_size, 0, (size_t)(64u - value_size));
     }
     store->entries[index].value_size = value_size;
+    if (store->entries[index].created_at_epoch == 0u) {
+      store->entries[index].created_at_epoch = now_epoch;
+    }
+    store->entries[index].updated_at_epoch = now_epoch;
     return 0;
   }
   if (store->count >= 128u) {
@@ -833,6 +905,8 @@ int aegis_secret_put(aegis_secret_store_t *store,
       memset(store->entries[i].value + value_size, 0, (size_t)(64u - value_size));
     }
     store->entries[i].value_size = value_size;
+    store->entries[i].created_at_epoch = now_epoch;
+    store->entries[i].updated_at_epoch = now_epoch;
     store->entries[i].active = 1u;
     store->count += 1u;
     return 0;
@@ -862,6 +936,22 @@ int aegis_secret_get(const aegis_secret_store_t *store,
   return 0;
 }
 
+int aegis_secret_metadata_get(const aegis_secret_store_t *store,
+                              const char *key,
+                              aegis_secret_metadata_t *metadata_out) {
+  size_t index = 0u;
+  if (store == 0 || key == 0 || metadata_out == 0) {
+    return -1;
+  }
+  if (!secret_find_index(store, key, &index)) {
+    return -1;
+  }
+  metadata_out->created_at_epoch = store->entries[index].created_at_epoch;
+  metadata_out->updated_at_epoch = store->entries[index].updated_at_epoch;
+  metadata_out->active = store->entries[index].active;
+  return 0;
+}
+
 int aegis_secret_delete(aegis_secret_store_t *store, const char *key) {
   size_t index = 0u;
   if (store == 0 || key == 0) {
@@ -874,6 +964,8 @@ int aegis_secret_delete(aegis_secret_store_t *store, const char *key) {
   store->entries[index].key[0] = '\0';
   memset(store->entries[index].value, 0, sizeof(store->entries[index].value));
   store->entries[index].value_size = 0u;
+  store->entries[index].created_at_epoch = 0u;
+  store->entries[index].updated_at_epoch = 0u;
   if (store->count > 0u) {
     store->count -= 1u;
   }
@@ -917,4 +1009,118 @@ int aegis_secret_list_json(const aegis_secret_store_t *store, char *out, size_t 
   }
   offset += (size_t)written;
   return (int)offset;
+}
+
+int aegis_secret_snapshot_export(const aegis_secret_store_t *store, char *out, size_t out_size) {
+  size_t i;
+  size_t offset = 0u;
+  char hex_value_buf[129];
+  if (store == 0 || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  out[0] = '\0';
+  if (append_format(out, out_size, &offset, "schema_version=1\n") != 0) {
+    return -1;
+  }
+  for (i = 0; i < 128u; ++i) {
+    const aegis_secret_entry_t *entry = &store->entries[i];
+    if (entry->active == 0u) {
+      continue;
+    }
+    if (secret_value_to_hex(entry->value, entry->value_size, hex_value_buf, sizeof(hex_value_buf)) != 0) {
+      return -1;
+    }
+    if (append_format(out,
+                      out_size,
+                      &offset,
+                      "key=%s,size=%u,created=%llu,updated=%llu,value=%s\n",
+                      entry->key,
+                      entry->value_size,
+                      (unsigned long long)entry->created_at_epoch,
+                      (unsigned long long)entry->updated_at_epoch,
+                      hex_value_buf) != 0) {
+      return -1;
+    }
+  }
+  return (int)offset;
+}
+
+int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snapshot) {
+  const char *cursor;
+  if (store == 0 || snapshot == 0) {
+    return -1;
+  }
+  aegis_secret_store_init(store);
+  cursor = snapshot;
+  while (*cursor != '\0' && *cursor != '\n') {
+    cursor++;
+  }
+  if (*cursor == '\n') {
+    cursor++;
+  }
+  while (*cursor != '\0') {
+    char line[320];
+    const char *line_start = cursor;
+    size_t len = 0u;
+    char key[32];
+    unsigned int size_u = 0u;
+    unsigned long long created_u = 0ull;
+    unsigned long long updated_u = 0ull;
+    char hex_payload[129];
+    uint8_t value[64];
+    uint32_t value_size = 0u;
+    size_t slot = 0u;
+    while (*cursor != '\0' && *cursor != '\n') {
+      cursor++;
+    }
+    len = (size_t)(cursor - line_start);
+    if (*cursor == '\n') {
+      cursor++;
+    }
+    if (len == 0u) {
+      continue;
+    }
+    if (len >= sizeof(line)) {
+      return -1;
+    }
+    memcpy(line, line_start, len);
+    line[len] = '\0';
+    if (strncmp(line, "key=", 4) != 0) {
+      return -1;
+    }
+    key[0] = '\0';
+    hex_payload[0] = '\0';
+    if (sscanf(line, "key=%31[^,],size=%u,created=%llu,updated=%llu,value=%128s",
+               key, &size_u, &created_u, &updated_u, hex_payload) != 5) {
+      return -1;
+    }
+    if (!secret_key_valid(key) || size_u == 0u || size_u > 64u) {
+      return -1;
+    }
+    if (secret_hex_to_value(hex_payload, value, 64u, &value_size) != 0 || value_size != size_u) {
+      return -1;
+    }
+    if (store->count >= 128u) {
+      return -1;
+    }
+    for (slot = 0u; slot < 128u; ++slot) {
+      if (store->entries[slot].active == 0u) {
+        break;
+      }
+    }
+    if (slot >= 128u) {
+      return -1;
+    }
+    snprintf(store->entries[slot].key, sizeof(store->entries[slot].key), "%s", key);
+    memcpy(store->entries[slot].value, value, value_size);
+    if (value_size < 64u) {
+      memset(store->entries[slot].value + value_size, 0, (size_t)(64u - value_size));
+    }
+    store->entries[slot].value_size = value_size;
+    store->entries[slot].created_at_epoch = (uint64_t)created_u;
+    store->entries[slot].updated_at_epoch = (uint64_t)updated_u;
+    store->entries[slot].active = 1u;
+    store->count += 1u;
+  }
+  return (int)store->count;
 }
