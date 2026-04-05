@@ -17,6 +17,8 @@ Use this checklist for first-time contributors to AegisOS.
   - capability test
   - sandbox policy test
   - sandbox engine test
+- One-command onboarding runner:
+  - `python scripts/onboarding_check.py`
 
 ## Read Before Coding
 
