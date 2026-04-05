@@ -55,6 +55,9 @@ typedef struct {
   uint32_t process_id;
   char host[96];
   uint32_t pinned_ipv4;
+  char pinned_ipv6[46];
+  uint8_t has_ipv4;
+  uint8_t has_ipv6;
   uint8_t active;
 } aegis_dns_pin_rule_t;
 
@@ -122,6 +125,8 @@ int aegis_policy_engine_check_network(const aegis_policy_engine_t *engine,
                                       aegis_policy_decision_t *decision);
 int aegis_policy_engine_pin_dns_ipv4(aegis_policy_engine_t *engine, uint32_t process_id,
                                      const char *host, uint32_t ipv4);
+int aegis_policy_engine_pin_dns_ipv6(aegis_policy_engine_t *engine, uint32_t process_id,
+                                     const char *host, const char *ipv6);
 int aegis_policy_engine_clear_dns_pins(aegis_policy_engine_t *engine, uint32_t process_id);
 int aegis_policy_engine_check_network_with_ip(const aegis_policy_engine_t *engine,
                                               const aegis_capability_store_t *store,
@@ -132,5 +137,15 @@ int aegis_policy_engine_check_network_with_ip(const aegis_policy_engine_t *engin
                                               aegis_net_protocol_t protocol,
                                               uint32_t resolved_ipv4,
                                               aegis_policy_decision_t *decision);
+int aegis_policy_engine_check_network_with_ip_ex(const aegis_policy_engine_t *engine,
+                                                 const aegis_capability_store_t *store,
+                                                 uint32_t process_id,
+                                                 aegis_action_t action,
+                                                 const char *host,
+                                                 uint16_t port,
+                                                 aegis_net_protocol_t protocol,
+                                                 uint32_t resolved_ipv4,
+                                                 const char *resolved_ipv6,
+                                                 aegis_policy_decision_t *decision);
 
 #endif

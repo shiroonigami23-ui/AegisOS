@@ -114,6 +114,16 @@ static int host_specificity_score(const char *pattern) {
   return 3000 + (int)len;
 }
 
+static int ipv6_literal_valid(const char *ipv6) {
+  if (ipv6 == 0 || ipv6[0] == '\0') {
+    return 0;
+  }
+  if (strlen(ipv6) >= 46u) {
+    return 0;
+  }
+  return strchr(ipv6, ':') != 0;
+}
+
 static uint32_t action_to_capability(aegis_action_t action, const aegis_sandbox_policy_t *policy,
                                      uint8_t *policy_gate) {
   if (policy_gate != 0) {
@@ -187,6 +197,9 @@ void aegis_policy_engine_init(aegis_policy_engine_t *engine) {
     engine->dns_pin_rules[i].process_id = 0;
     engine->dns_pin_rules[i].host[0] = '\0';
     engine->dns_pin_rules[i].pinned_ipv4 = 0;
+    engine->dns_pin_rules[i].pinned_ipv6[0] = '\0';
+    engine->dns_pin_rules[i].has_ipv4 = 0;
+    engine->dns_pin_rules[i].has_ipv6 = 0;
   }
 }
 
@@ -615,6 +628,7 @@ int aegis_policy_engine_pin_dns_ipv4(aegis_policy_engine_t *engine, uint32_t pro
         engine->dns_pin_rules[i].process_id == process_id &&
         strcmp(engine->dns_pin_rules[i].host, host) == 0) {
       engine->dns_pin_rules[i].pinned_ipv4 = ipv4;
+      engine->dns_pin_rules[i].has_ipv4 = 1;
       return 0;
     }
     if (free_index == 128 && engine->dns_pin_rules[i].active == 0) {
@@ -627,6 +641,50 @@ int aegis_policy_engine_pin_dns_ipv4(aegis_policy_engine_t *engine, uint32_t pro
   engine->dns_pin_rules[free_index].active = 1;
   engine->dns_pin_rules[free_index].process_id = process_id;
   engine->dns_pin_rules[free_index].pinned_ipv4 = ipv4;
+  engine->dns_pin_rules[free_index].has_ipv4 = 1;
+  engine->dns_pin_rules[free_index].has_ipv6 = 0;
+  engine->dns_pin_rules[free_index].pinned_ipv6[0] = '\0';
+  snprintf(engine->dns_pin_rules[free_index].host,
+           sizeof(engine->dns_pin_rules[free_index].host),
+           "%s",
+           host);
+  return 0;
+}
+
+int aegis_policy_engine_pin_dns_ipv6(aegis_policy_engine_t *engine, uint32_t process_id,
+                                     const char *host, const char *ipv6) {
+  size_t i;
+  size_t free_index = 128;
+  if (engine == 0 || process_id == 0 || host == 0 || host[0] == '\0' || !ipv6_literal_valid(ipv6)) {
+    return -1;
+  }
+  for (i = 0; i < 128; ++i) {
+    if (engine->dns_pin_rules[i].active != 0 &&
+        engine->dns_pin_rules[i].process_id == process_id &&
+        strcmp(engine->dns_pin_rules[i].host, host) == 0) {
+      snprintf(engine->dns_pin_rules[i].pinned_ipv6,
+               sizeof(engine->dns_pin_rules[i].pinned_ipv6),
+               "%s",
+               ipv6);
+      engine->dns_pin_rules[i].has_ipv6 = 1;
+      return 0;
+    }
+    if (free_index == 128 && engine->dns_pin_rules[i].active == 0) {
+      free_index = i;
+    }
+  }
+  if (free_index == 128) {
+    return -1;
+  }
+  engine->dns_pin_rules[free_index].active = 1;
+  engine->dns_pin_rules[free_index].process_id = process_id;
+  engine->dns_pin_rules[free_index].pinned_ipv4 = 0;
+  engine->dns_pin_rules[free_index].has_ipv4 = 0;
+  snprintf(engine->dns_pin_rules[free_index].pinned_ipv6,
+           sizeof(engine->dns_pin_rules[free_index].pinned_ipv6),
+           "%s",
+           ipv6);
+  engine->dns_pin_rules[free_index].has_ipv6 = 1;
   snprintf(engine->dns_pin_rules[free_index].host,
            sizeof(engine->dns_pin_rules[free_index].host),
            "%s",
@@ -646,6 +704,9 @@ int aegis_policy_engine_clear_dns_pins(aegis_policy_engine_t *engine, uint32_t p
       engine->dns_pin_rules[i].process_id = 0;
       engine->dns_pin_rules[i].host[0] = '\0';
       engine->dns_pin_rules[i].pinned_ipv4 = 0;
+      engine->dns_pin_rules[i].pinned_ipv6[0] = '\0';
+      engine->dns_pin_rules[i].has_ipv4 = 0;
+      engine->dns_pin_rules[i].has_ipv6 = 0;
       removed = 1;
     }
   }
@@ -661,6 +722,20 @@ int aegis_policy_engine_check_network_with_ip(const aegis_policy_engine_t *engin
                                               aegis_net_protocol_t protocol,
                                               uint32_t resolved_ipv4,
                                               aegis_policy_decision_t *decision) {
+  return aegis_policy_engine_check_network_with_ip_ex(engine, store, process_id, action, host, port,
+                                                      protocol, resolved_ipv4, 0, decision);
+}
+
+int aegis_policy_engine_check_network_with_ip_ex(const aegis_policy_engine_t *engine,
+                                                 const aegis_capability_store_t *store,
+                                                 uint32_t process_id,
+                                                 aegis_action_t action,
+                                                 const char *host,
+                                                 uint16_t port,
+                                                 aegis_net_protocol_t protocol,
+                                                 uint32_t resolved_ipv4,
+                                                 const char *resolved_ipv6,
+                                                 aegis_policy_decision_t *decision) {
   int base_rc;
   size_t i;
   int best_score = -1;
@@ -690,7 +765,31 @@ int aegis_policy_engine_check_network_with_ip(const aegis_policy_engine_t *engin
       if (strcmp(pin->host, host) != 0) {
         continue;
       }
-      if (pin->pinned_ipv4 != resolved_ipv4) {
+      if (pin->has_ipv4 != 0 && pin->pinned_ipv4 != resolved_ipv4) {
+        set_reason(decision, "dns rebinding guard blocked host/ip mismatch", 0);
+        return 0;
+      }
+      if (pin->has_ipv6 != 0 && resolved_ipv6 != 0 &&
+          strcmp(pin->pinned_ipv6, resolved_ipv6) != 0) {
+        set_reason(decision, "dns rebinding guard blocked host/ip mismatch", 0);
+        return 0;
+      }
+    }
+  }
+  if (resolved_ipv6 != 0 && resolved_ipv6[0] != '\0') {
+    for (i = 0; i < 128; ++i) {
+      const aegis_dns_pin_rule_t *pin = &engine->dns_pin_rules[i];
+      if (pin->active == 0 || pin->process_id != process_id) {
+        continue;
+      }
+      if (strcmp(pin->host, host) != 0) {
+        continue;
+      }
+      if (pin->has_ipv6 != 0 && strcmp(pin->pinned_ipv6, resolved_ipv6) != 0) {
+        set_reason(decision, "dns rebinding guard blocked host/ip mismatch", 0);
+        return 0;
+      }
+      if (pin->has_ipv4 != 0 && resolved_ipv4 != 0u && pin->pinned_ipv4 != resolved_ipv4) {
         set_reason(decision, "dns rebinding guard blocked host/ip mismatch", 0);
         return 0;
       }

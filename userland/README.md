@@ -18,6 +18,7 @@ Core userspace services, shell tools, and runtime components live here.
   - includes network scopes (host/port/protocol rules with explicit allow/deny).
   - network rule precedence is deterministic: most specific match wins; tie -> deny.
   - includes optional DNS pinning guard (`host -> pinned IPv4`) for rebinding defense.
+  - DNS pinning guard now supports pinned IPv6 literals for dual-stack protection.
   - includes symlink mapping resolution before filesystem scope checks.
   - supports policy hot reload with validation and safe replacement semantics.
   - hot reload enforces monotonic `policy_revision` to block stale policy rollback.

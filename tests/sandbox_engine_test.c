@@ -458,6 +458,67 @@ static int test_dns_rebinding_guard(void) {
   return 0;
 }
 
+static int test_dns_rebinding_guard_ipv6(void) {
+  aegis_capability_store_t cap_store;
+  aegis_policy_engine_t engine;
+  aegis_sandbox_policy_t policy = {
+      5201u, AEGIS_CAP_NET_CLIENT, 0u, 0u, 1u, 0u, 0u};
+  aegis_policy_decision_t decision;
+  const char *pinned_v6 = "2001:db8::10";
+  const char *other_v6 = "2001:db8::11";
+
+  aegis_capability_store_init(&cap_store);
+  aegis_policy_engine_init(&engine);
+  if (aegis_capability_issue(&cap_store, 5201u, AEGIS_CAP_NET_CLIENT) != 0) {
+    fprintf(stderr, "dns ipv6 capability issue failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_set_policy(&engine, &policy) != 0) {
+    fprintf(stderr, "dns ipv6 set policy failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_add_net_rule(
+          &engine, 5201u, "api.safe6.local", 443, 443, AEGIS_NET_PROTO_TCP, 1u, 0u, 1u) != 0) {
+    fprintf(stderr, "dns ipv6 add net rule failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_pin_dns_ipv6(&engine, 5201u, "api.safe6.local", pinned_v6) != 0) {
+    fprintf(stderr, "dns ipv6 pin failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check_network_with_ip_ex(&engine,
+                                                   &cap_store,
+                                                   5201u,
+                                                   AEGIS_ACTION_NET_CONNECT,
+                                                   "api.safe6.local",
+                                                   443,
+                                                   AEGIS_NET_PROTO_TCP,
+                                                   0u,
+                                                   pinned_v6,
+                                                   &decision) != 1) {
+    fprintf(stderr, "expected pinned ipv6 allow, got: %s\n", decision.reason);
+    return 1;
+  }
+  if (aegis_policy_engine_check_network_with_ip_ex(&engine,
+                                                   &cap_store,
+                                                   5201u,
+                                                   AEGIS_ACTION_NET_CONNECT,
+                                                   "api.safe6.local",
+                                                   443,
+                                                   AEGIS_NET_PROTO_TCP,
+                                                   0u,
+                                                   other_v6,
+                                                   &decision) != 0) {
+    fprintf(stderr, "expected pinned ipv6 mismatch deny\n");
+    return 1;
+  }
+  if (strcmp(decision.reason, "dns rebinding guard blocked host/ip mismatch") != 0) {
+    fprintf(stderr, "unexpected dns ipv6 guard reason: %s\n", decision.reason);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_policy_hot_reload(void) {
   aegis_capability_store_t cap_store;
   aegis_policy_engine_t engine;
@@ -538,6 +599,9 @@ int main(void) {
     return 1;
   }
   if (test_dns_rebinding_guard() != 0) {
+    return 1;
+  }
+  if (test_dns_rebinding_guard_ipv6() != 0) {
     return 1;
   }
   if (test_policy_hot_reload() != 0) {
