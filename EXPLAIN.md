@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 12:49:47Z
+Last generated: 2026-04-05 12:51:28Z
 
 ## What AegisOS Is Building
 
@@ -38,7 +38,6 @@ We implement in vertical slices:
 ### Priority P1
 - #79 "Trace_json_property_perf_baseline_and_seed_corpus" (priority-p1, security)
 - #70 Actor_registry_persistent_backing_store (priority-p1, security)
-- #53 Package_graph_rendering_guide (priority-p1)
 - #48 Docs_heatmap_trend_window (priority-p1)
 - #40 Apply_branch_protection_profile_on_main (priority-p1)
 - #38 Package_signature_metadata_fields (priority-p1, security)
@@ -62,29 +61,30 @@ We implement in vertical slices:
 
 ## Component Activity Heatmap
 
-Recent commit touches (higher means more active recently):
+Recent commit touches in `weekly` window (higher means more active recently):
 
-- kernel: 12
-- userland: 25
-- packages: 1
-- docs: 40
-- workflows: 1
-- tests: 21
-- tools: 0
-- platform: 0
-- scripts: 12
-- other: 0
+- kernel: 45
+- userland: 86
+- packages: 24
+- docs: 140
+- workflows: 12
+- tests: 54
+- tools: 1
+- platform: 1
+- scripts: 24
+- other: 14
 
 Open issue pressure by component signal:
 
 - security: 4
 - kernel: 1
-- packages: 3
+- packages: 2
 - docs: 1
 - other: 3
 
 ## Recent Engineering Changes
 
+- `8c49c14` (2026-04-05): docs: auto-update explain and changelog
 - `42f5deb` (2026-04-05): "Add_graphviz_rendering_guide_for_package_dependency_graph"
 - `7b57902` (2026-04-05): docs: auto-update explain and changelog
 - `02df452` (2026-04-05): "Add_onboarding_ci_command_equivalence_guardrails"
@@ -99,4 +99,3 @@ Open issue pressure by component signal:
 - `41c9387` (2026-04-05): docs: auto-update explain and changelog
 - `967570c` (2026-04-05): "Add_batch_migration_filters_shards_and_trace_json_fuzz_tests"
 - `089484e` (2026-04-05): docs: auto-update explain and changelog
-- `2da5998` (2026-04-05): "Add_migration_dry_run_diff_preview_and_manifest_incremental_diff"

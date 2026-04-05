@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import subprocess
@@ -10,6 +11,10 @@ from urllib.error import URLError, HTTPError
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 EXPLAIN_PATH = os.path.join(ROOT, "EXPLAIN.md")
 CHANGELOG_PATH = os.path.join(ROOT, "CHANGELOG.md")
+HEATMAP_WINDOWS = {
+    "weekly": 7,
+    "monthly": 30,
+}
 
 
 def run_git(*args):
@@ -56,8 +61,8 @@ def detect_component_from_path(path):
   return "other"
 
 
-def get_commit_component_counts(limit=30):
-  raw = run_git("log", f"-n{limit}", "--name-only", "--pretty=format:")
+def get_commit_component_counts(days=7):
+  raw = run_git("log", "--since", f"{days} days ago", "--name-only", "--pretty=format:")
   counts = {
       "kernel": 0,
       "userland": 0,
@@ -218,7 +223,7 @@ def render_issue_lines(issues):
   return lines
 
 
-def render_explain(now_iso, commits, issues, commit_components, issue_components):
+def render_explain(now_iso, commits, issues, commit_components, issue_components, heatmap_window_label):
   grouped = group_issues(issues)
 
   recent_lines = [f"- `{c['hash']}` ({c['date']}): {c['subject']}" for c in commits]
@@ -279,7 +284,7 @@ We implement in vertical slices:
 
 ## Component Activity Heatmap
 
-Recent commit touches (higher means more active recently):
+Recent commit touches in `{heatmap_window_label}` window (higher means more active recently):
 
 - kernel: {commit_components["kernel"]}
 - userland: {commit_components["userland"]}
@@ -333,14 +338,43 @@ def write_file(path, content):
   return True
 
 
+def parse_args():
+  parser = argparse.ArgumentParser(description="Update EXPLAIN.md and CHANGELOG.md from repo state.")
+  parser.add_argument(
+      "--heatmap-window",
+      choices=["weekly", "monthly", "custom"],
+      default="weekly",
+      help="Time window preset used for component activity heatmap.",
+  )
+  parser.add_argument(
+      "--heatmap-days",
+      type=int,
+      default=0,
+      help="Custom day window when --heatmap-window=custom.",
+  )
+  return parser.parse_args()
+
+
+def resolve_heatmap_days(args):
+  if args.heatmap_window in HEATMAP_WINDOWS:
+    return HEATMAP_WINDOWS[args.heatmap_window], args.heatmap_window
+  if args.heatmap_days <= 0:
+    raise SystemExit("--heatmap-days must be > 0 when --heatmap-window=custom")
+  return args.heatmap_days, f"custom-{args.heatmap_days}d"
+
+
 def main():
+  args = parse_args()
+  heatmap_days, heatmap_window_label = resolve_heatmap_days(args)
   now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
   commits = get_recent_commits(limit=15)
   issues = get_open_issues(limit=20)
-  commit_components = get_commit_component_counts(limit=40)
+  commit_components = get_commit_component_counts(days=heatmap_days)
   issue_components = get_issue_component_counts(issues)
 
-  explain = render_explain(now_iso, commits, issues, commit_components, issue_components)
+  explain = render_explain(
+      now_iso, commits, issues, commit_components, issue_components, heatmap_window_label
+  )
   changelog = render_changelog(now_iso, commits)
 
   changed = False

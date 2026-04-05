@@ -25,7 +25,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python3 scripts/update_project_docs.py
+        run: python3 scripts/update_project_docs.py --heatmap-window weekly
 
       - name: Commit changes if needed
         run: |
