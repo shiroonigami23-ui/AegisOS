@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 11:14:05Z
+Last generated: 2026-04-05 11:16:26Z
 
 ## Unreleased
 
+- 2026-04-05 `d669e1f` Add_dns_pinning_ipv6_support_and_guard_checks
+- 2026-04-05 `30c8c0e` docs: auto-update explain and changelog
 - 2026-04-05 `8a231e6` Add_policy_schema_versioning_and_hot_reload_revision_guard
 - 2026-04-05 `16b9f0a` docs: auto-update explain and changelog
 - 2026-04-05 `f6168cd` Add_scheduler_wait_snapshot_endpoint_and_json_serializers
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 11:14:05Z
 - 2026-04-05 `c9cfff6` Add_sandbox_policy_json_serialization_and_parsing_support
 - 2026-04-05 `e14edc6` docs: auto-update explain and changelog
 - 2026-04-05 `97c06b2` Add_one_command_onboarding_bootstrap_runner
-- 2026-04-05 `0f6d8a0` docs: auto-update explain and changelog
-- 2026-04-05 `72a0881` Add_context_switch_reason_codes_for_scheduler_ticks

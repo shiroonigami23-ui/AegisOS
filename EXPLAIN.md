@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 11:14:05Z
+Last generated: 2026-04-05 11:16:26Z
 
 ## What AegisOS Is Building
 
@@ -36,15 +36,14 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #59 DNS_pin_dual_stack_consistency_policy (priority-p1, security)
+- #58 Sandbox_policy_schema_migration_adapter (priority-p1, security)
 - #57 Scheduler_snapshot_schema_version_tag (priority-p1, kernel)
 - #56 Scheduler_reason_metrics_snapshot_endpoint_extension (priority-p1, kernel)
 - #55 Capability_audit_export_file_sink_and_pagination (priority-p1, security)
 - #53 Package_graph_rendering_guide (priority-p1)
-- #52 Sandbox_policy_hot_reload_version_guard (priority-p1, security)
-- #51 Sandbox_policy_versioned_json_schema (priority-p1, security)
 - #48 Docs_heatmap_trend_window (priority-p1)
 - #45 Capability_audit_actor_identity_model (priority-p1, security)
-- #44 DNS_pin_ipv6_support (priority-p1, security)
 - #43 Network_scope_precedence_debug_trace (priority-p1, security)
 - #42 Filesystem_scope_wildcard_validation_rules (priority-p1, security)
 - #40 Apply_branch_protection_profile_on_main (priority-p1)
@@ -75,17 +74,17 @@ Recent commit touches (higher means more active recently):
 - kernel: 18
 - userland: 26
 - packages: 3
-- docs: 49
-- workflows: 3
+- docs: 48
+- workflows: 2
 - tests: 16
 - tools: 0
 - platform: 0
-- scripts: 5
+- scripts: 4
 - other: 0
 
 Open issue pressure by component signal:
 
-- security: 9
+- security: 8
 - kernel: 3
 - packages: 3
 - docs: 1
@@ -93,6 +92,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `d669e1f` (2026-04-05): Add_dns_pinning_ipv6_support_and_guard_checks
+- `30c8c0e` (2026-04-05): docs: auto-update explain and changelog
 - `8a231e6` (2026-04-05): Add_policy_schema_versioning_and_hot_reload_revision_guard
 - `16b9f0a` (2026-04-05): docs: auto-update explain and changelog
 - `f6168cd` (2026-04-05): Add_scheduler_wait_snapshot_endpoint_and_json_serializers
@@ -106,5 +107,3 @@ Open issue pressure by component signal:
 - `c9cfff6` (2026-04-05): Add_sandbox_policy_json_serialization_and_parsing_support
 - `e14edc6` (2026-04-05): docs: auto-update explain and changelog
 - `97c06b2` (2026-04-05): Add_one_command_onboarding_bootstrap_runner
-- `0f6d8a0` (2026-04-05): docs: auto-update explain and changelog
-- `72a0881` (2026-04-05): Add_context_switch_reason_codes_for_scheduler_ticks
