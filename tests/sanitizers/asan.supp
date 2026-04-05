@@ -1,0 +1,5 @@
+# AegisOS ASAN suppression baseline
+# Keep this file minimal. Add entries only for confirmed false positives.
+# Example format:
+# interceptor_via_fun:some_known_false_positive_symbol
+

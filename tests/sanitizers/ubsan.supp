@@ -1,0 +1,5 @@
+# AegisOS UBSAN suppression baseline
+# Keep this file minimal. Add entries only for confirmed false positives.
+# Example format:
+# signed-integer-overflow:path/to/file.c
+

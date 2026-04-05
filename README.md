@@ -67,6 +67,7 @@ This repository contains:
 - [`Package Validation workflow`](.github/workflows/packages.yml) enforces package/profile manifest integrity.
 - [`Clang Matrix workflow`](.github/workflows/clang-tests.yml) compiles/tests core modules across C standard variants.
   - includes ASAN/UBSAN sanitizer jobs for memory and undefined behavior checks.
+  - sanitizer suppression baseline and policy docs: [`docs/SANITIZERS.md`](docs/SANITIZERS.md).
 
 ## Collaboration
 

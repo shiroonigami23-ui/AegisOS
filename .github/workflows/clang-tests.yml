@@ -41,18 +41,5 @@ jobs:
       - name: Install clang
         run: sudo apt-get update && sudo apt-get install -y clang
 
-      - name: Build and run capability tests with ASAN+UBSAN
-        run: |
-          clang -std=c11 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer \
-            -Iuserland/include userland/security/capability.c tests/capability_test.c -o out_capability_san
-          ./out_capability_san
-
-      - name: Build and run sandbox engine tests with ASAN+UBSAN
-        run: |
-          clang -std=c11 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer \
-            -Iuserland/include \
-            userland/security/capability.c \
-            userland/security/sandbox_policy.c \
-            userland/security/sandbox_engine.c \
-            tests/sandbox_engine_test.c -o out_sandbox_engine_san
-          ./out_sandbox_engine_san
+      - name: Build and run sanitizer suite with suppression baseline
+        run: python3 scripts/run_sanitizer_suite.py
