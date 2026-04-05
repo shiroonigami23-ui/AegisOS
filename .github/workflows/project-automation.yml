@@ -11,13 +11,12 @@ permissions:
 
 jobs:
   sync-project:
-    if: ${{ secrets.PROJECT_AUTOMATION_TOKEN != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Sync issue status with project board
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.PROJECT_AUTOMATION_TOKEN }}
+          github-token: ${{ secrets.PROJECT_AUTOMATION_TOKEN || github.token }}
           script: |
             const projectId = "PVT_kwHODeXhYc4BTwUL";
             const statusFieldId = "PVTSSF_lAHODeXhYc4BTwULzhA9E1s";
