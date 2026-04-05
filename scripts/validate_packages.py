@@ -9,6 +9,21 @@ CORE_DIR = os.path.join(ROOT, "packages", "core")
 PROFILES_DIR = os.path.join(ROOT, "packages", "profiles")
 
 
+def validate_signature_placeholders(data, path):
+  required = ["signature_format", "signature_key_id", "signature_digest", "signature_value"]
+  missing = [k for k in required if k not in data]
+  if missing:
+    raise ValueError(f"{path}: missing signature keys: {', '.join(missing)}")
+  if data["signature_format"] != "placeholder-v1":
+    raise ValueError(f"{path}: unsupported signature_format {data['signature_format']}")
+  if not str(data["signature_key_id"]).startswith("aegis-placeholder-"):
+    raise ValueError(f"{path}: signature_key_id must start with aegis-placeholder-")
+  if not str(data["signature_digest"]).startswith("sha256:"):
+    raise ValueError(f"{path}: signature_digest must start with sha256:")
+  if data["signature_value"] != "UNSIGNED_PLACEHOLDER":
+    raise ValueError(f"{path}: unsupported signature_value {data['signature_value']}")
+
+
 def parse_simple_yaml(path):
   data = {}
   current_list_key = None
@@ -58,6 +73,7 @@ def validate_core_manifest(path):
     raise ValueError(f"{path}: package name must start with aegis-")
   if data["license"] != "Apache-2.0":
     raise ValueError(f"{path}: unsupported license {data['license']}")
+  validate_signature_placeholders(data, path)
   return data
 
 
@@ -71,6 +87,7 @@ def validate_profile_manifest(path, known_packages):
     raise ValueError(f"{path}: packages must be a list")
   if str(data["schema_version"]) != "1":
     raise ValueError(f"{path}: unsupported schema_version {data['schema_version']}")
+  validate_signature_placeholders(data, path)
   unknown = [p for p in data["packages"] if p not in known_packages]
   if unknown:
     raise ValueError(f"{path}: unknown packages: {', '.join(unknown)}")

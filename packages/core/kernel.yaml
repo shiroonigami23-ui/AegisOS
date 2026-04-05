@@ -4,4 +4,8 @@ version: 0.1.0
 summary: AegisOS kernel package
 license: Apache-2.0
 source: kernel/
+signature_format: placeholder-v1
+signature_key_id: aegis-placeholder-core
+signature_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+signature_value: UNSIGNED_PLACEHOLDER
 dependencies: []

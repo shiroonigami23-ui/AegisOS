@@ -41,3 +41,8 @@ Graph rendering (Graphviz):
 Manifest note:
 
 - `schema_version: 1` is required in each core/profile manifest.
+- signature placeholders are currently required in each manifest:
+  - `signature_format: placeholder-v1`
+  - `signature_key_id: aegis-placeholder-*`
+  - `signature_digest: sha256:<64-hex-placeholder>`
+  - `signature_value: UNSIGNED_PLACEHOLDER`
