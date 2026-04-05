@@ -27,6 +27,8 @@ Validation command:
 
 - `python scripts/validate_packages.py`
 - `python scripts/validate_repo_index.py --index-json packages/repository-index.json`
+  - atomic update transaction skeleton:
+    - `python scripts/atomic_update_txn.py`
   - also exports graph files:
     - `packages/dependency-graph.json`
     - `packages/dependency-graph.dot`
