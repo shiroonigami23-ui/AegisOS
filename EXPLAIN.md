@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 13:04:20Z
+Last generated: 2026-04-05 13:07:35Z
 
 ## What AegisOS Is Building
 
@@ -39,7 +39,6 @@ We implement in vertical slices:
 - #79 "Trace_json_property_perf_baseline_and_seed_corpus" (priority-p1, security)
 - #70 Actor_registry_persistent_backing_store (priority-p1, security)
 - #40 Apply_branch_protection_profile_on_main (priority-p1)
-- #34 Sanitizer_suppressions_baseline (priority-p1)
 - #27 Symlink_resolution_filesystem_backend (priority-p1, security)
 
 ### Security
@@ -59,11 +58,11 @@ We implement in vertical slices:
 Recent commit touches in `weekly` window (higher means more active recently):
 
 - kernel: 47
-- userland: 86
+- userland: 89
 - packages: 39
-- docs: 157
+- docs: 159
 - workflows: 14
-- tests: 58
+- tests: 61
 - tools: 1
 - platform: 1
 - scripts: 28
@@ -75,10 +74,12 @@ Open issue pressure by component signal:
 - kernel: 0
 - packages: 0
 - docs: 0
-- other: 3
+- other: 2
 
 ## Recent Engineering Changes
 
+- `16a0ad2` (2026-04-05): "Add_filesystem_resolver_backend_hook_for_symlink_resolution"
+- `b458e87` (2026-04-05): docs: auto-update explain and changelog
 - `3fbc4c2` (2026-04-05): "Add_sanitizer_suppressions_baseline_and_runner"
 - `264139e` (2026-04-05): docs: auto-update explain and changelog
 - `294a3fe` (2026-04-05): "Add_package_manifest_schema_migration_helper_with_tests"
@@ -92,5 +93,3 @@ Open issue pressure by component signal:
 - `9a56599` (2026-04-05): "Add_configurable_docs_heatmap_trend_windows"
 - `8c49c14` (2026-04-05): docs: auto-update explain and changelog
 - `42f5deb` (2026-04-05): "Add_graphviz_rendering_guide_for_package_dependency_graph"
-- `7b57902` (2026-04-05): docs: auto-update explain and changelog
-- `02df452` (2026-04-05): "Add_onboarding_ci_command_equivalence_guardrails"
