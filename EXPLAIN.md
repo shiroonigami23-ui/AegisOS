@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 11:00:11Z
+Last generated: 2026-04-05 11:01:31Z
 
 ## What AegisOS Is Building
 
@@ -36,6 +36,7 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #51 Sandbox_policy_versioned_json_schema (priority-p1, security)
 - #49 Scheduler_reason_code_metrics_breakdown (priority-p1, kernel)
 - #48 Docs_heatmap_trend_window (priority-p1)
 - #47 Scheduler_wait_latency_aggregation_report (priority-p1, kernel)
@@ -54,7 +55,6 @@ We implement in vertical slices:
 - #29 Scheduler_aging_policy_for_fairness (priority-p1, kernel)
 - #27 Symlink_resolution_filesystem_backend (priority-p1, security)
 - #14 Sandbox_policy_hot_reload (priority-p1, security)
-- #13 Sandbox_policy_serialization_format (priority-p1, security)
 
 ### Security
 - none
@@ -72,8 +72,8 @@ We implement in vertical slices:
 
 Recent commit touches (higher means more active recently):
 
-- kernel: 12
-- userland: 16
+- kernel: 9
+- userland: 19
 - packages: 15
 - docs: 50
 - workflows: 4
@@ -93,6 +93,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `f860e26` (2026-04-05): Add_sandbox_policy_hot_reload_with_safe_validation
+- `4c84428` (2026-04-05): docs: auto-update explain and changelog
 - `c9cfff6` (2026-04-05): Add_sandbox_policy_json_serialization_and_parsing_support
 - `e14edc6` (2026-04-05): docs: auto-update explain and changelog
 - `97c06b2` (2026-04-05): Add_one_command_onboarding_bootstrap_runner
@@ -106,5 +108,3 @@ Open issue pressure by component signal:
 - `1cd4bc7` (2026-04-05): Add_scheduler_metrics_snapshot_endpoint_and_tests
 - `81fda8b` (2026-04-05): docs: auto-update explain and changelog
 - `67fc1c3` (2026-04-05): Add_rotation_actor_reason_metadata_to_capability_audit
-- `5e0463e` (2026-04-05): docs: auto-update explain and changelog
-- `cc26bce` (2026-04-05): Add_dns_pinning_guard_for_network_rebinding_defense

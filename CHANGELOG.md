@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 11:00:11Z
+Last generated: 2026-04-05 11:01:31Z
 
 ## Unreleased
 
+- 2026-04-05 `f860e26` Add_sandbox_policy_hot_reload_with_safe_validation
+- 2026-04-05 `4c84428` docs: auto-update explain and changelog
 - 2026-04-05 `c9cfff6` Add_sandbox_policy_json_serialization_and_parsing_support
 - 2026-04-05 `e14edc6` docs: auto-update explain and changelog
 - 2026-04-05 `97c06b2` Add_one_command_onboarding_bootstrap_runner
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 11:00:11Z
 - 2026-04-05 `1cd4bc7` Add_scheduler_metrics_snapshot_endpoint_and_tests
 - 2026-04-05 `81fda8b` docs: auto-update explain and changelog
 - 2026-04-05 `67fc1c3` Add_rotation_actor_reason_metadata_to_capability_audit
-- 2026-04-05 `5e0463e` docs: auto-update explain and changelog
-- 2026-04-05 `cc26bce` Add_dns_pinning_guard_for_network_rebinding_defense
