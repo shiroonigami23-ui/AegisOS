@@ -172,6 +172,64 @@ int aegis_vm_unmap(aegis_vm_space_t *space, uint64_t base, uint64_t size) {
   return -1;
 }
 
+int aegis_vm_update_flags(aegis_vm_space_t *space, uint64_t base, uint64_t size, uint32_t flags) {
+  size_t i;
+  if (space == 0 || !vm_region_valid(base, size)) {
+    return -1;
+  }
+  for (i = 0; i < AEGIS_VM_REGION_CAPACITY; ++i) {
+    aegis_vm_region_t *region = &space->regions[i];
+    if (region->active == 0u) {
+      continue;
+    }
+    if (region->base == base && region->size == size) {
+      region->flags = flags;
+      return 0;
+    }
+  }
+  return -1;
+}
+
+int aegis_vm_split_region(aegis_vm_space_t *space,
+                          uint64_t base,
+                          uint64_t size,
+                          uint64_t split_offset) {
+  size_t i;
+  size_t target_index = AEGIS_VM_REGION_CAPACITY;
+  size_t free_index = AEGIS_VM_REGION_CAPACITY;
+  if (space == 0 || !vm_region_valid(base, size) || split_offset == 0u || split_offset >= size) {
+    return -1;
+  }
+  if (space->count >= AEGIS_VM_REGION_CAPACITY) {
+    return -1;
+  }
+  for (i = 0; i < AEGIS_VM_REGION_CAPACITY; ++i) {
+    if (space->regions[i].active == 0u && free_index == AEGIS_VM_REGION_CAPACITY) {
+      free_index = i;
+    } else if (space->regions[i].active != 0u && space->regions[i].base == base &&
+               space->regions[i].size == size) {
+      target_index = i;
+    }
+  }
+  if (target_index == AEGIS_VM_REGION_CAPACITY || free_index == AEGIS_VM_REGION_CAPACITY) {
+    return -1;
+  }
+  {
+    uint64_t second_base = base + split_offset;
+    uint64_t second_size = size - split_offset;
+    if (!vm_region_valid(second_base, second_size)) {
+      return -1;
+    }
+    space->regions[target_index].size = split_offset;
+    space->regions[free_index].base = second_base;
+    space->regions[free_index].size = second_size;
+    space->regions[free_index].flags = space->regions[target_index].flags;
+    space->regions[free_index].active = 1u;
+    space->count += 1u;
+    return 0;
+  }
+}
+
 int aegis_vm_query(const aegis_vm_space_t *space, uint64_t address, aegis_vm_region_t *region) {
   size_t i;
   if (space == 0 || region == 0) {

@@ -6,6 +6,7 @@ Kernel direction, interfaces, and implementation notes live here.
 
 - `aegis_vm_space_t`: virtual memory region mapping abstraction.
   - supports map/unmap/query with overlap/overflow guards.
+  - supports exact-region permission flag updates and region split helper for pager preparation.
   - exposes JSON summary endpoint for VM map observability.
 - `aegis_ipc_envelope_t`: IPC channel envelope format helper.
   - supports fixed-size encode/decode and schema/payload validation checks.

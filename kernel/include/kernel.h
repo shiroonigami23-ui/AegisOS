@@ -109,6 +109,11 @@ int aegis_vm_map(aegis_vm_space_t *space, uint64_t base, uint64_t size, uint32_t
 int aegis_vm_unmap(aegis_vm_space_t *space, uint64_t base, uint64_t size);
 int aegis_vm_query(const aegis_vm_space_t *space, uint64_t address, aegis_vm_region_t *region);
 int aegis_vm_summary_json(const aegis_vm_space_t *space, char *out, size_t out_size);
+int aegis_vm_update_flags(aegis_vm_space_t *space, uint64_t base, uint64_t size, uint32_t flags);
+int aegis_vm_split_region(aegis_vm_space_t *space,
+                          uint64_t base,
+                          uint64_t size,
+                          uint64_t split_offset);
 int aegis_ipc_envelope_validate(const aegis_ipc_envelope_t *envelope, uint32_t max_payload_size);
 int aegis_ipc_envelope_encode(const aegis_ipc_envelope_t *envelope, uint8_t *out, size_t out_size);
 int aegis_ipc_envelope_decode(const uint8_t *in, size_t in_size, aegis_ipc_envelope_t *envelope);

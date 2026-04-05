@@ -61,6 +61,50 @@ static int test_vm_region_map_abstraction(void) {
   return 0;
 }
 
+static int test_vm_region_split_and_permission_update(void) {
+  aegis_vm_space_t space;
+  aegis_vm_region_t region;
+  char summary[1024];
+  aegis_vm_space_init(&space);
+  if (aegis_vm_map(&space, 0x8000u, 0x2000u, 0x1u) != 0) {
+    fprintf(stderr, "vm split setup map failed\n");
+    return 1;
+  }
+  if (aegis_vm_split_region(&space, 0x8000u, 0x2000u, 0x1000u) != 0) {
+    fprintf(stderr, "vm split expected success\n");
+    return 1;
+  }
+  if (space.count != 2u) {
+    fprintf(stderr, "vm split expected region count 2\n");
+    return 1;
+  }
+  if (aegis_vm_update_flags(&space, 0x9000u, 0x1000u, 0x7u) != 0) {
+    fprintf(stderr, "vm update flags expected success\n");
+    return 1;
+  }
+  if (aegis_vm_query(&space, 0x9001u, &region) != 0 || region.flags != 0x7u) {
+    fprintf(stderr, "vm query after flag update failed\n");
+    return 1;
+  }
+  if (aegis_vm_split_region(&space, 0x8000u, 0x1000u, 0x1000u) == 0) {
+    fprintf(stderr, "vm split with boundary offset should fail\n");
+    return 1;
+  }
+  if (aegis_vm_update_flags(&space, 0x8000u, 0x2222u, 0x2u) == 0) {
+    fprintf(stderr, "vm update flags on unknown exact region should fail\n");
+    return 1;
+  }
+  if (aegis_vm_summary_json(&space, summary, sizeof(summary)) <= 0) {
+    fprintf(stderr, "vm split summary generation failed\n");
+    return 1;
+  }
+  if (strstr(summary, "\"region_count\":2") == 0 || strstr(summary, "\"flags\":7") == 0) {
+    fprintf(stderr, "vm split summary missing expected fields: %s\n", summary);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_ipc_envelope_format_helpers(void) {
   aegis_ipc_envelope_t in = {AEGIS_IPC_ENVELOPE_SCHEMA_VERSION, 7u, 0xA5u, 512u, 42u};
   aegis_ipc_envelope_t out;
@@ -741,6 +785,9 @@ int main(void) {
     return 1;
   }
   if (test_vm_region_map_abstraction() != 0) {
+    return 1;
+  }
+  if (test_vm_region_split_and_permission_update() != 0) {
     return 1;
   }
   if (test_ipc_envelope_format_helpers() != 0) {
