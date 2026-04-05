@@ -69,3 +69,12 @@ This repository contains:
 - Collaborator roles: [`COLLABORATORS.md`](COLLABORATORS.md)
 - Security policy: [`SECURITY.md`](SECURITY.md)
 - Code ownership: [`.github/CODEOWNERS`](.github/CODEOWNERS)
+- Project board: [AegisOS_Roadmap](https://github.com/users/shiroonigami23-ui/projects/2)
+
+## Project Board
+
+The GitHub `Projects` tab is the execution board for roadmap tracking.
+
+- New/reopened issues are auto-added with `Todo` status.
+- Closed issues are auto-moved to `Done`.
+- Use it as the single queue for priorities, owners, and sprint slices.

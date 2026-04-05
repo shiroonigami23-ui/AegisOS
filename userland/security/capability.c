@@ -1,5 +1,19 @@
 #include "capability.h"
 
+static aegis_capability_audit_event_t g_audit_events[512];
+static size_t g_audit_count = 0;
+
+static void capability_audit_log(uint8_t event_type, uint64_t now_epoch, uint32_t process_id,
+                                 uint32_t requested_permissions, uint32_t resulting_permissions) {
+  size_t index = g_audit_count % 512;
+  g_audit_events[index].timestamp_epoch = now_epoch;
+  g_audit_events[index].process_id = process_id;
+  g_audit_events[index].requested_permissions = requested_permissions;
+  g_audit_events[index].resulting_permissions = resulting_permissions;
+  g_audit_events[index].event_type = event_type;
+  g_audit_count += 1;
+}
+
 static int capability_find_index(const aegis_capability_store_t *store, uint32_t process_id,
                                  size_t *index) {
   size_t i;
@@ -68,6 +82,7 @@ int aegis_capability_issue_with_ttl(aegis_capability_store_t *store, uint32_t pr
     store->tokens[existing].permissions = permissions;
     store->tokens[existing].issued_at_epoch = now_epoch;
     store->tokens[existing].expires_at_epoch = ttl_seconds == 0 ? 0 : now_epoch + ttl_seconds;
+    capability_audit_log(AEGIS_CAP_AUDIT_ISSUE, now_epoch, process_id, permissions, permissions);
     return 0;
   }
   if (store->count >= 128) {
@@ -80,6 +95,7 @@ int aegis_capability_issue_with_ttl(aegis_capability_store_t *store, uint32_t pr
   store->tokens[store->count].rotation_counter = 0;
   store->active[store->count] = 1;
   store->count += 1;
+  capability_audit_log(AEGIS_CAP_AUDIT_ISSUE, now_epoch, process_id, permissions, permissions);
   return 0;
 }
 
@@ -96,6 +112,7 @@ int aegis_capability_rotate(aegis_capability_store_t *store, uint32_t process_id
   store->tokens[index].issued_at_epoch = now_epoch;
   store->tokens[index].expires_at_epoch = ttl_seconds == 0 ? 0 : now_epoch + ttl_seconds;
   store->tokens[index].rotation_counter += 1;
+  capability_audit_log(AEGIS_CAP_AUDIT_ROTATE, now_epoch, process_id, permissions, permissions);
   return 0;
 }
 
@@ -109,6 +126,7 @@ int aegis_capability_revoke(aegis_capability_store_t *store, uint32_t process_id
   store->tokens[index].issued_at_epoch = 0;
   store->tokens[index].expires_at_epoch = 0;
   store->tokens[index].rotation_counter = 0;
+  capability_audit_log(AEGIS_CAP_AUDIT_REVOKE, 0, process_id, 0, 0);
   return 0;
 }
 
@@ -121,10 +139,42 @@ int aegis_capability_is_allowed_at(const aegis_capability_store_t *store, uint32
                                    uint32_t requested_permissions, uint64_t now_epoch) {
   size_t index = 0;
   if (!capability_find_index(store, process_id, &index)) {
+    capability_audit_log(AEGIS_CAP_AUDIT_DENY, now_epoch, process_id, requested_permissions, 0);
     return 0;
   }
   if (now_epoch != 0 && capability_expired(&store->tokens[index], now_epoch)) {
+    capability_audit_log(AEGIS_CAP_AUDIT_DENY, now_epoch, process_id, requested_permissions, 0);
     return 0;
   }
-  return aegis_capability_validate(&store->tokens[index], requested_permissions);
+  if (aegis_capability_validate(&store->tokens[index], requested_permissions)) {
+    capability_audit_log(AEGIS_CAP_AUDIT_ALLOW, now_epoch, process_id, requested_permissions,
+                         store->tokens[index].permissions);
+    return 1;
+  }
+  capability_audit_log(AEGIS_CAP_AUDIT_DENY, now_epoch, process_id, requested_permissions,
+                       store->tokens[index].permissions);
+  return 0;
+}
+
+void aegis_capability_audit_reset(void) {
+  g_audit_count = 0;
+}
+
+size_t aegis_capability_audit_count(void) {
+  return g_audit_count;
+}
+
+int aegis_capability_audit_get(size_t index, aegis_capability_audit_event_t *event) {
+  size_t base = 0;
+  if (event == 0 || index >= g_audit_count) {
+    return -1;
+  }
+  if (g_audit_count > 512) {
+    base = g_audit_count - 512;
+  }
+  if (index < base) {
+    return -1;
+  }
+  *event = g_audit_events[index % 512];
+  return 0;
 }

@@ -91,6 +91,37 @@ static int test_capability_ttl_and_rotation(void) {
   return 0;
 }
 
+static int test_capability_audit_pipeline(void) {
+  aegis_capability_store_t store;
+  aegis_capability_audit_event_t event;
+  aegis_capability_store_init(&store);
+  aegis_capability_audit_reset();
+
+  if (aegis_capability_issue_with_ttl(&store, 99u, AEGIS_CAP_FS_READ, 10u, 5u) != 0) {
+    fprintf(stderr, "audit test issue failed\n");
+    return 1;
+  }
+  (void)aegis_capability_is_allowed_at(&store, 99u, AEGIS_CAP_FS_READ, 12u);
+  (void)aegis_capability_is_allowed_at(&store, 99u, AEGIS_CAP_FS_WRITE, 12u);
+  if (aegis_capability_revoke(&store, 99u) != 0) {
+    fprintf(stderr, "audit test revoke failed\n");
+    return 1;
+  }
+  if (aegis_capability_audit_count() < 4u) {
+    fprintf(stderr, "expected at least 4 audit events\n");
+    return 1;
+  }
+  if (aegis_capability_audit_get(aegis_capability_audit_count() - 1u, &event) != 0) {
+    fprintf(stderr, "failed to read latest audit event\n");
+    return 1;
+  }
+  if (event.event_type != AEGIS_CAP_AUDIT_REVOKE) {
+    fprintf(stderr, "expected latest event to be revoke\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_capability_validate() != 0) {
     return 1;
@@ -99,6 +130,9 @@ int main(void) {
     return 1;
   }
   if (test_capability_ttl_and_rotation() != 0) {
+    return 1;
+  }
+  if (test_capability_audit_pipeline() != 0) {
     return 1;
   }
   puts("capability tests passed");
