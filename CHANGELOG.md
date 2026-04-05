@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 10:15:26Z
+Last generated: 2026-04-05 10:18:45Z
 
 ## Unreleased
 
+- 2026-04-05 `ef5dd0b` Add_network_scope_enforcement_host_port_protocol_rules
+- 2026-04-05 `306b2e4` docs: auto-update explain and changelog
 - 2026-04-05 `44e7fac` Add_clang_matrix_workflow_for_core_module_tests
 - 2026-04-05 `e0f7189` docs: auto-update explain and changelog
 - 2026-04-05 `abdd8fa` Add_path_scoped_filesystem_enforcement_with_deny_override

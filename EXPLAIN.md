@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 10:15:26Z
+Last generated: 2026-04-05 10:18:45Z
 
 ## What AegisOS Is Building
 
@@ -32,13 +32,13 @@ We implement in vertical slices:
 
 ## Live Backlog Snapshot
 
+- #24 Workflow_branch_protection_profile (priority-p1)
+- #23 Clang_sanitizer_job_asan_ubsan (priority-p1)
 - #22 Filesystem_scope_symlink_resolution (priority-p0, security)
 - #21 Filesystem_scope_glob_patterns (priority-p1, security)
 - #20 Package_dependency_cycle_detection (priority-p1)
 - #19 Package_manifest_schema_versioning (priority-p1)
 - #18 Auto_docs_issue_enrichment (priority-p1)
-- #17 Sandbox_engine_network_scopes (priority-p1, security)
-- #15 CI_add_clang_build_matrix (priority-p1)
 - #14 Sandbox_policy_hot_reload (priority-p1, security)
 - #13 Sandbox_policy_serialization_format (priority-p1, security)
 - #12 Scheduler_metrics_and_tracepoints (priority-p1, kernel)
@@ -51,6 +51,8 @@ We implement in vertical slices:
 
 ## Recent Engineering Changes
 
+- `ef5dd0b` (2026-04-05): Add_network_scope_enforcement_host_port_protocol_rules
+- `306b2e4` (2026-04-05): docs: auto-update explain and changelog
 - `44e7fac` (2026-04-05): Add_clang_matrix_workflow_for_core_module_tests
 - `e0f7189` (2026-04-05): docs: auto-update explain and changelog
 - `abdd8fa` (2026-04-05): Add_path_scoped_filesystem_enforcement_with_deny_override
