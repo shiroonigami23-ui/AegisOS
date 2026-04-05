@@ -176,6 +176,7 @@ int aegis_secret_metadata_get(const aegis_secret_store_t *store,
                               aegis_secret_metadata_t *metadata_out);
 int aegis_secret_delete(aegis_secret_store_t *store, const char *key);
 int aegis_secret_list_json(const aegis_secret_store_t *store, char *out, size_t out_size);
+int aegis_secret_snapshot_digest(const aegis_secret_store_t *store, uint64_t *digest_out);
 int aegis_secret_snapshot_export(const aegis_secret_store_t *store, char *out, size_t out_size);
 int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snapshot);
 int aegis_secret_inventory_json(const aegis_secret_store_t *store, char *out, size_t out_size);

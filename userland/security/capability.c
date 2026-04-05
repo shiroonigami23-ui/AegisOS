@@ -861,6 +861,27 @@ static uint64_t secret_fingerprint64(const char *key, const uint8_t *value, uint
   return hash;
 }
 
+static int parse_u64_hex(const char *text, uint64_t *value_out) {
+  size_t i = 0u;
+  uint64_t value = 0u;
+  if (text == 0 || value_out == 0 || text[0] == '\0') {
+    return -1;
+  }
+  while (text[i] != '\0') {
+    int hv = hex_value(text[i]);
+    if (hv < 0) {
+      return -1;
+    }
+    value = (value << 4) | (uint64_t)hv;
+    i += 1u;
+    if (i > 16u) {
+      return -1;
+    }
+  }
+  *value_out = value;
+  return 0;
+}
+
 void aegis_secret_store_init(aegis_secret_store_t *store) {
   size_t i;
   if (store == 0) {
@@ -1029,11 +1050,18 @@ int aegis_secret_snapshot_export(const aegis_secret_store_t *store, char *out, s
   size_t i;
   size_t offset = 0u;
   char hex_value_buf[129];
+  uint64_t digest = 0u;
   if (store == 0 || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  if (aegis_secret_snapshot_digest(store, &digest) != 0) {
     return -1;
   }
   out[0] = '\0';
   if (append_format(out, out_size, &offset, "schema_version=1\n") != 0) {
+    return -1;
+  }
+  if (append_format(out, out_size, &offset, "digest=%016llx\n", (unsigned long long)digest) != 0) {
     return -1;
   }
   for (i = 0; i < 128u; ++i) {
@@ -1059,8 +1087,34 @@ int aegis_secret_snapshot_export(const aegis_secret_store_t *store, char *out, s
   return (int)offset;
 }
 
+int aegis_secret_snapshot_digest(const aegis_secret_store_t *store, uint64_t *digest_out) {
+  size_t i;
+  uint64_t digest = 1469598103934665603ull;
+  if (store == 0 || digest_out == 0) {
+    return -1;
+  }
+  for (i = 0; i < 128u; ++i) {
+    const aegis_secret_entry_t *entry = &store->entries[i];
+    uint64_t fp;
+    if (entry->active == 0u) {
+      continue;
+    }
+    fp = secret_fingerprint64(entry->key, entry->value, entry->value_size);
+    digest ^= fp;
+    digest *= 1099511628211ull;
+    digest ^= entry->created_at_epoch;
+    digest *= 1099511628211ull;
+    digest ^= entry->updated_at_epoch;
+    digest *= 1099511628211ull;
+  }
+  *digest_out = digest;
+  return 0;
+}
+
 int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snapshot) {
   const char *cursor;
+  int has_expected_digest = 0;
+  uint64_t expected_digest = 0u;
   if (store == 0 || snapshot == 0) {
     return -1;
   }
@@ -1071,6 +1125,27 @@ int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snaps
   }
   if (*cursor == '\n') {
     cursor++;
+  }
+  if (strncmp(cursor, "digest=", 7) == 0) {
+    char digest_hex[32];
+    const char *line_start = cursor + 7;
+    size_t len = 0u;
+    while (line_start[len] != '\0' && line_start[len] != '\n') {
+      len++;
+    }
+    if (len == 0u || len >= sizeof(digest_hex)) {
+      return -1;
+    }
+    memcpy(digest_hex, line_start, len);
+    digest_hex[len] = '\0';
+    if (parse_u64_hex(digest_hex, &expected_digest) != 0) {
+      return -1;
+    }
+    has_expected_digest = 1;
+    cursor = line_start + len;
+    if (*cursor == '\n') {
+      cursor++;
+    }
   }
   while (*cursor != '\0') {
     char line[320];
@@ -1135,6 +1210,13 @@ int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snaps
     store->entries[slot].updated_at_epoch = (uint64_t)updated_u;
     store->entries[slot].active = 1u;
     store->count += 1u;
+  }
+  if (has_expected_digest != 0) {
+    uint64_t actual_digest = 0u;
+    if (aegis_secret_snapshot_digest(store, &actual_digest) != 0 || actual_digest != expected_digest) {
+      aegis_secret_store_init(store);
+      return -1;
+    }
   }
   return (int)store->count;
 }

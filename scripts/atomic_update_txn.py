@@ -73,6 +73,37 @@ class AtomicUpdateTransaction:
         separators=(",", ":"),
     )
 
+  def load_from_json(self, payload: str) -> None:
+    data = json.loads(payload)
+    if not isinstance(data, dict):
+      raise ValueError("payload must be a JSON object")
+    if data.get("schema_version") != 1:
+      raise ValueError("unsupported schema_version")
+    state = data.get("state")
+    if state not in {s.value for s in TxnState}:
+      raise ValueError("invalid transaction state")
+    transaction_id = data.get("transaction_id", "")
+    manifest_hash = data.get("manifest_hash", "")
+    rollback_reason = data.get("rollback_reason", "")
+    staged_packages = data.get("staged_packages", [])
+    if not isinstance(transaction_id, str) or not isinstance(manifest_hash, str):
+      raise ValueError("transaction_id and manifest_hash must be strings")
+    if not isinstance(rollback_reason, str):
+      raise ValueError("rollback_reason must be a string")
+    if not isinstance(staged_packages, list) or not all(isinstance(x, str) and x for x in staged_packages):
+      raise ValueError("staged_packages must be a list of non-empty strings")
+    deduped = []
+    for pkg in staged_packages:
+      if pkg not in deduped:
+        deduped.append(pkg)
+    if state == TxnState.PREPARED.value and (not transaction_id or not manifest_hash):
+      raise ValueError("prepared transaction requires transaction_id and manifest_hash")
+    self.state = TxnState(state)
+    self.transaction_id = transaction_id
+    self.manifest_hash = manifest_hash
+    self.staged_packages = deduped
+    self.rollback_reason = rollback_reason
+
 
 def demo() -> int:
   txn = AtomicUpdateTransaction()

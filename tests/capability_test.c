@@ -553,7 +553,9 @@ static int test_secret_store_skeleton(void) {
   uint32_t out_size = 0u;
   char json[256];
   char snapshot[2048];
+  char tampered[2048];
   char inventory[512];
+  uint64_t digest = 0u;
   aegis_secret_store_init(&store);
   aegis_secret_store_init(&restored);
 
@@ -592,8 +594,13 @@ static int test_secret_store_skeleton(void) {
   }
   if (aegis_secret_snapshot_export(&store, snapshot, sizeof(snapshot)) <= 0 ||
       strstr(snapshot, "schema_version=1") == 0 ||
+      strstr(snapshot, "digest=") == 0 ||
       strstr(snapshot, "key=db.master") == 0) {
     fprintf(stderr, "secret snapshot export failed\n");
+    return 1;
+  }
+  if (aegis_secret_snapshot_digest(&store, &digest) != 0 || digest == 0u) {
+    fprintf(stderr, "secret snapshot digest helper failed\n");
     return 1;
   }
   if (aegis_secret_snapshot_restore(&restored, snapshot) != 1) {
@@ -615,6 +622,19 @@ static int test_secret_store_skeleton(void) {
   if (aegis_secret_metadata_get(&restored, "db.master", &metadata) != 0 ||
       metadata.created_at_epoch != 1000u || metadata.updated_at_epoch != 1010u) {
     fprintf(stderr, "secret restored metadata mismatch\n");
+    return 1;
+  }
+  snprintf(tampered, sizeof(tampered), "%s", snapshot);
+  {
+    char *value_ptr = strstr(tampered, "value=");
+    if (value_ptr == 0 || value_ptr[6] == '\0') {
+      fprintf(stderr, "secret tamper fixture setup failed\n");
+      return 1;
+    }
+    value_ptr[6] = value_ptr[6] == '0' ? '1' : '0';
+  }
+  if (aegis_secret_snapshot_restore(&restored, tampered) >= 0) {
+    fprintf(stderr, "secret snapshot restore should fail on digest mismatch\n");
     return 1;
   }
   if (aegis_secret_delete(&store, "db.master") != 0 || store.count != 0u) {

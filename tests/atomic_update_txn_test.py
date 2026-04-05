@@ -45,6 +45,29 @@ class AtomicUpdateTxnTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             txn.rollback("bad_state")
 
+    def test_resume_from_json(self):
+        txn = AtomicUpdateTransaction()
+        txn.begin("txn-4", "sha256:jkl")
+        txn.stage_package("aegis-kernel")
+        txn.stage_package("aegis-security-core")
+        snapshot = txn.summary_json()
+
+        resumed = AtomicUpdateTransaction()
+        resumed.load_from_json(snapshot)
+        self.assertEqual(resumed.state, TxnState.PREPARED)
+        self.assertEqual(resumed.transaction_id, "txn-4")
+        self.assertEqual(resumed.manifest_hash, "sha256:jkl")
+        self.assertEqual(resumed.staged_packages, ["aegis-kernel", "aegis-security-core"])
+        resumed.commit()
+        self.assertEqual(resumed.state, TxnState.COMMITTED)
+
+    def test_resume_rejects_bad_payload(self):
+        txn = AtomicUpdateTransaction()
+        with self.assertRaises(ValueError):
+            txn.load_from_json('{"schema_version":2,"state":"prepared"}')
+        with self.assertRaises(ValueError):
+            txn.load_from_json('{"schema_version":1,"state":"prepared","transaction_id":"","manifest_hash":"","staged_packages":[],"rollback_reason":""}')
+
 
 if __name__ == "__main__":
     unittest.main()
