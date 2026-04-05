@@ -108,6 +108,41 @@ static int path_rule_matches(const char *path, const char *rule_pattern) {
   return prefix_matches(path, rule_pattern);
 }
 
+static int fs_pattern_valid(const char *pattern) {
+  size_t i;
+  size_t star_count = 0;
+  if (pattern == 0 || pattern[0] != '/') {
+    return 0;
+  }
+  if (strstr(pattern, "..") != 0) {
+    return 0;
+  }
+  if (strstr(pattern, "//") != 0) {
+    return 0;
+  }
+  if (pattern[strlen(pattern) - 1] == '/' && strlen(pattern) > 1u) {
+    return 0;
+  }
+  for (i = 0; pattern[i] != '\0'; ++i) {
+    if (pattern[i] == '*') {
+      star_count += 1u;
+      if (star_count > 8u) {
+        return 0;
+      }
+      if (i > 0 && pattern[i - 1] == '*') {
+        return 0;
+      }
+      if (pattern[i + 1] != '\0' && pattern[i + 1] != '/') {
+        return 0;
+      }
+      if (i > 0 && pattern[i - 1] != '/') {
+        return 0;
+      }
+    }
+  }
+  return 1;
+}
+
 static int host_matches(const char *host, const char *pattern) {
   size_t host_len;
   if (host == 0 || pattern == 0 || host[0] == '\0' || pattern[0] == '\0') {
@@ -364,6 +399,9 @@ int aegis_policy_engine_add_fs_rule(aegis_policy_engine_t *engine,
   }
   if (mode != AEGIS_FS_SCOPE_DENY && mode != AEGIS_FS_SCOPE_READ_ONLY &&
       mode != AEGIS_FS_SCOPE_READ_WRITE) {
+    return -1;
+  }
+  if (!fs_pattern_valid(path_prefix)) {
     return -1;
   }
   for (i = 0; i < 256; ++i) {

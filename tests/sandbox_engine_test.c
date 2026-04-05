@@ -449,6 +449,32 @@ static int test_filesystem_wildcard_scope(void) {
   return 0;
 }
 
+static int test_filesystem_wildcard_validation_rules(void) {
+  aegis_policy_engine_t engine;
+  aegis_policy_engine_init(&engine);
+  if (aegis_policy_engine_add_fs_rule(&engine, 6100u, "/ok/*/public/*", AEGIS_FS_SCOPE_READ_ONLY) != 0) {
+    fprintf(stderr, "expected valid wildcard rule to pass\n");
+    return 1;
+  }
+  if (aegis_policy_engine_add_fs_rule(&engine, 6100u, "relative/path/*", AEGIS_FS_SCOPE_READ_ONLY) == 0) {
+    fprintf(stderr, "expected relative path rule to fail\n");
+    return 1;
+  }
+  if (aegis_policy_engine_add_fs_rule(&engine, 6100u, "/bad/**/path", AEGIS_FS_SCOPE_READ_ONLY) == 0) {
+    fprintf(stderr, "expected consecutive wildcard rule to fail\n");
+    return 1;
+  }
+  if (aegis_policy_engine_add_fs_rule(&engine, 6100u, "/bad/pre*fix/path", AEGIS_FS_SCOPE_READ_ONLY) == 0) {
+    fprintf(stderr, "expected inline wildcard segment to fail\n");
+    return 1;
+  }
+  if (aegis_policy_engine_add_fs_rule(&engine, 6100u, "/bad/../escape", AEGIS_FS_SCOPE_READ_ONLY) == 0) {
+    fprintf(stderr, "expected traversal-like rule to fail\n");
+    return 1;
+  }
+  return 0;
+}
+
 static int test_dns_rebinding_guard(void) {
   aegis_capability_store_t cap_store;
   aegis_policy_engine_t engine;
@@ -649,6 +675,9 @@ int main(void) {
     return 1;
   }
   if (test_filesystem_wildcard_scope() != 0) {
+    return 1;
+  }
+  if (test_filesystem_wildcard_validation_rules() != 0) {
     return 1;
   }
   if (test_dns_rebinding_guard() != 0) {

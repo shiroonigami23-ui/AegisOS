@@ -15,6 +15,7 @@ Core userspace services, shell tools, and runtime components live here.
 - `sandbox_engine`: action-level enforcement using policy gates + capability tokens.
   - includes path-level filesystem scopes (`deny`, `read-only`, `read-write`) with deny override behavior.
   - supports simple wildcard patterns (`*`) in filesystem scope rules.
+  - wildcard rules are validated (`/`-rooted, no `..`, no `**`, wildcard must be a full segment).
   - includes network scopes (host/port/protocol rules with explicit allow/deny).
   - network rule precedence is deterministic: most specific match wins; tie -> deny.
   - includes optional network precedence debug trace output for diagnostics.
