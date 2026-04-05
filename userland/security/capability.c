@@ -1189,6 +1189,9 @@ int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snaps
     if (secret_hex_to_value(hex_payload, value, 64u, &value_size) != 0 || value_size != size_u) {
       return -1;
     }
+    if (secret_find_index(store, key, &slot)) {
+      return -1;
+    }
     if (store->count >= 128u) {
       return -1;
     }

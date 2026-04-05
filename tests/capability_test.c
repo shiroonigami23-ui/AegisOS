@@ -554,6 +554,10 @@ static int test_secret_store_skeleton(void) {
   char json[256];
   char snapshot[2048];
   char tampered[2048];
+  const char *duplicate_snapshot =
+      "schema_version=1\n"
+      "key=dup,size=1,created=1,updated=1,value=aa\n"
+      "key=dup,size=1,created=2,updated=2,value=bb\n";
   char inventory[512];
   uint64_t digest = 0u;
   aegis_secret_store_init(&store);
@@ -635,6 +639,10 @@ static int test_secret_store_skeleton(void) {
   }
   if (aegis_secret_snapshot_restore(&restored, tampered) >= 0) {
     fprintf(stderr, "secret snapshot restore should fail on digest mismatch\n");
+    return 1;
+  }
+  if (aegis_secret_snapshot_restore(&restored, duplicate_snapshot) >= 0) {
+    fprintf(stderr, "secret snapshot restore should fail on duplicate keys\n");
     return 1;
   }
   if (aegis_secret_delete(&store, "db.master") != 0 || store.count != 0u) {
