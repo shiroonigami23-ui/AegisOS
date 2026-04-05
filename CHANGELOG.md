@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 10:38:54Z
+Last generated: 2026-04-05 10:40:00Z
 
 ## Unreleased
 
+- 2026-04-05 `65fc46c` Add_branch_protection_profile_and_configuration_helper
+- 2026-04-05 `abdd8a3` docs: auto-update explain and changelog
 - 2026-04-05 `0b4425a` Add_project_board_automation_and_capability_audit_pipeline
 - 2026-04-05 `1ab272f` docs: auto-update explain and changelog
 - 2026-04-05 `8d1da52` Add_expanded_core_packages_and_install_profiles
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 10:38:54Z
 - 2026-04-05 `4f20083` Add_timer_tick_preemption_simulation_with_quantum_hooks
 - 2026-04-05 `c181e22` docs: auto-update explain and changelog
 - 2026-04-05 `0e65665` Add_scheduler_metrics_tracepoints_and_tests
-- 2026-04-05 `4d87d05` docs: auto-update explain and changelog
-- 2026-04-05 `2c96784` Implement_issue_enrichment_token_ttl_rotation_and_scheduler_priority

@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 10:38:54Z
+Last generated: 2026-04-05 10:40:00Z
 
 ## What AegisOS Is Building
 
@@ -36,6 +36,7 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #39 Capability_audit_export_api (priority-p1, security)
 - #38 Package_signature_metadata_fields (priority-p1, security)
 - #37 Package_profile_compatibility_matrix (priority-p1)
 - #36 Package_dependency_visualizer_output (priority-p1)
@@ -54,7 +55,6 @@ We implement in vertical slices:
 - #21 Filesystem_scope_glob_patterns (priority-p1, security)
 - #14 Sandbox_policy_hot_reload (priority-p1, security)
 - #13 Sandbox_policy_serialization_format (priority-p1, security)
-- #8 Capability_audit_log_pipeline (priority-p1, security)
 
 ### Security
 - none
@@ -70,6 +70,8 @@ We implement in vertical slices:
 
 ## Recent Engineering Changes
 
+- `65fc46c` (2026-04-05): Add_branch_protection_profile_and_configuration_helper
+- `abdd8a3` (2026-04-05): docs: auto-update explain and changelog
 - `0b4425a` (2026-04-05): Add_project_board_automation_and_capability_audit_pipeline
 - `1ab272f` (2026-04-05): docs: auto-update explain and changelog
 - `8d1da52` (2026-04-05): Add_expanded_core_packages_and_install_profiles
@@ -83,5 +85,3 @@ We implement in vertical slices:
 - `4f20083` (2026-04-05): Add_timer_tick_preemption_simulation_with_quantum_hooks
 - `c181e22` (2026-04-05): docs: auto-update explain and changelog
 - `0e65665` (2026-04-05): Add_scheduler_metrics_tracepoints_and_tests
-- `4d87d05` (2026-04-05): docs: auto-update explain and changelog
-- `2c96784` (2026-04-05): Implement_issue_enrichment_token_ttl_rotation_and_scheduler_priority
