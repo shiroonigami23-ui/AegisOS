@@ -123,6 +123,12 @@ void aegis_policy_engine_init(aegis_policy_engine_t *engine) {
     engine->net_rules[i].allow_bind = 0;
     engine->net_rules[i].allow = 0;
   }
+  for (i = 0; i < 128; ++i) {
+    engine->symlink_rules[i].active = 0;
+    engine->symlink_rules[i].process_id = 0;
+    engine->symlink_rules[i].link_prefix[0] = '\0';
+    engine->symlink_rules[i].target_prefix[0] = '\0';
+  }
 }
 
 int aegis_policy_engine_set_policy(aegis_policy_engine_t *engine,
@@ -260,6 +266,7 @@ int aegis_policy_engine_check_path(const aegis_policy_engine_t *engine,
   size_t longest = 0;
   aegis_fs_scope_mode_t best_mode = AEGIS_FS_SCOPE_DENY;
   int found = 0;
+  char resolved_path[256];
 
   base_rc = aegis_policy_engine_check(engine, store, process_id, action, decision);
   if (base_rc != 1) {
@@ -272,13 +279,42 @@ int aegis_policy_engine_check_path(const aegis_policy_engine_t *engine,
     set_reason(decision, "filesystem path is required", 0);
     return 0;
   }
+  snprintf(resolved_path, sizeof(resolved_path), "%s", path);
+
+  for (i = 0; i < 8; ++i) {
+    size_t j;
+    int changed = 0;
+    for (j = 0; j < 128; ++j) {
+      const aegis_symlink_rule_t *rule = &engine->symlink_rules[j];
+      char tmp[256];
+      size_t link_len;
+      if (rule->active == 0 || rule->process_id != process_id) {
+        continue;
+      }
+      if (!prefix_matches(resolved_path, rule->link_prefix)) {
+        continue;
+      }
+      link_len = strlen(rule->link_prefix);
+      snprintf(tmp, sizeof(tmp), "%s%s", rule->target_prefix, resolved_path + link_len);
+      snprintf(resolved_path, sizeof(resolved_path), "%s", tmp);
+      changed = 1;
+      break;
+    }
+    if (!changed) {
+      break;
+    }
+    if (i == 7) {
+      set_reason(decision, "symlink resolution depth exceeded", 0);
+      return 0;
+    }
+  }
 
   for (i = 0; i < 256; ++i) {
     size_t len;
     if (engine->fs_rules[i].active == 0 || engine->fs_rules[i].process_id != process_id) {
       continue;
     }
-    if (!prefix_matches(path, engine->fs_rules[i].path_prefix)) {
+    if (!prefix_matches(resolved_path, engine->fs_rules[i].path_prefix)) {
       continue;
     }
     if (engine->fs_rules[i].mode == AEGIS_FS_SCOPE_DENY) {
@@ -303,6 +339,64 @@ int aegis_policy_engine_check_path(const aegis_policy_engine_t *engine,
   }
   set_reason(decision, "allowed by filesystem scope", 1);
   return 1;
+}
+
+int aegis_policy_engine_add_symlink_rule(aegis_policy_engine_t *engine,
+                                         uint32_t process_id,
+                                         const char *link_prefix,
+                                         const char *target_prefix) {
+  size_t i;
+  size_t free_index = 128;
+  if (engine == 0 || process_id == 0 || link_prefix == 0 || target_prefix == 0 ||
+      link_prefix[0] == '\0' || target_prefix[0] == '\0') {
+    return -1;
+  }
+  for (i = 0; i < 128; ++i) {
+    if (engine->symlink_rules[i].active != 0 &&
+        engine->symlink_rules[i].process_id == process_id &&
+        strcmp(engine->symlink_rules[i].link_prefix, link_prefix) == 0) {
+      snprintf(engine->symlink_rules[i].target_prefix,
+               sizeof(engine->symlink_rules[i].target_prefix),
+               "%s",
+               target_prefix);
+      return 0;
+    }
+    if (free_index == 128 && engine->symlink_rules[i].active == 0) {
+      free_index = i;
+    }
+  }
+  if (free_index == 128) {
+    return -1;
+  }
+  engine->symlink_rules[free_index].active = 1;
+  engine->symlink_rules[free_index].process_id = process_id;
+  snprintf(engine->symlink_rules[free_index].link_prefix,
+           sizeof(engine->symlink_rules[free_index].link_prefix),
+           "%s",
+           link_prefix);
+  snprintf(engine->symlink_rules[free_index].target_prefix,
+           sizeof(engine->symlink_rules[free_index].target_prefix),
+           "%s",
+           target_prefix);
+  return 0;
+}
+
+int aegis_policy_engine_clear_symlink_rules(aegis_policy_engine_t *engine, uint32_t process_id) {
+  size_t i;
+  int removed = 0;
+  if (engine == 0 || process_id == 0) {
+    return -1;
+  }
+  for (i = 0; i < 128; ++i) {
+    if (engine->symlink_rules[i].active != 0 && engine->symlink_rules[i].process_id == process_id) {
+      engine->symlink_rules[i].active = 0;
+      engine->symlink_rules[i].process_id = 0;
+      engine->symlink_rules[i].link_prefix[0] = '\0';
+      engine->symlink_rules[i].target_prefix[0] = '\0';
+      removed = 1;
+    }
+  }
+  return removed ? 0 : -1;
 }
 
 int aegis_policy_engine_add_net_rule(aegis_policy_engine_t *engine,
