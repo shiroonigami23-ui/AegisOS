@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 12:54:18Z
+Last generated: 2026-04-05 12:56:05Z
 
 ## What AegisOS Is Building
 
@@ -43,7 +43,6 @@ We implement in vertical slices:
 - #37 Package_profile_compatibility_matrix (priority-p1)
 - #35 Package_schema_migration_helper (priority-p1)
 - #34 Sanitizer_suppressions_baseline (priority-p1)
-- #29 Scheduler_aging_policy_for_fairness (priority-p1, kernel)
 - #27 Symlink_resolution_filesystem_backend (priority-p1, security)
 
 ### Security
@@ -62,12 +61,12 @@ We implement in vertical slices:
 
 Recent commit touches in `weekly` window (higher means more active recently):
 
-- kernel: 45
+- kernel: 47
 - userland: 86
 - packages: 24
-- docs: 143
+- docs: 145
 - workflows: 13
-- tests: 54
+- tests: 55
 - tools: 1
 - platform: 1
 - scripts: 25
@@ -76,13 +75,15 @@ Recent commit touches in `weekly` window (higher means more active recently):
 Open issue pressure by component signal:
 
 - security: 4
-- kernel: 1
+- kernel: 0
 - packages: 2
 - docs: 0
 - other: 3
 
 ## Recent Engineering Changes
 
+- `6eb55d1` (2026-04-05): "Add_scheduler_aging_boost_policy_for_low_priority_fairness"
+- `f0b77b3` (2026-04-05): docs: auto-update explain and changelog
 - `9a56599` (2026-04-05): "Add_configurable_docs_heatmap_trend_windows"
 - `8c49c14` (2026-04-05): docs: auto-update explain and changelog
 - `42f5deb` (2026-04-05): "Add_graphviz_rendering_guide_for_package_dependency_graph"
@@ -96,5 +97,3 @@ Open issue pressure by component signal:
 - `63ab58e` (2026-04-05): "Add_custom_window_scheduler_reason_histogram_query_api"
 - `b2060fd` (2026-04-05): docs: auto-update explain and changelog
 - `36f49b1` (2026-04-05): "Add_property_style_network_trace_json_generator_tests"
-- `41c9387` (2026-04-05): docs: auto-update explain and changelog
-- `967570c` (2026-04-05): "Add_batch_migration_filters_shards_and_trace_json_fuzz_tests"
