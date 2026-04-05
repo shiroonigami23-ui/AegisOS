@@ -26,32 +26,11 @@ jobs:
       - name: Install clang
         run: sudo apt-get update && sudo apt-get install -y clang
 
-      - name: Build and run kernel tests
-        run: |
-          clang -std=${{ matrix.c_standard }} -Wall -Wextra -Wpedantic -Ikernel/include \
-            kernel/src/kernel_main.c tests/kernel_sim_test.c -o out_kernel_test
-          ./out_kernel_test
+      - name: Check onboarding/CI equivalence
+        run: python3 scripts/check_onboarding_ci_equivalence.py
 
-      - name: Build and run capability tests
-        run: |
-          clang -std=${{ matrix.c_standard }} -Wall -Wextra -Wpedantic -Iuserland/include \
-            userland/security/capability.c tests/capability_test.c -o out_capability_test
-          ./out_capability_test
-
-      - name: Build and run sandbox policy tests
-        run: |
-          clang -std=${{ matrix.c_standard }} -Wall -Wextra -Wpedantic -Iuserland/include \
-            userland/security/sandbox_policy.c tests/sandbox_policy_test.c -o out_sandbox_policy_test
-          ./out_sandbox_policy_test
-
-      - name: Build and run sandbox engine tests
-        run: |
-          clang -std=${{ matrix.c_standard }} -Wall -Wextra -Wpedantic -Iuserland/include \
-            userland/security/capability.c \
-            userland/security/sandbox_policy.c \
-            userland/security/sandbox_engine.c \
-            tests/sandbox_engine_test.c -o out_sandbox_engine_test
-          ./out_sandbox_engine_test
+      - name: Build and run clang suite
+        run: python3 scripts/run_clang_suite.py --std ${{ matrix.c_standard }}
 
   clang-sanitizers:
     runs-on: ubuntu-latest

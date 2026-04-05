@@ -31,60 +31,8 @@ def main():
 
   commands = [
       ["python", "scripts/validate_packages.py"],
-      [
-          "clang",
-          "-std=c11",
-          "-Wall",
-          "-Wextra",
-          "-Wpedantic",
-          "-Ikernel/include",
-          "kernel/src/kernel_main.c",
-          "tests/kernel_sim_test.c",
-          "-o",
-          "out_kernel_test.exe",
-      ],
-      ["out_kernel_test.exe"],
-      [
-          "clang",
-          "-std=c11",
-          "-Wall",
-          "-Wextra",
-          "-Wpedantic",
-          "-Iuserland/include",
-          "userland/security/capability.c",
-          "tests/capability_test.c",
-          "-o",
-          "out_capability_test.exe",
-      ],
-      ["out_capability_test.exe"],
-      [
-          "clang",
-          "-std=c11",
-          "-Wall",
-          "-Wextra",
-          "-Wpedantic",
-          "-Iuserland/include",
-          "userland/security/sandbox_policy.c",
-          "tests/sandbox_policy_test.c",
-          "-o",
-          "out_sandbox_policy_test.exe",
-      ],
-      ["out_sandbox_policy_test.exe"],
-      [
-          "clang",
-          "-std=c11",
-          "-Wall",
-          "-Wextra",
-          "-Wpedantic",
-          "-Iuserland/include",
-          "userland/security/capability.c",
-          "userland/security/sandbox_policy.c",
-          "userland/security/sandbox_engine.c",
-          "tests/sandbox_engine_test.c",
-          "-o",
-          "out_sandbox_engine_test.exe",
-      ],
-      ["out_sandbox_engine_test.exe"],
+      ["python", "scripts/check_onboarding_ci_equivalence.py"],
+      ["python", "scripts/run_clang_suite.py", "--std", "c11", "--artifact-suffix", ".exe"],
   ]
 
   print("")
@@ -99,14 +47,6 @@ def main():
         print(result.stderr.strip())
       return 1
     print(f"[ok] {' '.join(cmd)}")
-
-  for artifact in [
-      "out_kernel_test.exe",
-      "out_capability_test.exe",
-      "out_sandbox_policy_test.exe",
-      "out_sandbox_engine_test.exe",
-  ]:
-    run(["cmd", "/c", "del", "/q", artifact])
 
   print("")
   print("Onboarding check completed successfully.")
