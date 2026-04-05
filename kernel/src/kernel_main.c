@@ -3,6 +3,8 @@
 #include <stdio.h>
 
 #define AEGIS_SCHEDULER_CAPACITY 64u
+#define AEGIS_AGING_TICKS_PER_BOOST 5u
+#define AEGIS_AGING_MAX_BOOST 2u
 
 static void sort_u64(uint64_t *arr, size_t n) {
   size_t i;
@@ -32,7 +34,17 @@ static uint8_t normalize_priority(uint8_t priority) {
 static void refill_credits(aegis_scheduler_t *scheduler) {
   size_t i;
   for (i = 0; i < scheduler->count; ++i) {
-    scheduler->credits[i] = normalize_priority(scheduler->priorities[i]);
+    uint8_t base = normalize_priority(scheduler->priorities[i]);
+    /* Aging boost helps long-waiting low-priority tasks avoid starvation. */
+    if (base == AEGIS_PRIORITY_LOW && AEGIS_AGING_TICKS_PER_BOOST > 0u) {
+      uint64_t waited_ticks = scheduler->scheduler_ticks - scheduler->enqueued_tick[i];
+      uint8_t boost = (uint8_t)(waited_ticks / AEGIS_AGING_TICKS_PER_BOOST);
+      if (boost > AEGIS_AGING_MAX_BOOST) {
+        boost = AEGIS_AGING_MAX_BOOST;
+      }
+      base = (uint8_t)(base + boost);
+    }
+    scheduler->credits[i] = base;
   }
 }
 

@@ -5,6 +5,7 @@ Kernel direction, interfaces, and implementation notes live here.
 ## Current Modules
 
 - `aegis_scheduler_t`: weighted round-robin scheduler with priority-aware dispatch.
+  - low-priority aging boosts add temporary credits after long waits to reduce starvation risk.
   - includes dispatch metrics: total dispatches, high-watermark queue depth, and per-process counts.
   - includes timer-tick preemption simulation hooks with configurable quantum.
   - context switches expose reason codes (`process_start`, `quantum_expired`, `process_exit`, `manual_yield`).

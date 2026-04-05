@@ -78,6 +78,48 @@ static int test_scheduler_priority_weighting(void) {
   return 0;
 }
 
+static int test_scheduler_aging_boost_fairness(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0;
+  uint8_t switched = 0;
+  uint32_t high_a = 0;
+  uint32_t high_b = 0;
+  uint32_t low = 0;
+  int i;
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_set_quantum(&scheduler, 1u);
+  if (aegis_scheduler_add_with_priority(&scheduler, 1201u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 1202u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 1203u, AEGIS_PRIORITY_LOW) != 0) {
+    fprintf(stderr, "aging fairness add failed\n");
+    return 1;
+  }
+  for (i = 0; i < 70; ++i) {
+    if (aegis_scheduler_on_tick(&scheduler, &pid, &switched) != 0) {
+      fprintf(stderr, "aging fairness tick failed\n");
+      return 1;
+    }
+  }
+  if (aegis_scheduler_dispatch_count_for(&scheduler, 1201u, &high_a) != 0 ||
+      aegis_scheduler_dispatch_count_for(&scheduler, 1202u, &high_b) != 0 ||
+      aegis_scheduler_dispatch_count_for(&scheduler, 1203u, &low) != 0) {
+    fprintf(stderr, "aging fairness dispatch counts failed\n");
+    return 1;
+  }
+  if (low < 13u) {
+    fprintf(stderr, "aging fairness expected low-priority boost, got low dispatches=%u\n", low);
+    return 1;
+  }
+  if (high_a <= low || high_b <= low) {
+    fprintf(stderr, "aging fairness should still keep high priorities ahead (%u,%u vs %u)\n",
+            high_a,
+            high_b,
+            low);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_scheduler_remove(void) {
   aegis_scheduler_t scheduler;
   uint32_t pid = 0;
@@ -569,6 +611,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_priority_weighting() != 0) {
+    return 1;
+  }
+  if (test_scheduler_aging_boost_fairness() != 0) {
     return 1;
   }
   if (test_scheduler_metrics() != 0) {
