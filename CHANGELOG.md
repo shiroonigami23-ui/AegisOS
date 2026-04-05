@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 11:41:55Z
+Last generated: 2026-04-05 11:44:16Z
 
 ## Unreleased
 
+- 2026-04-05 `982db4a` "Add_trace_schema_versioning_and_audit_retention_planning_helpers"
+- 2026-04-05 `8cf8915` docs: auto-update explain and changelog
 - 2026-04-05 `42bd665` "Add_actor_registry_lifecycle_and_scheduler_histogram_window"
 - 2026-04-05 `0b244e0` docs: auto-update explain and changelog
 - 2026-04-05 `2f44a9a` "Add_windowed_switch_reason_histogram_to_scheduler_snapshot"
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 11:41:55Z
 - 2026-04-05 `fcf7371` Add_sandbox_policy_legacy_migration_adapter_and_report
 - 2026-04-05 `7d5960e` docs: auto-update explain and changelog
 - 2026-04-05 `78336af` Add_capability_audit_pagination_and_file_sink_helpers
-- 2026-04-05 `14b141d` docs: auto-update explain and changelog
-- 2026-04-05 `cfb4817` Add_scheduler_snapshot_schema_version_and_reason_breakdown
