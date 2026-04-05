@@ -388,6 +388,42 @@ static int test_scheduler_reason_histogram_custom_window_query(void) {
   return 0;
 }
 
+static int test_scheduler_reason_histogram_custom_window_query_json(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0;
+  uint8_t switched = 0;
+  char json[512];
+  int i;
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_set_quantum(&scheduler, 1u);
+  if (aegis_scheduler_add(&scheduler, 9501u) != 0 || aegis_scheduler_add(&scheduler, 9502u) != 0) {
+    fprintf(stderr, "custom window json add failed\n");
+    return 1;
+  }
+  for (i = 0; i < 18; ++i) {
+    if (aegis_scheduler_on_tick(&scheduler, &pid, &switched) != 0) {
+      fprintf(stderr, "custom window json tick failed\n");
+      return 1;
+    }
+  }
+  if (aegis_scheduler_switch_reason_histogram_window_json(&scheduler, 6u, json, sizeof(json)) <= 0) {
+    fprintf(stderr, "custom window json serialization failed\n");
+    return 1;
+  }
+  if (strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"requested_window\":6") == 0 ||
+      strstr(json, "\"applied_window\":6") == 0 ||
+      strstr(json, "\"quantum_expired_count\":") == 0) {
+    fprintf(stderr, "custom window json missing expected fields: %s\n", json);
+    return 1;
+  }
+  if (aegis_scheduler_switch_reason_histogram_window_json(&scheduler, 0u, json, sizeof(json)) >= 0) {
+    fprintf(stderr, "expected invalid requested window to fail json endpoint\n");
+    return 1;
+  }
+  return 0;
+}
+
 static int test_scheduler_wait_latency_metrics(void) {
   aegis_scheduler_t scheduler;
   uint32_t pid = 0;
@@ -548,6 +584,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_reason_histogram_custom_window_query() != 0) {
+    return 1;
+  }
+  if (test_scheduler_reason_histogram_custom_window_query_json() != 0) {
     return 1;
   }
   if (test_scheduler_wait_latency_metrics() != 0) {

@@ -124,5 +124,9 @@ int aegis_scheduler_switch_reason_histogram_window(const aegis_scheduler_t *sche
                                                    uint64_t *quantum_expired_count,
                                                    uint64_t *process_exit_count,
                                                    uint64_t *manual_yield_count);
+int aegis_scheduler_switch_reason_histogram_window_json(const aegis_scheduler_t *scheduler,
+                                                        uint32_t requested_window,
+                                                        char *out,
+                                                        size_t out_size);
 
 #endif

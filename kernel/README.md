@@ -13,6 +13,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - metrics snapshot now includes reason-count breakdown and a schema version tag.
   - metrics snapshot includes a rolling reason-histogram window (`last 32 switches`) for anomaly detection.
   - exposes custom-window histogram query API for caller-provided switch windows.
+  - exposes custom-window histogram JSON endpoint for dashboards and automation consumers.
   - includes JSON serializers for metrics snapshots and wait-report snapshots.
   - includes tick-based wait-time and last-latency counters per process.
   - includes aggregate wait report (`mean`, `p95`, `max`) for tuning and diagnostics.

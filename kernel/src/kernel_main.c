@@ -551,3 +551,42 @@ int aegis_scheduler_switch_reason_histogram_window(const aegis_scheduler_t *sche
   *manual_yield_count = counts[AEGIS_SWITCH_MANUAL_YIELD];
   return 0;
 }
+
+int aegis_scheduler_switch_reason_histogram_window_json(const aegis_scheduler_t *scheduler,
+                                                        uint32_t requested_window,
+                                                        char *out,
+                                                        size_t out_size) {
+  uint32_t applied_window = 0;
+  uint64_t process_start_count = 0;
+  uint64_t quantum_expired_count = 0;
+  uint64_t process_exit_count = 0;
+  uint64_t manual_yield_count = 0;
+  int written;
+  if (out == 0 || out_size == 0u) {
+    return -1;
+  }
+  if (aegis_scheduler_switch_reason_histogram_window(scheduler,
+                                                     requested_window,
+                                                     &applied_window,
+                                                     &process_start_count,
+                                                     &quantum_expired_count,
+                                                     &process_exit_count,
+                                                     &manual_yield_count) != 0) {
+    return -1;
+  }
+  written = snprintf(out,
+                     out_size,
+                     "{\"schema_version\":1,\"requested_window\":%u,\"applied_window\":%u,"
+                     "\"process_start_count\":%llu,\"quantum_expired_count\":%llu,"
+                     "\"process_exit_count\":%llu,\"manual_yield_count\":%llu}",
+                     requested_window,
+                     applied_window,
+                     (unsigned long long)process_start_count,
+                     (unsigned long long)quantum_expired_count,
+                     (unsigned long long)process_exit_count,
+                     (unsigned long long)manual_yield_count);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
+}
