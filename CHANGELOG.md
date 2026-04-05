@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 10:29:59Z
+Last generated: 2026-04-05 10:30:41Z
 
 ## Unreleased
 
+- 2026-04-05 `fa8d88a` Add_package_dependency_cycle_detection_to_validator
+- 2026-04-05 `309e75f` docs: auto-update explain and changelog
 - 2026-04-05 `a728fcd` Add_package_manifest_schema_version_1_validation
 - 2026-04-05 `0908d44` docs: auto-update explain and changelog
 - 2026-04-05 `887ffdd` Add_ASAN_UBSAN_sanitizer_jobs_to_clang_workflow
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 10:29:59Z
 - 2026-04-05 `886b81c` Add_symlink_resolution_rules_for_filesystem_scope_checks
 - 2026-04-05 `4523e6b` docs: auto-update explain and changelog
 - 2026-04-05 `ef5dd0b` Add_network_scope_enforcement_host_port_protocol_rules
-- 2026-04-05 `306b2e4` docs: auto-update explain and changelog
-- 2026-04-05 `44e7fac` Add_clang_matrix_workflow_for_core_module_tests
