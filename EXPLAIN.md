@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 13:01:46Z
+Last generated: 2026-04-05 13:04:20Z
 
 ## What AegisOS Is Building
 
@@ -39,7 +39,6 @@ We implement in vertical slices:
 - #79 "Trace_json_property_perf_baseline_and_seed_corpus" (priority-p1, security)
 - #70 Actor_registry_persistent_backing_store (priority-p1, security)
 - #40 Apply_branch_protection_profile_on_main (priority-p1)
-- #35 Package_schema_migration_helper (priority-p1)
 - #34 Sanitizer_suppressions_baseline (priority-p1)
 - #27 Symlink_resolution_filesystem_backend (priority-p1, security)
 
@@ -62,24 +61,26 @@ Recent commit touches in `weekly` window (higher means more active recently):
 - kernel: 47
 - userland: 86
 - packages: 39
-- docs: 153
-- workflows: 13
-- tests: 56
+- docs: 157
+- workflows: 14
+- tests: 58
 - tools: 1
 - platform: 1
-- scripts: 27
+- scripts: 28
 - other: 14
 
 Open issue pressure by component signal:
 
 - security: 3
 - kernel: 0
-- packages: 1
+- packages: 0
 - docs: 0
 - other: 3
 
 ## Recent Engineering Changes
 
+- `3fbc4c2` (2026-04-05): "Add_sanitizer_suppressions_baseline_and_runner"
+- `264139e` (2026-04-05): docs: auto-update explain and changelog
 - `294a3fe` (2026-04-05): "Add_package_manifest_schema_migration_helper_with_tests"
 - `fdc9706` (2026-04-05): docs: auto-update explain and changelog
 - `dfb3685` (2026-04-05): "Add_package_profile_to_hardware_compatibility_matrix_docs"
@@ -93,5 +94,3 @@ Open issue pressure by component signal:
 - `42f5deb` (2026-04-05): "Add_graphviz_rendering_guide_for_package_dependency_graph"
 - `7b57902` (2026-04-05): docs: auto-update explain and changelog
 - `02df452` (2026-04-05): "Add_onboarding_ci_command_equivalence_guardrails"
-- `4a96fa2` (2026-04-05): docs: auto-update explain and changelog
-- `4926515` (2026-04-05): "Add_seed_replay_harness_for_trace_json_property_tests"

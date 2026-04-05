@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 13:01:46Z
+Last generated: 2026-04-05 13:04:20Z
 
 ## Unreleased
 
+- 2026-04-05 `3fbc4c2` "Add_sanitizer_suppressions_baseline_and_runner"
+- 2026-04-05 `264139e` docs: auto-update explain and changelog
 - 2026-04-05 `294a3fe` "Add_package_manifest_schema_migration_helper_with_tests"
 - 2026-04-05 `fdc9706` docs: auto-update explain and changelog
 - 2026-04-05 `dfb3685` "Add_package_profile_to_hardware_compatibility_matrix_docs"
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 13:01:46Z
 - 2026-04-05 `42f5deb` "Add_graphviz_rendering_guide_for_package_dependency_graph"
 - 2026-04-05 `7b57902` docs: auto-update explain and changelog
 - 2026-04-05 `02df452` "Add_onboarding_ci_command_equivalence_guardrails"
-- 2026-04-05 `4a96fa2` docs: auto-update explain and changelog
-- 2026-04-05 `4926515` "Add_seed_replay_harness_for_trace_json_property_tests"
