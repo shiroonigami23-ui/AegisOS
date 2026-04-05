@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 11:36:26Z
+Last generated: 2026-04-05 11:39:28Z
 
 ## Unreleased
 
+- 2026-04-05 `2f44a9a` "Add_windowed_switch_reason_histogram_to_scheduler_snapshot"
+- 2026-04-05 `bd68b5e` docs: auto-update explain and changelog
 - 2026-04-05 `9f37adb` "Add_dns_dual_stack_trace_evidence_and_fs_wildcard_lint_compile"
 - 2026-04-05 `f56fd91` docs: auto-update explain and changelog
 - 2026-04-05 `206412e` Add_machine_readable_json_network_trace_api
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 11:36:26Z
 - 2026-04-05 `cfb4817` Add_scheduler_snapshot_schema_version_and_reason_breakdown
 - 2026-04-05 `9caf674` docs: auto-update explain and changelog
 - 2026-04-05 `6934178` Add_capability_actor_identity_model_and_validation
-- 2026-04-05 `bd9e491` docs: auto-update explain and changelog
-- 2026-04-05 `2606126` Add_filesystem_wildcard_validation_rules

@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 11:36:26Z
+Last generated: 2026-04-05 11:39:28Z
 
 ## What AegisOS Is Building
 
@@ -36,13 +36,12 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #68 Trace_JSON_string_escaping_hardening (priority-p1, security)
 - #67 Network_trace_schema_version_field (priority-p1, security)
-- #66 DNS_dual_stack_resolution_evidence_trace (priority-p1, security)
 - #65 Sandbox_policy_migration_batch_tool (priority-p1, security)
 - #64 Capability_audit_sink_rotation_retention_policy (priority-p1, security)
 - #63 Scheduler_snapshot_reason_histogram_window (priority-p1, kernel)
 - #62 Capability_actor_registry_and_revocation_hooks (priority-p1, security)
-- #61 Filesystem_scope_wildcard_compiler_and_lint (priority-p1, security)
 - #53 Package_graph_rendering_guide (priority-p1)
 - #48 Docs_heatmap_trend_window (priority-p1)
 - #40 Apply_branch_protection_profile_on_main (priority-p1)
@@ -83,7 +82,7 @@ Recent commit touches (higher means more active recently):
 
 Open issue pressure by component signal:
 
-- security: 8
+- security: 7
 - kernel: 2
 - packages: 3
 - docs: 1
@@ -91,6 +90,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `2f44a9a` (2026-04-05): "Add_windowed_switch_reason_histogram_to_scheduler_snapshot"
+- `bd68b5e` (2026-04-05): docs: auto-update explain and changelog
 - `9f37adb` (2026-04-05): "Add_dns_dual_stack_trace_evidence_and_fs_wildcard_lint_compile"
 - `f56fd91` (2026-04-05): docs: auto-update explain and changelog
 - `206412e` (2026-04-05): Add_machine_readable_json_network_trace_api
@@ -104,5 +105,3 @@ Open issue pressure by component signal:
 - `cfb4817` (2026-04-05): Add_scheduler_snapshot_schema_version_and_reason_breakdown
 - `9caf674` (2026-04-05): docs: auto-update explain and changelog
 - `6934178` (2026-04-05): Add_capability_actor_identity_model_and_validation
-- `bd9e491` (2026-04-05): docs: auto-update explain and changelog
-- `2606126` (2026-04-05): Add_filesystem_wildcard_validation_rules
