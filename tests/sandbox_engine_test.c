@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "capability.h"
@@ -579,6 +580,22 @@ static int has_raw_control_bytes(const char *s) {
   return 0;
 }
 
+static int parse_env_unsigned(const char *name, unsigned int min, unsigned int max, unsigned int *out_value) {
+  const char *raw = getenv(name);
+  char *end = 0;
+  unsigned long parsed = 0ul;
+  if (raw == 0 || raw[0] == '\0') {
+    return 0;
+  }
+  parsed = strtoul(raw, &end, 10);
+  if (end == raw || end == 0 || *end != '\0' || parsed < (unsigned long)min || parsed > (unsigned long)max) {
+    fprintf(stderr, "invalid value for %s=%s (expected %u..%u)\n", name, raw, min, max);
+    return -1;
+  }
+  *out_value = (unsigned int)parsed;
+  return 1;
+}
+
 static int test_network_scope_debug_trace_json_property_generator(void) {
   aegis_capability_store_t cap_store;
   aegis_policy_engine_t engine;
@@ -588,7 +605,10 @@ static int test_network_scope_debug_trace_json_property_generator(void) {
   char json_trace[2048];
   char host[96];
   unsigned int seed = 123456789u;
-  int i;
+  unsigned int iterations = 96u;
+  unsigned int replay_seed = 0u;
+  int has_replay_seed = 0;
+  unsigned int i;
 
   aegis_capability_store_init(&cap_store);
   aegis_policy_engine_init(&engine);
@@ -600,15 +620,33 @@ static int test_network_scope_debug_trace_json_property_generator(void) {
     fprintf(stderr, "json property fuzz set policy failed\n");
     return 1;
   }
-  for (i = 0; i < 96; ++i) {
+  if (parse_env_unsigned("AEGIS_TRACE_JSON_FUZZ_SEED", 1u, 0xFFFFFFFFu, &seed) < 0) {
+    return 1;
+  }
+  if (parse_env_unsigned("AEGIS_TRACE_JSON_FUZZ_ITERS", 1u, 4096u, &iterations) < 0) {
+    return 1;
+  }
+  has_replay_seed = parse_env_unsigned("AEGIS_TRACE_JSON_FUZZ_REPLAY_SEED",
+                                       1u,
+                                       0xFFFFFFFFu,
+                                       &replay_seed);
+  if (has_replay_seed < 0) {
+    return 1;
+  }
+  if (has_replay_seed == 1) {
+    seed = replay_seed;
+    iterations = 1u;
+  }
+  for (i = 0u; i < iterations; ++i) {
+    unsigned int case_seed = seed;
     build_fuzz_host(host, sizeof(host), &seed);
-    if (aegis_policy_engine_clear_net_rules(&engine, 4007u) != 0 && i > 0) {
-      fprintf(stderr, "json property fuzz clear net rules failed at iter %d\n", i);
+    if (aegis_policy_engine_clear_net_rules(&engine, 4007u) != 0 && i > 0u) {
+      fprintf(stderr, "json property fuzz clear net rules failed at iter %u seed %u\n", i, case_seed);
       return 1;
     }
     if (aegis_policy_engine_add_net_rule(
             &engine, 4007u, host, 443, 443, AEGIS_NET_PROTO_TCP, 1u, 0u, 1u) != 0) {
-      fprintf(stderr, "json property fuzz add net rule failed at iter %d\n", i);
+      fprintf(stderr, "json property fuzz add net rule failed at iter %u seed %u host %s\n", i, case_seed, host);
       return 1;
     }
     if (aegis_policy_engine_check_network_with_ip_trace_json(&engine,
@@ -623,18 +661,34 @@ static int test_network_scope_debug_trace_json_property_generator(void) {
                                                              json_trace,
                                                              sizeof(json_trace),
                                                              &decision) != 1) {
-      fprintf(stderr, "json property fuzz expected allow at iter %d\n", i);
+      fprintf(stderr,
+              "json property fuzz expected allow at iter %u seed %u host %s (replay with "
+              "AEGIS_TRACE_JSON_FUZZ_REPLAY_SEED=%u)\n",
+              i,
+              case_seed,
+              host,
+              case_seed);
       return 1;
     }
     if (strstr(json_trace, "\"trace_schema_version\":1") == 0 ||
         strstr(json_trace, "\"trace_format_version\":1") == 0 ||
         strstr(json_trace, "\"decision_allowed\":1") == 0 ||
         strstr(json_trace, "\"host\":\"") == 0) {
-      fprintf(stderr, "json property fuzz missing required fields at iter %d: %s\n", i, json_trace);
+      fprintf(stderr,
+              "json property fuzz missing required fields at iter %u seed %u host %s: %s\n",
+              i,
+              case_seed,
+              host,
+              json_trace);
       return 1;
     }
     if (has_raw_control_bytes(json_trace)) {
-      fprintf(stderr, "json property fuzz emitted raw control bytes at iter %d: %s\n", i, json_trace);
+      fprintf(stderr,
+              "json property fuzz emitted raw control bytes at iter %u seed %u host %s: %s\n",
+              i,
+              case_seed,
+              host,
+              json_trace);
       return 1;
     }
   }
