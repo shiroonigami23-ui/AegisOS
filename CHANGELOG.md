@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 10:26:59Z
+Last generated: 2026-04-05 10:28:24Z
 
 ## Unreleased
 
+- 2026-04-05 `4f20083` Add_timer_tick_preemption_simulation_with_quantum_hooks
+- 2026-04-05 `c181e22` docs: auto-update explain and changelog
 - 2026-04-05 `0e65665` Add_scheduler_metrics_tracepoints_and_tests
 - 2026-04-05 `4d87d05` docs: auto-update explain and changelog
 - 2026-04-05 `2c96784` Implement_issue_enrichment_token_ttl_rotation_and_scheduler_priority
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 10:26:59Z
 - 2026-04-05 `abdd8fa` Add_path_scoped_filesystem_enforcement_with_deny_override
 - 2026-04-05 `7b72999` docs: auto-update explain and changelog
 - 2026-04-05 `7ce10dc` Add_package_manifest_validator_and_ci_workflow
-- 2026-04-05 `e3d506e` docs: auto-update explain and changelog
-- 2026-04-05 `613b123` Add_auto_docs_workflow_and_sandbox_policy_engine_mvp

@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 10:26:59Z
+Last generated: 2026-04-05 10:28:24Z
 
 ## What AegisOS Is Building
 
@@ -36,6 +36,8 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #32 Scheduler_tick_counter_usage (priority-p1, kernel)
+- #31 Scheduler_metrics_export_endpoint (priority-p1, kernel)
 - #30 Docs_enrichment_component_heatmap (priority-p1)
 - #29 Scheduler_aging_policy_for_fairness (priority-p1, kernel)
 - #28 Capability_rotation_audit_metadata (priority-p1, security)
@@ -49,7 +51,6 @@ We implement in vertical slices:
 - #19 Package_manifest_schema_versioning (priority-p1)
 - #14 Sandbox_policy_hot_reload (priority-p1, security)
 - #13 Sandbox_policy_serialization_format (priority-p1, security)
-- #12 Scheduler_metrics_and_tracepoints (priority-p1, kernel)
 - #8 Capability_audit_log_pipeline (priority-p1, security)
 - #7 Scheduler_preemption_tick_simulation (priority-p1, kernel)
 
@@ -68,6 +69,8 @@ We implement in vertical slices:
 
 ## Recent Engineering Changes
 
+- `4f20083` (2026-04-05): Add_timer_tick_preemption_simulation_with_quantum_hooks
+- `c181e22` (2026-04-05): docs: auto-update explain and changelog
 - `0e65665` (2026-04-05): Add_scheduler_metrics_tracepoints_and_tests
 - `4d87d05` (2026-04-05): docs: auto-update explain and changelog
 - `2c96784` (2026-04-05): Implement_issue_enrichment_token_ttl_rotation_and_scheduler_priority
@@ -81,5 +84,3 @@ We implement in vertical slices:
 - `abdd8fa` (2026-04-05): Add_path_scoped_filesystem_enforcement_with_deny_override
 - `7b72999` (2026-04-05): docs: auto-update explain and changelog
 - `7ce10dc` (2026-04-05): Add_package_manifest_validator_and_ci_workflow
-- `e3d506e` (2026-04-05): docs: auto-update explain and changelog
-- `613b123` (2026-04-05): Add_auto_docs_workflow_and_sandbox_policy_engine_mvp
