@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 10:40:40Z
+Last generated: 2026-04-05 10:41:29Z
 
 ## What AegisOS Is Building
 
@@ -63,13 +63,15 @@ We implement in vertical slices:
 - none
 
 ### Good First Task
-- #9 Toolchain_bootstrap_for_contributors (good-first-task)
+- #41 Onboarding_bootstrap_script_runner (good-first-task)
 
 ### Other
 - none
 
 ## Recent Engineering Changes
 
+- `9ebe78b` (2026-04-05): Fix_project_automation_with_PAT_secret_and_github_script_v8
+- `6f279cc` (2026-04-05): docs: auto-update explain and changelog
 - `43de16a` (2026-04-05): Add_contributor_onboarding_checklist_and_reference
 - `d8ee84a` (2026-04-05): docs: auto-update explain and changelog
 - `65fc46c` (2026-04-05): Add_branch_protection_profile_and_configuration_helper
@@ -83,5 +85,3 @@ We implement in vertical slices:
 - `a728fcd` (2026-04-05): Add_package_manifest_schema_version_1_validation
 - `0908d44` (2026-04-05): docs: auto-update explain and changelog
 - `887ffdd` (2026-04-05): Add_ASAN_UBSAN_sanitizer_jobs_to_clang_workflow
-- `6269434` (2026-04-05): docs: auto-update explain and changelog
-- `4f20083` (2026-04-05): Add_timer_tick_preemption_simulation_with_quantum_hooks

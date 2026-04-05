@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 10:40:40Z
+Last generated: 2026-04-05 10:41:29Z
 
 ## Unreleased
 
+- 2026-04-05 `9ebe78b` Fix_project_automation_with_PAT_secret_and_github_script_v8
+- 2026-04-05 `6f279cc` docs: auto-update explain and changelog
 - 2026-04-05 `43de16a` Add_contributor_onboarding_checklist_and_reference
 - 2026-04-05 `d8ee84a` docs: auto-update explain and changelog
 - 2026-04-05 `65fc46c` Add_branch_protection_profile_and_configuration_helper
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 10:40:40Z
 - 2026-04-05 `a728fcd` Add_package_manifest_schema_version_1_validation
 - 2026-04-05 `0908d44` docs: auto-update explain and changelog
 - 2026-04-05 `887ffdd` Add_ASAN_UBSAN_sanitizer_jobs_to_clang_workflow
-- 2026-04-05 `6269434` docs: auto-update explain and changelog
-- 2026-04-05 `4f20083` Add_timer_tick_preemption_simulation_with_quantum_hooks
