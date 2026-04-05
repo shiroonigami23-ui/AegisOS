@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "kernel.h"
 
 static int test_kernel_boot(void) {
@@ -331,6 +332,60 @@ static int test_scheduler_wait_report(void) {
   return 0;
 }
 
+static int test_scheduler_snapshot_serialization(void) {
+  aegis_scheduler_t scheduler;
+  aegis_scheduler_metrics_snapshot_t metrics;
+  aegis_scheduler_wait_report_snapshot_t wait_snapshot;
+  uint32_t pid = 0;
+  uint8_t switched = 0;
+  char metrics_json[512];
+  char wait_json[512];
+  int i;
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_set_quantum(&scheduler, 2u);
+  if (aegis_scheduler_add(&scheduler, 9201u) != 0 || aegis_scheduler_add(&scheduler, 9202u) != 0) {
+    fprintf(stderr, "serialization add failed\n");
+    return 1;
+  }
+  for (i = 0; i < 8; ++i) {
+    if (aegis_scheduler_on_tick(&scheduler, &pid, &switched) != 0) {
+      fprintf(stderr, "serialization tick failed\n");
+      return 1;
+    }
+  }
+  if (aegis_scheduler_metrics_snapshot(&scheduler, &metrics) != 0) {
+    fprintf(stderr, "metrics snapshot query failed\n");
+    return 1;
+  }
+  if (aegis_scheduler_metrics_snapshot_json(&metrics, metrics_json, sizeof(metrics_json)) <= 0) {
+    fprintf(stderr, "metrics snapshot serialization failed\n");
+    return 1;
+  }
+  if (strstr(metrics_json, "\"queue_depth\":2") == 0 ||
+      strstr(metrics_json, "\"scheduler_ticks\":") == 0) {
+    fprintf(stderr, "metrics json missing expected fields\n");
+    return 1;
+  }
+  if (aegis_scheduler_wait_report_snapshot(&scheduler, &wait_snapshot) != 0) {
+    fprintf(stderr, "wait snapshot endpoint failed\n");
+    return 1;
+  }
+  if (wait_snapshot.queue_depth != 2u || wait_snapshot.captured_at_tick == 0u) {
+    fprintf(stderr, "wait snapshot values invalid\n");
+    return 1;
+  }
+  if (aegis_scheduler_wait_report_snapshot_json(&wait_snapshot, wait_json, sizeof(wait_json)) <= 0) {
+    fprintf(stderr, "wait snapshot serialization failed\n");
+    return 1;
+  }
+  if (strstr(wait_json, "\"captured_at_tick\":") == 0 ||
+      strstr(wait_json, "\"p95_wait_ticks\":") == 0) {
+    fprintf(stderr, "wait snapshot json missing expected fields\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_kernel_boot() != 0) {
     return 1;
@@ -357,6 +412,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_wait_report() != 0) {
+    return 1;
+  }
+  if (test_scheduler_snapshot_serialization() != 0) {
     return 1;
   }
   puts("kernel simulation check passed");

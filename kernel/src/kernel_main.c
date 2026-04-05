@@ -1,5 +1,7 @@
 #include "kernel.h"
 
+#include <stdio.h>
+
 #define AEGIS_SCHEDULER_CAPACITY 64u
 
 static void sort_u64(uint64_t *arr, size_t n) {
@@ -317,6 +319,27 @@ int aegis_scheduler_metrics_snapshot(const aegis_scheduler_t *scheduler,
   return 0;
 }
 
+int aegis_scheduler_metrics_snapshot_json(const aegis_scheduler_metrics_snapshot_t *snapshot,
+                                          char *out, size_t out_size) {
+  int written;
+  if (snapshot == 0 || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  written = snprintf(out, out_size,
+                     "{\"queue_depth\":%llu,\"high_watermark\":%llu,\"total_dispatches\":%llu,"
+                     "\"scheduler_ticks\":%llu,\"current_pid\":%u,\"quantum_ticks\":%u,"
+                     "\"quantum_remaining\":%u}",
+                     (unsigned long long)snapshot->queue_depth,
+                     (unsigned long long)snapshot->high_watermark,
+                     (unsigned long long)snapshot->total_dispatches,
+                     (unsigned long long)snapshot->scheduler_ticks, snapshot->current_pid,
+                     snapshot->quantum_ticks, snapshot->quantum_remaining);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
+}
+
 int aegis_scheduler_wait_ticks_for(const aegis_scheduler_t *scheduler, uint32_t process_id,
                                    uint64_t *wait_ticks) {
   size_t idx = 0;
@@ -378,6 +401,43 @@ int aegis_scheduler_wait_report(const aegis_scheduler_t *scheduler,
   report->p95_last_latency_ticks = lats[p95_index];
   report->max_last_latency_ticks = lats[n - 1];
   return 0;
+}
+
+int aegis_scheduler_wait_report_snapshot(const aegis_scheduler_t *scheduler,
+                                         aegis_scheduler_wait_report_snapshot_t *snapshot) {
+  if (scheduler == 0 || snapshot == 0) {
+    return -1;
+  }
+  snapshot->captured_at_tick = scheduler->scheduler_ticks;
+  snapshot->queue_depth = scheduler->count;
+  snapshot->total_dispatches = scheduler->total_dispatches;
+  return aegis_scheduler_wait_report(scheduler, &snapshot->report);
+}
+
+int aegis_scheduler_wait_report_snapshot_json(const aegis_scheduler_wait_report_snapshot_t *snapshot,
+                                              char *out, size_t out_size) {
+  int written;
+  if (snapshot == 0 || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  written = snprintf(out, out_size,
+                     "{\"captured_at_tick\":%llu,\"queue_depth\":%llu,\"total_dispatches\":%llu,"
+                     "\"mean_wait_ticks\":%llu,\"p95_wait_ticks\":%llu,\"max_wait_ticks\":%llu,"
+                     "\"mean_last_latency_ticks\":%llu,\"p95_last_latency_ticks\":%llu,"
+                     "\"max_last_latency_ticks\":%llu}",
+                     (unsigned long long)snapshot->captured_at_tick,
+                     (unsigned long long)snapshot->queue_depth,
+                     (unsigned long long)snapshot->total_dispatches,
+                     (unsigned long long)snapshot->report.mean_wait_ticks,
+                     (unsigned long long)snapshot->report.p95_wait_ticks,
+                     (unsigned long long)snapshot->report.max_wait_ticks,
+                     (unsigned long long)snapshot->report.mean_last_latency_ticks,
+                     (unsigned long long)snapshot->report.p95_last_latency_ticks,
+                     (unsigned long long)snapshot->report.max_last_latency_ticks);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
 }
 
 int aegis_scheduler_switch_reason_count(const aegis_scheduler_t *scheduler, uint8_t switch_reason,

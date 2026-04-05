@@ -43,6 +43,13 @@ typedef struct {
   uint64_t max_last_latency_ticks;
 } aegis_scheduler_wait_report_t;
 
+typedef struct {
+  uint64_t captured_at_tick;
+  size_t queue_depth;
+  uint64_t total_dispatches;
+  aegis_scheduler_wait_report_t report;
+} aegis_scheduler_wait_report_snapshot_t;
+
 typedef enum {
   AEGIS_PRIORITY_LOW = 1,
   AEGIS_PRIORITY_NORMAL = 2,
@@ -79,12 +86,18 @@ int aegis_scheduler_on_tick_ex(aegis_scheduler_t *scheduler, uint32_t *running_p
 int aegis_scheduler_manual_yield(aegis_scheduler_t *scheduler);
 int aegis_scheduler_metrics_snapshot(const aegis_scheduler_t *scheduler,
                                      aegis_scheduler_metrics_snapshot_t *snapshot);
+int aegis_scheduler_metrics_snapshot_json(const aegis_scheduler_metrics_snapshot_t *snapshot,
+                                          char *out, size_t out_size);
 int aegis_scheduler_wait_ticks_for(const aegis_scheduler_t *scheduler, uint32_t process_id,
                                    uint64_t *wait_ticks);
 int aegis_scheduler_last_latency_for(const aegis_scheduler_t *scheduler, uint32_t process_id,
                                      uint64_t *latency_ticks);
 int aegis_scheduler_wait_report(const aegis_scheduler_t *scheduler,
                                 aegis_scheduler_wait_report_t *report);
+int aegis_scheduler_wait_report_snapshot(const aegis_scheduler_t *scheduler,
+                                         aegis_scheduler_wait_report_snapshot_t *snapshot);
+int aegis_scheduler_wait_report_snapshot_json(const aegis_scheduler_wait_report_snapshot_t *snapshot,
+                                              char *out, size_t out_size);
 int aegis_scheduler_switch_reason_count(const aegis_scheduler_t *scheduler, uint8_t switch_reason,
                                         uint64_t *count);
 
