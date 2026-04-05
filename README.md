@@ -68,6 +68,7 @@ This repository contains:
 - [`Clang Matrix workflow`](.github/workflows/clang-tests.yml) compiles/tests core modules across C standard variants.
   - includes ASAN/UBSAN sanitizer jobs for memory and undefined behavior checks.
   - sanitizer suppression baseline and policy docs: [`docs/SANITIZERS.md`](docs/SANITIZERS.md).
+  - includes trace JSON property smoke profiling for regression triage: [`docs/TRACE_JSON_PROPERTY.md`](docs/TRACE_JSON_PROPERTY.md).
 
 ## Collaboration
 

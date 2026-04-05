@@ -43,3 +43,18 @@ jobs:
 
       - name: Build and run sanitizer suite with suppression baseline
         run: python3 scripts/run_sanitizer_suite.py
+
+  trace-json-property-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang
+        run: sudo apt-get update && sudo apt-get install -y clang
+
+      - name: Run trace JSON property smoke profile
+        run: python3 scripts/profile_trace_json_property.py --smoke --summary-json trace-json-profile-summary.json
+
+      - name: Show summary
+        run: cat trace-json-profile-summary.json
