@@ -37,6 +37,7 @@ Build a modern, privacy-first operating system that combines the strongest quali
 4. Follow milestone plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 5. Use execution backlog in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
 6. Read contributor explainer in [`EXPLAIN.md`](EXPLAIN.md).
+7. Read branch governance profile in [`docs/BRANCH_PROTECTION.md`](docs/BRANCH_PROTECTION.md).
 
 ## Current Status
 
