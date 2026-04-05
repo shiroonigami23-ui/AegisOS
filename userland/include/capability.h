@@ -60,6 +60,15 @@ typedef struct {
   uint8_t has_more;
 } aegis_capability_audit_page_t;
 
+typedef struct {
+  uint32_t actor_id;
+  uint8_t actor_source;
+  char actor_label[32];
+  uint8_t active;
+  uint8_t revoked;
+  uint64_t revoked_at_epoch;
+} aegis_actor_registry_entry_t;
+
 int aegis_capability_validate(const aegis_capability_token_t *token,
                               uint32_t requested_permissions);
 void aegis_capability_store_init(aegis_capability_store_t *store);
@@ -80,6 +89,10 @@ int aegis_capability_rotate_with_identity(aegis_capability_store_t *store, uint3
                                           uint8_t actor_source, const char *actor_label,
                                           const char *reason);
 int aegis_capability_revoke(aegis_capability_store_t *store, uint32_t process_id);
+int aegis_capability_revoke_with_identity(aegis_capability_store_t *store, uint32_t process_id,
+                                          uint64_t now_epoch, uint32_t actor_id,
+                                          uint8_t actor_source, const char *actor_label,
+                                          const char *reason);
 int aegis_capability_is_allowed(const aegis_capability_store_t *store, uint32_t process_id,
                                 uint32_t requested_permissions);
 int aegis_capability_is_allowed_at(const aegis_capability_store_t *store, uint32_t process_id,
@@ -97,5 +110,11 @@ int aegis_capability_audit_export_csv_page(size_t cursor, size_t limit,
                                            aegis_capability_audit_page_t *page);
 int aegis_capability_audit_file_sink_name(const char *prefix, uint32_t chunk_id,
                                           char *out, size_t out_size);
+void aegis_actor_registry_reset(void);
+int aegis_actor_registry_register(uint32_t actor_id, uint8_t actor_source, const char *actor_label);
+int aegis_actor_registry_lookup(uint32_t actor_id, uint8_t actor_source,
+                                aegis_actor_registry_entry_t *entry);
+int aegis_actor_registry_revoke(uint32_t actor_id, uint8_t actor_source,
+                                uint64_t now_epoch, const char *reason);
 
 #endif

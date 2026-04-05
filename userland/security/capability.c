@@ -6,6 +6,7 @@
 
 static aegis_capability_audit_event_t g_audit_events[512];
 static size_t g_audit_count = 0;
+static aegis_actor_registry_entry_t g_actor_registry[256];
 
 static size_t capability_audit_base(void) {
   if (g_audit_count > 512u) {
@@ -88,6 +89,38 @@ static int actor_identity_valid(uint8_t actor_source, uint32_t actor_id, const c
     return 0;
   }
   return actor_label_valid(actor_label);
+}
+
+static int actor_registry_find(uint32_t actor_id, uint8_t actor_source, size_t *index) {
+  size_t i;
+  if (index == 0) {
+    return 0;
+  }
+  for (i = 0; i < 256u; ++i) {
+    if (g_actor_registry[i].active == 0 && g_actor_registry[i].revoked == 0) {
+      continue;
+    }
+    if (g_actor_registry[i].actor_id == actor_id && g_actor_registry[i].actor_source == actor_source) {
+      *index = i;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static int actor_identity_active_in_registry(uint32_t actor_id, uint8_t actor_source,
+                                             const char *actor_label) {
+  size_t index = 0;
+  if (actor_source == AEGIS_ACTOR_SYSTEM) {
+    return actor_id == 0u;
+  }
+  if (!actor_registry_find(actor_id, actor_source, &index)) {
+    return 0;
+  }
+  if (g_actor_registry[index].active == 0 || g_actor_registry[index].revoked != 0) {
+    return 0;
+  }
+  return strcmp(g_actor_registry[index].actor_label, actor_label) == 0;
 }
 
 static void capability_audit_log(uint8_t event_type, uint64_t now_epoch, uint32_t process_id,
@@ -233,6 +266,9 @@ int aegis_capability_rotate_with_identity(aegis_capability_store_t *store, uint3
   if (!actor_identity_valid(actor_source, actor_id, actor_label)) {
     return -1;
   }
+  if (!actor_identity_active_in_registry(actor_id, actor_source, actor_label)) {
+    return -1;
+  }
   if (!capability_find_index(store, process_id, &index)) {
     return -1;
   }
@@ -246,7 +282,29 @@ int aegis_capability_rotate_with_identity(aegis_capability_store_t *store, uint3
 }
 
 int aegis_capability_revoke(aegis_capability_store_t *store, uint32_t process_id) {
+  return aegis_capability_revoke_with_identity(store,
+                                               process_id,
+                                               0u,
+                                               0u,
+                                               AEGIS_ACTOR_SYSTEM,
+                                               "system",
+                                               "revoke");
+}
+
+int aegis_capability_revoke_with_identity(aegis_capability_store_t *store, uint32_t process_id,
+                                          uint64_t now_epoch, uint32_t actor_id,
+                                          uint8_t actor_source, const char *actor_label,
+                                          const char *reason) {
   size_t index = 0;
+  if (store == 0 || process_id == 0) {
+    return -1;
+  }
+  if (!actor_identity_valid(actor_source, actor_id, actor_label)) {
+    return -1;
+  }
+  if (!actor_identity_active_in_registry(actor_id, actor_source, actor_label)) {
+    return -1;
+  }
   if (!capability_find_index(store, process_id, &index)) {
     return -1;
   }
@@ -255,8 +313,15 @@ int aegis_capability_revoke(aegis_capability_store_t *store, uint32_t process_id
   store->tokens[index].issued_at_epoch = 0;
   store->tokens[index].expires_at_epoch = 0;
   store->tokens[index].rotation_counter = 0;
-  capability_audit_log(AEGIS_CAP_AUDIT_REVOKE, 0, process_id, 0, 0, 0u, AEGIS_ACTOR_SYSTEM, "system",
-                       "revoke");
+  capability_audit_log(AEGIS_CAP_AUDIT_REVOKE,
+                       now_epoch,
+                       process_id,
+                       0,
+                       0,
+                       actor_id,
+                       actor_source,
+                       actor_label,
+                       reason != 0 ? reason : "revoke");
   return 0;
 }
 
@@ -439,5 +504,92 @@ int aegis_capability_audit_file_sink_name(const char *prefix, uint32_t chunk_id,
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
+  return 0;
+}
+
+void aegis_actor_registry_reset(void) {
+  size_t i;
+  for (i = 0; i < 256u; ++i) {
+    g_actor_registry[i].actor_id = 0u;
+    g_actor_registry[i].actor_source = 0u;
+    g_actor_registry[i].actor_label[0] = '\0';
+    g_actor_registry[i].active = 0u;
+    g_actor_registry[i].revoked = 0u;
+    g_actor_registry[i].revoked_at_epoch = 0u;
+  }
+}
+
+int aegis_actor_registry_register(uint32_t actor_id, uint8_t actor_source, const char *actor_label) {
+  size_t index = 0;
+  size_t free_index = 256u;
+  size_t i;
+  if (!actor_identity_valid(actor_source, actor_id, actor_label)) {
+    return -1;
+  }
+  if (actor_source == AEGIS_ACTOR_SYSTEM) {
+    return 0;
+  }
+  if (actor_registry_find(actor_id, actor_source, &index)) {
+    g_actor_registry[index].active = 1u;
+    g_actor_registry[index].revoked = 0u;
+    g_actor_registry[index].revoked_at_epoch = 0u;
+    snprintf(g_actor_registry[index].actor_label, sizeof(g_actor_registry[index].actor_label), "%s",
+             actor_label);
+    return 0;
+  }
+  for (i = 0; i < 256u; ++i) {
+    if (g_actor_registry[i].active == 0u && g_actor_registry[i].revoked == 0u) {
+      free_index = i;
+      break;
+    }
+  }
+  if (free_index == 256u) {
+    return -1;
+  }
+  g_actor_registry[free_index].actor_id = actor_id;
+  g_actor_registry[free_index].actor_source = actor_source;
+  snprintf(g_actor_registry[free_index].actor_label, sizeof(g_actor_registry[free_index].actor_label), "%s",
+           actor_label);
+  g_actor_registry[free_index].active = 1u;
+  g_actor_registry[free_index].revoked = 0u;
+  g_actor_registry[free_index].revoked_at_epoch = 0u;
+  return 0;
+}
+
+int aegis_actor_registry_lookup(uint32_t actor_id, uint8_t actor_source,
+                                aegis_actor_registry_entry_t *entry) {
+  size_t index = 0;
+  if (entry == 0) {
+    return -1;
+  }
+  if (actor_source == AEGIS_ACTOR_SYSTEM && actor_id == 0u) {
+    entry->actor_id = 0u;
+    entry->actor_source = AEGIS_ACTOR_SYSTEM;
+    snprintf(entry->actor_label, sizeof(entry->actor_label), "%s", "system");
+    entry->active = 1u;
+    entry->revoked = 0u;
+    entry->revoked_at_epoch = 0u;
+    return 0;
+  }
+  if (!actor_registry_find(actor_id, actor_source, &index)) {
+    return -1;
+  }
+  *entry = g_actor_registry[index];
+  return 0;
+}
+
+int aegis_actor_registry_revoke(uint32_t actor_id, uint8_t actor_source,
+                                uint64_t now_epoch, const char *reason) {
+  size_t index = 0;
+  (void)reason;
+  if (actor_source == AEGIS_ACTOR_SYSTEM) {
+    return -1;
+  }
+  if (!actor_registry_find(actor_id, actor_source, &index)) {
+    return -1;
+  }
+  g_actor_registry[index].active = 0u;
+  g_actor_registry[index].revoked = 1u;
+  g_actor_registry[index].revoked_at_epoch = now_epoch;
   return 0;
 }

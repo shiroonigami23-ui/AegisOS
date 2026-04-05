@@ -98,9 +98,14 @@ static int test_rotation_metadata_audit(void) {
   size_t n = 0;
   aegis_capability_store_init(&store);
   aegis_capability_audit_reset();
+  aegis_actor_registry_reset();
 
   if (aegis_capability_issue_with_ttl(&store, 120u, AEGIS_CAP_FS_READ, 100u, 20u) != 0) {
     fprintf(stderr, "rotation metadata issue failed\n");
+    return 1;
+  }
+  if (aegis_actor_registry_register(9001u, AEGIS_ACTOR_AUTOMATION, "automation") != 0) {
+    fprintf(stderr, "rotation metadata actor registration failed\n");
     return 1;
   }
   if (aegis_capability_rotate_with_metadata(&store,
@@ -151,8 +156,13 @@ static int test_rotation_identity_validation(void) {
   size_t n = 0;
   aegis_capability_store_init(&store);
   aegis_capability_audit_reset();
+  aegis_actor_registry_reset();
   if (aegis_capability_issue_with_ttl(&store, 121u, AEGIS_CAP_FS_READ, 200u, 20u) != 0) {
     fprintf(stderr, "identity validation issue failed\n");
+    return 1;
+  }
+  if (aegis_actor_registry_register(1001u, AEGIS_ACTOR_USER, "alice_admin") != 0) {
+    fprintf(stderr, "identity actor registration failed\n");
     return 1;
   }
   if (aegis_capability_rotate_with_identity(&store,
@@ -186,6 +196,99 @@ static int test_rotation_identity_validation(void) {
                                             "bob",
                                             "invalid_identity") == 0) {
     fprintf(stderr, "expected invalid identity to fail\n");
+    return 1;
+  }
+  return 0;
+}
+
+static int test_actor_registry_and_revocation_hooks(void) {
+  aegis_capability_store_t store;
+  aegis_capability_audit_event_t event;
+  aegis_actor_registry_entry_t actor;
+  size_t n = 0;
+  aegis_capability_store_init(&store);
+  aegis_capability_audit_reset();
+  aegis_actor_registry_reset();
+
+  if (aegis_actor_registry_register(3001u, AEGIS_ACTOR_SERVICE, "policyd") != 0) {
+    fprintf(stderr, "actor registry register failed\n");
+    return 1;
+  }
+  if (aegis_actor_registry_lookup(3001u, AEGIS_ACTOR_SERVICE, &actor) != 0) {
+    fprintf(stderr, "actor registry lookup failed\n");
+    return 1;
+  }
+  if (actor.active == 0 || actor.revoked != 0 || strcmp(actor.actor_label, "policyd") != 0) {
+    fprintf(stderr, "actor registry lookup returned invalid entry\n");
+    return 1;
+  }
+  if (aegis_capability_issue_with_ttl(&store, 130u, AEGIS_CAP_FS_READ, 300u, 20u) != 0) {
+    fprintf(stderr, "registry hook issue failed\n");
+    return 1;
+  }
+  if (aegis_capability_rotate_with_identity(&store,
+                                            130u,
+                                            AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE,
+                                            301u,
+                                            20u,
+                                            3001u,
+                                            AEGIS_ACTOR_SERVICE,
+                                            "policyd",
+                                            "registry_rotate") != 0) {
+    fprintf(stderr, "expected rotate with active actor to pass\n");
+    return 1;
+  }
+  if (aegis_actor_registry_revoke(3001u, AEGIS_ACTOR_SERVICE, 302u, "retired") != 0) {
+    fprintf(stderr, "actor registry revoke failed\n");
+    return 1;
+  }
+  if (aegis_capability_rotate_with_identity(&store,
+                                            130u,
+                                            AEGIS_CAP_FS_READ,
+                                            303u,
+                                            20u,
+                                            3001u,
+                                            AEGIS_ACTOR_SERVICE,
+                                            "policyd",
+                                            "should_fail_after_revoke") == 0) {
+    fprintf(stderr, "expected rotate with revoked actor to fail\n");
+    return 1;
+  }
+  if (aegis_capability_revoke_with_identity(&store,
+                                            130u,
+                                            304u,
+                                            3001u,
+                                            AEGIS_ACTOR_SERVICE,
+                                            "policyd",
+                                            "should_fail_revoke_actor") == 0) {
+    fprintf(stderr, "expected token revoke with revoked actor to fail\n");
+    return 1;
+  }
+  if (aegis_actor_registry_register(3001u, AEGIS_ACTOR_SERVICE, "policyd") != 0) {
+    fprintf(stderr, "actor registry re-register failed\n");
+    return 1;
+  }
+  if (aegis_capability_revoke_with_identity(&store,
+                                            130u,
+                                            305u,
+                                            3001u,
+                                            AEGIS_ACTOR_SERVICE,
+                                            "policyd",
+                                            "deprovision") != 0) {
+    fprintf(stderr, "expected token revoke with active actor to pass\n");
+    return 1;
+  }
+  n = aegis_capability_audit_count();
+  if (n == 0u || aegis_capability_audit_get(n - 1u, &event) != 0) {
+    fprintf(stderr, "failed to read revoke audit event\n");
+    return 1;
+  }
+  if (event.event_type != AEGIS_CAP_AUDIT_REVOKE ||
+      event.actor_id != 3001u ||
+      event.actor_source != AEGIS_ACTOR_SERVICE ||
+      strcmp(event.actor_label, "policyd") != 0 ||
+      strcmp(event.reason, "deprovision") != 0) {
+    fprintf(stderr, "revoke audit event missing actor hook fields\n");
     return 1;
   }
   return 0;
@@ -312,6 +415,9 @@ int main(void) {
     return 1;
   }
   if (test_rotation_identity_validation() != 0) {
+    return 1;
+  }
+  if (test_actor_registry_and_revocation_hooks() != 0) {
     return 1;
   }
   if (test_capability_audit_pipeline() != 0) {

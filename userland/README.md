@@ -8,6 +8,8 @@ Core userspace services, shell tools, and runtime components live here.
   - includes token expiry (TTL) and rotation APIs.
   - includes in-memory audit event pipeline for allow/deny/issue/rotate/revoke.
   - rotation events persist actor identity (`actor_id`, `actor_source`, `actor_label`) and `reason` metadata.
+  - includes actor registry (`register`, `lookup`, `revoke`) and identity lifecycle enforcement hooks.
+  - rotate/revoke identity paths now require active non-revoked actor registry entries.
   - includes audit export API for JSON/CSV snapshots (latest ring window), pagination cursors, and sink chunk naming.
 - `sandbox_policy`: policy schema validation for filesystem/network/device permissions.
   - includes JSON serialization/deserialization helpers for distribution and storage.
