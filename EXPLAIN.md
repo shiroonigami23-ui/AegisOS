@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 10:55:01Z
+Last generated: 2026-04-05 10:57:08Z
 
 ## What AegisOS Is Building
 
@@ -36,6 +36,7 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #48 Docs_heatmap_trend_window (priority-p1)
 - #47 Scheduler_wait_latency_aggregation_report (priority-p1, kernel)
 - #46 Scheduler_metrics_snapshot_serialization (priority-p1, kernel)
 - #45 Capability_audit_actor_identity_model (priority-p1, security)
@@ -50,7 +51,6 @@ We implement in vertical slices:
 - #35 Package_schema_migration_helper (priority-p1)
 - #34 Sanitizer_suppressions_baseline (priority-p1)
 - #33 Scheduler_context_switch_reason_codes (priority-p1, kernel)
-- #30 Docs_enrichment_component_heatmap (priority-p1)
 - #29 Scheduler_aging_policy_for_fairness (priority-p1, kernel)
 - #27 Symlink_resolution_filesystem_backend (priority-p1, security)
 - #14 Sandbox_policy_hot_reload (priority-p1, security)
@@ -72,8 +72,8 @@ We implement in vertical slices:
 
 Recent commit touches (higher means more active recently):
 
-- kernel: 15
-- userland: 19
+- kernel: 18
+- userland: 16
 - packages: 15
 - docs: 50
 - workflows: 4
@@ -93,6 +93,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `72a0881` (2026-04-05): Add_context_switch_reason_codes_for_scheduler_ticks
+- `f0a640c` (2026-04-05): docs: auto-update explain and changelog
 - `2208524` (2026-04-05): Improve_docs_heatmap_with_local_issue_fallback_and_component_signals
 - `087521a` (2026-04-05): docs: auto-update explain and changelog
 - `3895338` (2026-04-05): Add_tick_based_wait_latency_metrics_for_scheduler
@@ -106,5 +108,3 @@ Open issue pressure by component signal:
 - `33b3b00` (2026-04-05): Add_deterministic_network_scope_precedence_with_tie_break_rules
 - `3206f06` (2026-04-05): docs: auto-update explain and changelog
 - `40c23d8` (2026-04-05): Add_filesystem_wildcard_scope_matching_and_tests
-- `cc8fe1d` (2026-04-05): docs: auto-update explain and changelog
-- `1ffc333` (2026-04-05): Fix_project_automation_workflow_syntax_and_token_fallback
