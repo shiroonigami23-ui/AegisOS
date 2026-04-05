@@ -133,5 +133,7 @@ int aegis_actor_registry_lookup(uint32_t actor_id, uint8_t actor_source,
                                 aegis_actor_registry_entry_t *entry);
 int aegis_actor_registry_revoke(uint32_t actor_id, uint8_t actor_source,
                                 uint64_t now_epoch, const char *reason);
+int aegis_actor_registry_snapshot(char *out, size_t out_size);
+int aegis_actor_registry_restore(const char *snapshot);
 
 #endif

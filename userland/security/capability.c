@@ -629,3 +629,109 @@ int aegis_actor_registry_revoke(uint32_t actor_id, uint8_t actor_source,
   g_actor_registry[index].revoked_at_epoch = now_epoch;
   return 0;
 }
+
+int aegis_actor_registry_snapshot(char *out, size_t out_size) {
+  size_t i;
+  size_t offset = 0;
+  if (out == 0 || out_size == 0u) {
+    return -1;
+  }
+  out[0] = '\0';
+  if (append_format(out,
+                    out_size,
+                    &offset,
+                    "actor_id,actor_source,actor_label,active,revoked,revoked_at_epoch\n") != 0) {
+    return -1;
+  }
+  for (i = 0; i < 256u; ++i) {
+    const aegis_actor_registry_entry_t *entry = &g_actor_registry[i];
+    if (entry->active == 0u && entry->revoked == 0u) {
+      continue;
+    }
+    if (append_format(out,
+                      out_size,
+                      &offset,
+                      "%u,%u,%s,%u,%u,%llu\n",
+                      entry->actor_id,
+                      (unsigned int)entry->actor_source,
+                      entry->actor_label,
+                      (unsigned int)entry->active,
+                      (unsigned int)entry->revoked,
+                      (unsigned long long)entry->revoked_at_epoch) != 0) {
+      return -1;
+    }
+  }
+  return (int)offset;
+}
+
+int aegis_actor_registry_restore(const char *snapshot) {
+  const char *cursor;
+  const char *line_start;
+  size_t restored = 0;
+  if (snapshot == 0) {
+    return -1;
+  }
+  aegis_actor_registry_reset();
+  cursor = snapshot;
+  while (*cursor != '\0' && *cursor != '\n') {
+    cursor++;
+  }
+  if (*cursor == '\n') {
+    cursor++;
+  }
+  while (*cursor != '\0') {
+    char line[192];
+    size_t len = 0;
+    uint32_t actor_id = 0u;
+    unsigned int actor_source = 0u;
+    char actor_label[32];
+    unsigned int active = 0u;
+    unsigned int revoked = 0u;
+    unsigned long long revoked_at = 0ull;
+    size_t i;
+    line_start = cursor;
+    while (*cursor != '\0' && *cursor != '\n') {
+      cursor++;
+    }
+    len = (size_t)(cursor - line_start);
+    if (*cursor == '\n') {
+      cursor++;
+    }
+    if (len == 0u) {
+      continue;
+    }
+    if (len >= sizeof(line)) {
+      return -1;
+    }
+    memcpy(line, line_start, len);
+    line[len] = '\0';
+    actor_label[0] = '\0';
+    if (sscanf(line, "%u,%u,%31[^,],%u,%u,%llu", &actor_id, &actor_source, actor_label, &active, &revoked,
+               &revoked_at) != 6) {
+      return -1;
+    }
+    if (actor_source < AEGIS_ACTOR_SYSTEM || actor_source > AEGIS_ACTOR_AUTOMATION) {
+      return -1;
+    }
+    if (active == 0u && revoked == 0u) {
+      continue;
+    }
+    for (i = 0; i < 256u; ++i) {
+      if (g_actor_registry[i].active == 0u && g_actor_registry[i].revoked == 0u) {
+        g_actor_registry[i].actor_id = actor_id;
+        g_actor_registry[i].actor_source = (uint8_t)actor_source;
+        snprintf(g_actor_registry[i].actor_label, sizeof(g_actor_registry[i].actor_label), "%s",
+                 actor_label);
+        g_actor_registry[i].active = active != 0u ? 1u : 0u;
+        g_actor_registry[i].revoked = revoked != 0u ? 1u : 0u;
+        g_actor_registry[i].revoked_at_epoch = (uint64_t)revoked_at;
+        restored += 1u;
+        break;
+      }
+    }
+    if (i == 256u) {
+      return -1;
+    }
+  }
+  return (int)restored;
+}

@@ -433,6 +433,76 @@ static int test_capability_audit_retention_plan_helpers(void) {
   return 0;
 }
 
+static int test_actor_registry_snapshot_restore(void) {
+  char snapshot[4096];
+  aegis_actor_registry_entry_t entry;
+  aegis_capability_store_t store;
+  aegis_capability_store_init(&store);
+  aegis_actor_registry_reset();
+
+  if (aegis_actor_registry_register(9101u, AEGIS_ACTOR_USER, "alice_admin") != 0 ||
+      aegis_actor_registry_register(9102u, AEGIS_ACTOR_SERVICE, "policyd") != 0) {
+    fprintf(stderr, "snapshot restore actor registration failed\n");
+    return 1;
+  }
+  if (aegis_actor_registry_revoke(9102u, AEGIS_ACTOR_SERVICE, 777u, "retired") != 0) {
+    fprintf(stderr, "snapshot restore actor revoke failed\n");
+    return 1;
+  }
+  if (aegis_actor_registry_snapshot(snapshot, sizeof(snapshot)) <= 0) {
+    fprintf(stderr, "snapshot restore snapshot export failed\n");
+    return 1;
+  }
+  aegis_actor_registry_reset();
+  if (aegis_actor_registry_lookup(9101u, AEGIS_ACTOR_USER, &entry) == 0) {
+    fprintf(stderr, "expected reset registry lookup to fail\n");
+    return 1;
+  }
+  if (aegis_actor_registry_restore(snapshot) < 2) {
+    fprintf(stderr, "snapshot restore import failed\n");
+    return 1;
+  }
+  if (aegis_actor_registry_lookup(9101u, AEGIS_ACTOR_USER, &entry) != 0 || entry.active == 0u ||
+      entry.revoked != 0u) {
+    fprintf(stderr, "snapshot restore active actor lookup invalid\n");
+    return 1;
+  }
+  if (aegis_actor_registry_lookup(9102u, AEGIS_ACTOR_SERVICE, &entry) != 0 || entry.active != 0u ||
+      entry.revoked == 0u || entry.revoked_at_epoch != 777u) {
+    fprintf(stderr, "snapshot restore revoked actor lookup invalid\n");
+    return 1;
+  }
+  if (aegis_capability_issue_with_ttl(&store, 9110u, AEGIS_CAP_FS_READ, 800u, 30u) != 0) {
+    fprintf(stderr, "snapshot restore issue token failed\n");
+    return 1;
+  }
+  if (aegis_capability_rotate_with_identity(&store,
+                                            9110u,
+                                            AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE,
+                                            801u,
+                                            30u,
+                                            9101u,
+                                            AEGIS_ACTOR_USER,
+                                            "alice_admin",
+                                            "snapshot_roundtrip") != 0) {
+    fprintf(stderr, "snapshot restore expected active actor to rotate\n");
+    return 1;
+  }
+  if (aegis_capability_rotate_with_identity(&store,
+                                            9110u,
+                                            AEGIS_CAP_FS_READ,
+                                            802u,
+                                            30u,
+                                            9102u,
+                                            AEGIS_ACTOR_SERVICE,
+                                            "policyd",
+                                            "snapshot_revoked_should_fail") == 0) {
+    fprintf(stderr, "snapshot restore expected revoked actor rotate to fail\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_capability_validate() != 0) {
     return 1;
@@ -462,6 +532,9 @@ int main(void) {
     return 1;
   }
   if (test_capability_audit_retention_plan_helpers() != 0) {
+    return 1;
+  }
+  if (test_actor_registry_snapshot_restore() != 0) {
     return 1;
   }
   puts("capability tests passed");
