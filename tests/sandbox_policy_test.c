@@ -130,6 +130,67 @@ static int test_policy_legacy_migration_adapter(void) {
   return 0;
 }
 
+static int test_permission_center_policy_summary_endpoint(void) {
+  aegis_sandbox_policy_t policy = {
+      210u,
+      AEGIS_CAP_FS_READ | AEGIS_CAP_NET_CLIENT | AEGIS_CAP_DEVICE_IO,
+      1u,
+      0u,
+      1u,
+      0u,
+      1u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      9u};
+  char json[768];
+  if (aegis_permission_center_policy_summary_json(&policy, json, sizeof(json)) != 0) {
+    fprintf(stderr, "expected permission center summary endpoint to succeed\n");
+    return 1;
+  }
+  if (strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"process_id\":210") == 0 ||
+      strstr(json, "\"policy_revision\":9") == 0 ||
+      strstr(json, "\"capability_mask\":21") == 0) {
+    fprintf(stderr, "summary endpoint missing version/process metadata: %s\n", json);
+    return 1;
+  }
+  if (strstr(json, "\"fs_read\":1") == 0 ||
+      strstr(json, "\"fs_write\":0") == 0 ||
+      strstr(json, "\"net_client\":1") == 0 ||
+      strstr(json, "\"net_server\":0") == 0 ||
+      strstr(json, "\"device_io\":1") == 0) {
+    fprintf(stderr, "summary endpoint missing capability visibility fields: %s\n", json);
+    return 1;
+  }
+  if (strstr(json, "\"fs.read\":\"allow\"") == 0 ||
+      strstr(json, "\"fs.write\":\"deny\"") == 0 ||
+      strstr(json, "\"net.connect\":\"allow\"") == 0 ||
+      strstr(json, "\"net.listen\":\"deny\"") == 0 ||
+      strstr(json, "\"device.io\":\"allow\"") == 0) {
+    fprintf(stderr, "summary endpoint missing action allow/deny mapping: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_permission_center_policy_summary_rejects_invalid_policy(void) {
+  aegis_sandbox_policy_t invalid = {
+      0u,
+      AEGIS_CAP_FS_READ,
+      1u,
+      0u,
+      0u,
+      0u,
+      0u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      1u};
+  char json[128];
+  if (aegis_permission_center_policy_summary_json(&invalid, json, sizeof(json)) == 0) {
+    fprintf(stderr, "summary endpoint should fail invalid policy\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_valid_policy() != 0) {
     return 1;
@@ -147,6 +208,12 @@ int main(void) {
     return 1;
   }
   if (test_policy_legacy_migration_adapter() != 0) {
+    return 1;
+  }
+  if (test_permission_center_policy_summary_endpoint() != 0) {
+    return 1;
+  }
+  if (test_permission_center_policy_summary_rejects_invalid_policy() != 0) {
     return 1;
   }
   puts("sandbox policy tests passed");

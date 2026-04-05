@@ -19,6 +19,7 @@ Core userspace services, shell tools, and runtime components live here.
   - includes JSON serialization/deserialization helpers for distribution and storage.
   - includes `schema_version` and `policy_revision` fields for versioned policy rollouts.
   - includes legacy JSON migration adapter with structured migration report output.
+  - includes permission-center summary JSON endpoint for settings UX visibility of allow/deny actions.
 - `sandbox_engine`: action-level enforcement using policy gates + capability tokens.
   - includes path-level filesystem scopes (`deny`, `read-only`, `read-write`) with deny override behavior.
   - supports simple wildcard patterns (`*`) in filesystem scope rules.

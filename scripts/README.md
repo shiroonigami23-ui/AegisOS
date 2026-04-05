@@ -13,3 +13,4 @@ Helper scripts for local development and automation live here.
 - `profile_trace_json_property.py`: seed-corpus replay and runtime profile utility for trace JSON property tests.
 - `validate_repo_index.py`: validates repository index trust policy, signature metadata, and manifest alignment.
 - `atomic_update_txn.py`: atomic update transaction state machine skeleton (`begin/stage/commit/rollback/reset`) with JSON summary.
+- `low_resource_profile_advisor.py`: recommends package profile by CPU/RAM class with rationale and tuning advice JSON output.

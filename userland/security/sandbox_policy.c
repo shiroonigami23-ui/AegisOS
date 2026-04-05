@@ -256,3 +256,44 @@ int aegis_sandbox_policy_migrate_legacy_json(const char *legacy_input,
   write_reason(reason, reason_size, "migrated");
   return 0;
 }
+
+int aegis_permission_center_policy_summary_json(const aegis_sandbox_policy_t *policy,
+                                                char *output, size_t output_size) {
+  int written;
+  char reason[64];
+  uint32_t caps = 0u;
+  if (policy == 0 || output == 0 || output_size == 0u) {
+    return -1;
+  }
+  if (!aegis_sandbox_policy_validate(policy, reason, sizeof(reason))) {
+    return -1;
+  }
+  caps = policy->capabilities;
+  written = snprintf(
+      output,
+      output_size,
+      "{\"schema_version\":%u,\"process_id\":%u,\"policy_revision\":%llu,"
+      "\"capability_mask\":%u,"
+      "\"capabilities\":{\"fs_read\":%u,\"fs_write\":%u,\"net_client\":%u,"
+      "\"net_server\":%u,\"device_io\":%u},"
+      "\"actions\":{\"fs.read\":\"%s\",\"fs.write\":\"%s\",\"net.connect\":\"%s\","
+      "\"net.listen\":\"%s\",\"device.io\":\"%s\"}}",
+      (unsigned int)policy_schema_version(policy),
+      policy->process_id,
+      (unsigned long long)policy_revision(policy),
+      caps,
+      (unsigned int)((caps & AEGIS_CAP_FS_READ) != 0u ? 1u : 0u),
+      (unsigned int)((caps & AEGIS_CAP_FS_WRITE) != 0u ? 1u : 0u),
+      (unsigned int)((caps & AEGIS_CAP_NET_CLIENT) != 0u ? 1u : 0u),
+      (unsigned int)((caps & AEGIS_CAP_NET_SERVER) != 0u ? 1u : 0u),
+      (unsigned int)((caps & AEGIS_CAP_DEVICE_IO) != 0u ? 1u : 0u),
+      (caps & AEGIS_CAP_FS_READ) != 0u ? "allow" : "deny",
+      (caps & AEGIS_CAP_FS_WRITE) != 0u ? "allow" : "deny",
+      (caps & AEGIS_CAP_NET_CLIENT) != 0u ? "allow" : "deny",
+      (caps & AEGIS_CAP_NET_SERVER) != 0u ? "allow" : "deny",
+      (caps & AEGIS_CAP_DEVICE_IO) != 0u ? "allow" : "deny");
+  if (written < 0 || (size_t)written >= output_size) {
+    return -1;
+  }
+  return 0;
+}

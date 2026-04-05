@@ -40,5 +40,7 @@ int aegis_sandbox_policy_migrate_legacy_json(const char *legacy_input,
                                              char *output, size_t output_size,
                                              aegis_sandbox_policy_migration_report_t *report,
                                              char *reason, size_t reason_size);
+int aegis_permission_center_policy_summary_json(const aegis_sandbox_policy_t *policy,
+                                                char *output, size_t output_size);
 
 #endif
