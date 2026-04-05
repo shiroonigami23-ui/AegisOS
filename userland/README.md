@@ -12,6 +12,7 @@ Core userspace services, shell tools, and runtime components live here.
   - rotate/revoke identity paths now require active non-revoked actor registry entries.
   - includes actor registry snapshot/restore APIs for persistence across reboot/restart boundaries.
   - includes audit export API for JSON/CSV snapshots (latest ring window), pagination cursors, and sink chunk naming.
+  - includes timestamp-based audit cursor seek helper for faster export triage in large rings.
   - includes audit sink retention planning helpers for chunk rotation/pruning guidance.
 - `sandbox_policy`: policy schema validation for filesystem/network/device permissions.
   - includes JSON serialization/deserialization helpers for distribution and storage.

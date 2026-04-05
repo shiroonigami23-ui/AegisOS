@@ -433,6 +433,46 @@ static int test_capability_audit_retention_plan_helpers(void) {
   return 0;
 }
 
+static int test_capability_audit_cursor_seek_helper(void) {
+  aegis_capability_store_t store;
+  aegis_capability_audit_page_t page;
+  char json_page[1024];
+  size_t c0;
+  size_t c1;
+  size_t c2;
+  size_t c3;
+  aegis_capability_store_init(&store);
+  aegis_capability_audit_reset();
+
+  if (aegis_capability_issue_with_ttl(&store, 8001u, AEGIS_CAP_FS_READ, 100u, 30u) != 0 ||
+      aegis_capability_issue_with_ttl(&store, 8002u, AEGIS_CAP_FS_READ, 200u, 30u) != 0 ||
+      aegis_capability_issue_with_ttl(&store, 8003u, AEGIS_CAP_FS_READ, 300u, 30u) != 0) {
+    fprintf(stderr, "cursor seek setup issue failed\n");
+    return 1;
+  }
+  c0 = aegis_capability_audit_cursor_for_timestamp(50u);
+  c1 = aegis_capability_audit_cursor_for_timestamp(150u);
+  c2 = aegis_capability_audit_cursor_for_timestamp(250u);
+  c3 = aegis_capability_audit_cursor_for_timestamp(350u);
+  if (c0 != 0u || c1 != 1u || c2 != 2u || c3 != 3u) {
+    fprintf(stderr, "unexpected cursor seek results: %llu %llu %llu %llu\n",
+            (unsigned long long)c0,
+            (unsigned long long)c1,
+            (unsigned long long)c2,
+            (unsigned long long)c3);
+    return 1;
+  }
+  if (aegis_capability_audit_export_json_page(c1, 2u, json_page, sizeof(json_page), &page) <= 0) {
+    fprintf(stderr, "cursor seek page export failed\n");
+    return 1;
+  }
+  if (strstr(json_page, "\"process_id\":8002") == 0 || strstr(json_page, "\"process_id\":8003") == 0) {
+    fprintf(stderr, "cursor seek page export missing expected events\n");
+    return 1;
+  }
+  return 0;
+}
+
 static int test_actor_registry_snapshot_restore(void) {
   char snapshot[4096];
   aegis_actor_registry_entry_t entry;
@@ -532,6 +572,9 @@ int main(void) {
     return 1;
   }
   if (test_capability_audit_retention_plan_helpers() != 0) {
+    return 1;
+  }
+  if (test_capability_audit_cursor_seek_helper() != 0) {
     return 1;
   }
   if (test_actor_registry_snapshot_restore() != 0) {

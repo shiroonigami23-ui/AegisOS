@@ -494,6 +494,24 @@ int aegis_capability_audit_export_csv_page(size_t cursor, size_t limit,
   return (int)offset;
 }
 
+size_t aegis_capability_audit_cursor_for_timestamp(uint64_t timestamp_epoch) {
+  size_t base = capability_audit_base();
+  size_t i;
+  aegis_capability_audit_event_t event;
+  if (g_audit_count == 0u) {
+    return 0u;
+  }
+  for (i = base; i < g_audit_count; ++i) {
+    if (aegis_capability_audit_get(i, &event) != 0) {
+      continue;
+    }
+    if (event.timestamp_epoch >= timestamp_epoch) {
+      return i;
+    }
+  }
+  return g_audit_count;
+}
+
 int aegis_capability_audit_file_sink_name(const char *prefix, uint32_t chunk_id,
                                           char *out, size_t out_size) {
   int written;

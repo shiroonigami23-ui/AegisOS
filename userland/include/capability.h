@@ -116,6 +116,7 @@ int aegis_capability_audit_export_json_page(size_t cursor, size_t limit,
 int aegis_capability_audit_export_csv_page(size_t cursor, size_t limit,
                                            char *out, size_t out_size,
                                            aegis_capability_audit_page_t *page);
+size_t aegis_capability_audit_cursor_for_timestamp(uint64_t timestamp_epoch);
 int aegis_capability_audit_file_sink_name(const char *prefix, uint32_t chunk_id,
                                           char *out, size_t out_size);
 int aegis_capability_audit_retention_plan(uint32_t latest_chunk_id,
