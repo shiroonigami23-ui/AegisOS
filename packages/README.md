@@ -26,6 +26,18 @@ Validation command:
     - `packages/dependency-graph.json`
     - `packages/dependency-graph.dot`
 
+Graph rendering (Graphviz):
+
+- Regenerate graph artifacts first:
+  - `python scripts/validate_packages.py`
+- Render PNG from DOT:
+  - Linux/macOS: `dot -Tpng packages/dependency-graph.dot -o packages/dependency-graph.png`
+  - Windows (PowerShell/cmd): `dot -Tpng packages\\dependency-graph.dot -o packages\\dependency-graph.png`
+- Render SVG (preferred for docs/PRs):
+  - `dot -Tsvg packages/dependency-graph.dot -o packages/dependency-graph.svg`
+- Quick sanity check:
+  - open the image and verify expected nodes like `aegis-kernel`, `aegis-security-core`, and `aegis-update-service`.
+
 Manifest note:
 
 - `schema_version: 1` is required in each core/profile manifest.
