@@ -66,3 +66,78 @@ int aegis_sandbox_policy_allows(const aegis_sandbox_policy_t *policy,
   return (policy->capabilities & capability_bit) == capability_bit;
 }
 
+int aegis_sandbox_policy_serialize_json(const aegis_sandbox_policy_t *policy,
+                                        char *output, size_t output_size) {
+  int written;
+  char reason[64];
+  if (output == 0 || output_size == 0 || policy == 0) {
+    return -1;
+  }
+  if (!aegis_sandbox_policy_validate(policy, reason, sizeof(reason))) {
+    return -1;
+  }
+  written = snprintf(
+      output,
+      output_size,
+      "{\"process_id\":%u,\"capabilities\":%u,\"allow_fs_read\":%u,"
+      "\"allow_fs_write\":%u,\"allow_net_client\":%u,\"allow_net_server\":%u,"
+      "\"allow_device_io\":%u}",
+      policy->process_id,
+      policy->capabilities,
+      (unsigned int)policy->allow_fs_read,
+      (unsigned int)policy->allow_fs_write,
+      (unsigned int)policy->allow_net_client,
+      (unsigned int)policy->allow_net_server,
+      (unsigned int)policy->allow_device_io);
+  if (written < 0 || (size_t)written >= output_size) {
+    return -1;
+  }
+  return 0;
+}
+
+int aegis_sandbox_policy_deserialize_json(const char *input,
+                                          aegis_sandbox_policy_t *policy,
+                                          char *reason, size_t reason_size) {
+  unsigned int process_id = 0;
+  unsigned int capabilities = 0;
+  unsigned int allow_fs_read = 0;
+  unsigned int allow_fs_write = 0;
+  unsigned int allow_net_client = 0;
+  unsigned int allow_net_server = 0;
+  unsigned int allow_device_io = 0;
+  int matched = 0;
+  if (reason != 0 && reason_size > 0) {
+    reason[0] = '\0';
+  }
+  if (input == 0 || policy == 0) {
+    write_reason(reason, reason_size, "input or policy is null");
+    return -1;
+  }
+  matched = sscanf(
+      input,
+      "{\"process_id\":%u,\"capabilities\":%u,\"allow_fs_read\":%u,"
+      "\"allow_fs_write\":%u,\"allow_net_client\":%u,\"allow_net_server\":%u,"
+      "\"allow_device_io\":%u}",
+      &process_id,
+      &capabilities,
+      &allow_fs_read,
+      &allow_fs_write,
+      &allow_net_client,
+      &allow_net_server,
+      &allow_device_io);
+  if (matched != 7) {
+    write_reason(reason, reason_size, "invalid sandbox policy JSON format");
+    return -1;
+  }
+  policy->process_id = process_id;
+  policy->capabilities = capabilities;
+  policy->allow_fs_read = (uint8_t)allow_fs_read;
+  policy->allow_fs_write = (uint8_t)allow_fs_write;
+  policy->allow_net_client = (uint8_t)allow_net_client;
+  policy->allow_net_server = (uint8_t)allow_net_server;
+  policy->allow_device_io = (uint8_t)allow_device_io;
+  if (!aegis_sandbox_policy_validate(policy, reason, reason_size)) {
+    return -1;
+  }
+  return 0;
+}

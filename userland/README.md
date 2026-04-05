@@ -9,6 +9,7 @@ Core userspace services, shell tools, and runtime components live here.
   - includes in-memory audit event pipeline for allow/deny/issue/rotate/revoke.
   - rotation events persist `actor_id` and `reason` metadata for incident traceability.
 - `sandbox_policy`: policy schema validation for filesystem/network/device permissions.
+  - includes JSON serialization/deserialization helpers for distribution and storage.
 - `sandbox_engine`: action-level enforcement using policy gates + capability tokens.
   - includes path-level filesystem scopes (`deny`, `read-only`, `read-write`) with deny override behavior.
   - supports simple wildcard patterns (`*`) in filesystem scope rules.

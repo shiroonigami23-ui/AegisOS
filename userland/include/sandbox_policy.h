@@ -20,6 +20,10 @@ int aegis_sandbox_policy_validate(const aegis_sandbox_policy_t *policy,
                                   char *reason, size_t reason_size);
 int aegis_sandbox_policy_allows(const aegis_sandbox_policy_t *policy,
                                 uint32_t capability_bit);
+int aegis_sandbox_policy_serialize_json(const aegis_sandbox_policy_t *policy,
+                                        char *output, size_t output_size);
+int aegis_sandbox_policy_deserialize_json(const char *input,
+                                          aegis_sandbox_policy_t *policy,
+                                          char *reason, size_t reason_size);
 
 #endif
-
