@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 11:03:40Z
+Last generated: 2026-04-05 11:08:44Z
 
 ## What AegisOS Is Building
 
@@ -36,11 +36,12 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #54 Scheduler_wait_report_snapshot_endpoint (priority-p1, kernel)
+- #53 Package_graph_rendering_guide (priority-p1)
 - #52 Sandbox_policy_hot_reload_version_guard (priority-p1, security)
 - #51 Sandbox_policy_versioned_json_schema (priority-p1, security)
 - #49 Scheduler_reason_code_metrics_breakdown (priority-p1, kernel)
 - #48 Docs_heatmap_trend_window (priority-p1)
-- #47 Scheduler_wait_latency_aggregation_report (priority-p1, kernel)
 - #46 Scheduler_metrics_snapshot_serialization (priority-p1, kernel)
 - #45 Capability_audit_actor_identity_model (priority-p1, security)
 - #44 DNS_pin_ipv6_support (priority-p1, security)
@@ -50,7 +51,6 @@ We implement in vertical slices:
 - #39 Capability_audit_export_api (priority-p1, security)
 - #38 Package_signature_metadata_fields (priority-p1, security)
 - #37 Package_profile_compatibility_matrix (priority-p1)
-- #36 Package_dependency_visualizer_output (priority-p1)
 - #35 Package_schema_migration_helper (priority-p1)
 - #34 Sanitizer_suppressions_baseline (priority-p1)
 - #29 Scheduler_aging_policy_for_fairness (priority-p1, kernel)
@@ -72,15 +72,15 @@ We implement in vertical slices:
 
 Recent commit touches (higher means more active recently):
 
-- kernel: 12
-- userland: 19
-- packages: 18
+- kernel: 15
+- userland: 22
+- packages: 14
 - docs: 49
 - workflows: 3
-- tests: 11
+- tests: 13
 - tools: 0
 - platform: 0
-- scripts: 7
+- scripts: 6
 - other: 0
 
 Open issue pressure by component signal:
@@ -93,6 +93,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `b3e272f` (2026-04-05): Add_capability_audit_export_and_scheduler_reason_metrics
+- `faca1c9` (2026-04-05): docs: auto-update explain and changelog
 - `0533870` (2026-04-05): Add_package_dependency_graph_exports_and_scheduler_wait_report
 - `2079757` (2026-04-05): docs: auto-update explain and changelog
 - `f860e26` (2026-04-05): Add_sandbox_policy_hot_reload_with_safe_validation
@@ -106,5 +108,3 @@ Open issue pressure by component signal:
 - `2208524` (2026-04-05): Improve_docs_heatmap_with_local_issue_fallback_and_component_signals
 - `087521a` (2026-04-05): docs: auto-update explain and changelog
 - `3895338` (2026-04-05): Add_tick_based_wait_latency_metrics_for_scheduler
-- `b9c15ac` (2026-04-05): docs: auto-update explain and changelog
-- `1cd4bc7` (2026-04-05): Add_scheduler_metrics_snapshot_endpoint_and_tests
