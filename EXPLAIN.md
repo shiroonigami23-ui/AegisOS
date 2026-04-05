@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 12:32:50Z
+Last generated: 2026-04-05 12:34:14Z
 
 ## What AegisOS Is Building
 
@@ -36,8 +36,9 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #74 Retention_manifest_incremental_diff_mode (priority-p1, security)
+- #73 Network_trace_json_control_character_fuzz_tests (priority-p1, security)
 - #72 Policy_migration_batch_dry_run_and_diff_preview (priority-p1, security)
-- #71 Audit_sink_retention_manifest_generator (priority-p1, security)
 - #70 Actor_registry_persistent_backing_store (priority-p1, security)
 - #69 Scheduler_reason_histogram_custom_window_query (priority-p1, kernel)
 - #53 Package_graph_rendering_guide (priority-p1)
@@ -68,19 +69,19 @@ We implement in vertical slices:
 Recent commit touches (higher means more active recently):
 
 - kernel: 15
-- userland: 46
+- userland: 43
 - packages: 3
 - docs: 40
 - workflows: 0
 - tests: 23
 - tools: 0
 - platform: 0
-- scripts: 3
+- scripts: 5
 - other: 0
 
 Open issue pressure by component signal:
 
-- security: 5
+- security: 6
 - kernel: 2
 - packages: 3
 - docs: 1
@@ -88,6 +89,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `15c20a4` (2026-04-05): "Add_audit_sink_retention_manifest_generator_and_tests"
+- `b11b997` (2026-04-05): docs: auto-update explain and changelog
 - `1acc1f2` (2026-04-05): "Harden_network_trace_json_string_escaping"
 - `aec6f73` (2026-04-05): docs: auto-update explain and changelog
 - `1bd30e4` (2026-04-05): "Add_batch_sandbox_policy_migration_cli_with_summary_and_exit_codes"
@@ -101,5 +104,3 @@ Open issue pressure by component signal:
 - `9f37adb` (2026-04-05): "Add_dns_dual_stack_trace_evidence_and_fs_wildcard_lint_compile"
 - `f56fd91` (2026-04-05): docs: auto-update explain and changelog
 - `206412e` (2026-04-05): Add_machine_readable_json_network_trace_api
-- `cc19e78` (2026-04-05): docs: auto-update explain and changelog
-- `c29ca17` (2026-04-05): Add_dns_dual_stack_strict_mode_enforcement
