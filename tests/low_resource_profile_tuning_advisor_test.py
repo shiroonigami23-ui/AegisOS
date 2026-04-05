@@ -18,6 +18,8 @@ class LowResourceProfileTuningAdvisorTest(unittest.TestCase):
         rec = module.recommend_profile("legacy", "mid")
         self.assertEqual(rec["recommended_profile"], "minimal")
         self.assertIn("server", rec["alternatives"])
+        self.assertEqual(rec["package_count"], 5)
+        self.assertIn("aegis-kernel", rec["sample_packages"])
 
         rec2 = module.recommend_profile("mid", "ultra_low")
         self.assertEqual(rec2["recommended_profile"], "minimal")
@@ -27,6 +29,8 @@ class LowResourceProfileTuningAdvisorTest(unittest.TestCase):
         self.assertEqual(rec["recommended_profile"], "server")
         self.assertIn("minimal", rec["alternatives"])
         self.assertEqual(rec["schema_version"], 1)
+        self.assertGreaterEqual(rec["package_count"], 6)
+        self.assertTrue(rec["profile_manifest"].endswith("packages/profiles/server.yaml"))
 
     def test_cli_output_json(self):
         proc = subprocess.run(
@@ -40,6 +44,8 @@ class LowResourceProfileTuningAdvisorTest(unittest.TestCase):
         self.assertEqual(payload["recommended_profile"], "desktop")
         self.assertEqual(payload["cpu_class"], "mid")
         self.assertEqual(payload["ram_class"], "mid")
+        self.assertEqual(payload["package_count"], 7)
+        self.assertTrue(payload["profile_manifest"].endswith("packages/profiles/desktop.yaml"))
 
 
 if __name__ == "__main__":

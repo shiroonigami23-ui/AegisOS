@@ -1,17 +1,43 @@
 #!/usr/bin/env python3
 import argparse
 import json
+from pathlib import Path
 from typing import Dict, List
 
 
 CPU_CLASSES = {"legacy", "entry", "mid", "high"}
 RAM_CLASSES = {"ultra_low", "low", "mid", "high"}
+ROOT = Path(__file__).resolve().parents[1]
+PROFILES_DIR = ROOT / "packages" / "profiles"
 
 
 def _validate_class(name: str, value: str, allowed: set) -> str:
   if value not in allowed:
     raise ValueError(f"invalid {name}: {value} (allowed: {', '.join(sorted(allowed))})")
   return value
+
+
+def _load_profile_packages(profile_name: str) -> List[str]:
+  manifest_path = PROFILES_DIR / f"{profile_name}.yaml"
+  packages: List[str] = []
+  in_packages = False
+  if not manifest_path.exists():
+    raise ValueError(f"profile manifest missing: {manifest_path}")
+  for line in manifest_path.read_text(encoding="utf-8").splitlines():
+    if line.strip() == "packages:":
+      in_packages = True
+      continue
+    if not in_packages:
+      continue
+    stripped = line.strip()
+    if not stripped:
+      continue
+    if not stripped.startswith("- "):
+      break
+    packages.append(stripped[2:].strip())
+  if not packages:
+    raise ValueError(f"profile manifest has no packages: {manifest_path}")
+  return packages
 
 
 def recommend_profile(cpu_class: str, ram_class: str) -> Dict[str, object]:
@@ -60,11 +86,16 @@ def recommend_profile(cpu_class: str, ram_class: str) -> Dict[str, object]:
         "Set background tasks to low-priority scheduling class.",
     ]
 
+  packages = _load_profile_packages(profile)
+
   return {
       "schema_version": 1,
       "cpu_class": cpu,
       "ram_class": ram,
       "recommended_profile": profile,
+      "profile_manifest": str((PROFILES_DIR / f"{profile}.yaml").relative_to(ROOT)).replace("\\", "/"),
+      "package_count": len(packages),
+      "sample_packages": packages[:5],
       "alternatives": alternatives,
       "rationale": rationale,
       "tuning_advice": tuning,
