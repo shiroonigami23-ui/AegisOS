@@ -534,6 +534,113 @@ static int test_network_scope_debug_trace_json_fuzz_style_escaping_matrix(void) 
   return 0;
 }
 
+static unsigned int fuzz_next(unsigned int *state) {
+  *state = (*state * 1103515245u) + 12345u;
+  return *state;
+}
+
+static void build_fuzz_host(char *out, size_t out_size, unsigned int *state) {
+  static const char alphabet[] =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_\\\"\n\r\t";
+  size_t i;
+  size_t len;
+  if (out == 0 || out_size < 8u || state == 0) {
+    return;
+  }
+  len = 8u + (fuzz_next(state) % 24u);
+  if (len >= out_size) {
+    len = out_size - 1u;
+  }
+  for (i = 0; i < len; ++i) {
+    unsigned int r = fuzz_next(state);
+    char c = alphabet[r % (sizeof(alphabet) - 1u)];
+    out[i] = c;
+  }
+  if (len > 2u && (fuzz_next(state) % 5u) == 0u) {
+    out[1] = '\x01';
+  }
+  out[len] = '\0';
+}
+
+static int has_raw_control_bytes(const char *s) {
+  size_t i;
+  if (s == 0) {
+    return 0;
+  }
+  for (i = 0; s[i] != '\0'; ++i) {
+    unsigned char c = (unsigned char)s[i];
+    if (c < 0x20u && c != '\n' && c != '\r' && c != '\t') {
+      return 1;
+    }
+    if (c == '\n' || c == '\r' || c == '\t') {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static int test_network_scope_debug_trace_json_property_generator(void) {
+  aegis_capability_store_t cap_store;
+  aegis_policy_engine_t engine;
+  aegis_sandbox_policy_t policy = {
+      4007u, AEGIS_CAP_NET_CLIENT, 0u, 0u, 1u, 0u, 0u};
+  aegis_policy_decision_t decision;
+  char json_trace[2048];
+  char host[96];
+  unsigned int seed = 123456789u;
+  int i;
+
+  aegis_capability_store_init(&cap_store);
+  aegis_policy_engine_init(&engine);
+  if (aegis_capability_issue(&cap_store, 4007u, AEGIS_CAP_NET_CLIENT) != 0) {
+    fprintf(stderr, "json property fuzz capability issue failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_set_policy(&engine, &policy) != 0) {
+    fprintf(stderr, "json property fuzz set policy failed\n");
+    return 1;
+  }
+  for (i = 0; i < 96; ++i) {
+    build_fuzz_host(host, sizeof(host), &seed);
+    if (aegis_policy_engine_clear_net_rules(&engine, 4007u) != 0 && i > 0) {
+      fprintf(stderr, "json property fuzz clear net rules failed at iter %d\n", i);
+      return 1;
+    }
+    if (aegis_policy_engine_add_net_rule(
+            &engine, 4007u, host, 443, 443, AEGIS_NET_PROTO_TCP, 1u, 0u, 1u) != 0) {
+      fprintf(stderr, "json property fuzz add net rule failed at iter %d\n", i);
+      return 1;
+    }
+    if (aegis_policy_engine_check_network_with_ip_trace_json(&engine,
+                                                             &cap_store,
+                                                             4007u,
+                                                             AEGIS_ACTION_NET_CONNECT,
+                                                             host,
+                                                             443,
+                                                             AEGIS_NET_PROTO_TCP,
+                                                             0u,
+                                                             0,
+                                                             json_trace,
+                                                             sizeof(json_trace),
+                                                             &decision) != 1) {
+      fprintf(stderr, "json property fuzz expected allow at iter %d\n", i);
+      return 1;
+    }
+    if (strstr(json_trace, "\"trace_schema_version\":1") == 0 ||
+        strstr(json_trace, "\"trace_format_version\":1") == 0 ||
+        strstr(json_trace, "\"decision_allowed\":1") == 0 ||
+        strstr(json_trace, "\"host\":\"") == 0) {
+      fprintf(stderr, "json property fuzz missing required fields at iter %d: %s\n", i, json_trace);
+      return 1;
+    }
+    if (has_raw_control_bytes(json_trace)) {
+      fprintf(stderr, "json property fuzz emitted raw control bytes at iter %d: %s\n", i, json_trace);
+      return 1;
+    }
+  }
+  return 0;
+}
+
 static int test_symlink_scope_resolution(void) {
   aegis_capability_store_t cap_store;
   aegis_policy_engine_t engine;
@@ -1045,6 +1152,9 @@ int main(void) {
     return 1;
   }
   if (test_network_scope_debug_trace_json_fuzz_style_escaping_matrix() != 0) {
+    return 1;
+  }
+  if (test_network_scope_debug_trace_json_property_generator() != 0) {
     return 1;
   }
   if (test_symlink_scope_resolution() != 0) {
