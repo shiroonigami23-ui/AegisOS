@@ -54,6 +54,12 @@ typedef struct {
   uint8_t event_type;
 } aegis_capability_audit_event_t;
 
+typedef struct {
+  size_t next_cursor;
+  size_t exported_count;
+  uint8_t has_more;
+} aegis_capability_audit_page_t;
+
 int aegis_capability_validate(const aegis_capability_token_t *token,
                               uint32_t requested_permissions);
 void aegis_capability_store_init(aegis_capability_store_t *store);
@@ -83,5 +89,13 @@ size_t aegis_capability_audit_count(void);
 int aegis_capability_audit_get(size_t index, aegis_capability_audit_event_t *event);
 int aegis_capability_audit_export_json(char *out, size_t out_size);
 int aegis_capability_audit_export_csv(char *out, size_t out_size);
+int aegis_capability_audit_export_json_page(size_t cursor, size_t limit,
+                                            char *out, size_t out_size,
+                                            aegis_capability_audit_page_t *page);
+int aegis_capability_audit_export_csv_page(size_t cursor, size_t limit,
+                                           char *out, size_t out_size,
+                                           aegis_capability_audit_page_t *page);
+int aegis_capability_audit_file_sink_name(const char *prefix, uint32_t chunk_id,
+                                          char *out, size_t out_size);
 
 #endif

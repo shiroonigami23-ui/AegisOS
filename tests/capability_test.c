@@ -255,6 +255,49 @@ static int test_capability_audit_export_api(void) {
   return 0;
 }
 
+static int test_capability_audit_pagination_and_sink(void) {
+  aegis_capability_store_t store;
+  aegis_capability_audit_page_t page;
+  char json_page[1024];
+  char csv_page[1024];
+  char sink_name[64];
+  aegis_capability_store_init(&store);
+  aegis_capability_audit_reset();
+
+  if (aegis_capability_issue_with_ttl(&store, 700u, AEGIS_CAP_FS_READ, 10u, 20u) != 0) {
+    fprintf(stderr, "pagination issue failed\n");
+    return 1;
+  }
+  (void)aegis_capability_is_allowed_at(&store, 700u, AEGIS_CAP_FS_READ, 11u);
+  (void)aegis_capability_is_allowed_at(&store, 700u, AEGIS_CAP_FS_WRITE, 11u);
+
+  if (aegis_capability_audit_export_json_page(0u, 2u, json_page, sizeof(json_page), &page) <= 0) {
+    fprintf(stderr, "expected paged json export\n");
+    return 1;
+  }
+  if (page.exported_count != 2u || page.has_more == 0u || page.next_cursor < 2u) {
+    fprintf(stderr, "unexpected page metadata for json export\n");
+    return 1;
+  }
+  if (aegis_capability_audit_export_csv_page(page.next_cursor, 2u, csv_page, sizeof(csv_page), &page) <= 0) {
+    fprintf(stderr, "expected paged csv export\n");
+    return 1;
+  }
+  if (strstr(csv_page, "timestamp_epoch,process_id") == 0) {
+    fprintf(stderr, "csv page missing header\n");
+    return 1;
+  }
+  if (aegis_capability_audit_file_sink_name("cap_audit", 7u, sink_name, sizeof(sink_name)) != 0) {
+    fprintf(stderr, "file sink name helper failed\n");
+    return 1;
+  }
+  if (strcmp(sink_name, "cap_audit-0007.log") != 0) {
+    fprintf(stderr, "unexpected sink name: %s\n", sink_name);
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_capability_validate() != 0) {
     return 1;
@@ -275,6 +318,9 @@ int main(void) {
     return 1;
   }
   if (test_capability_audit_export_api() != 0) {
+    return 1;
+  }
+  if (test_capability_audit_pagination_and_sink() != 0) {
     return 1;
   }
   puts("capability tests passed");

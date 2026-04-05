@@ -14,6 +14,17 @@ static size_t capability_audit_base(void) {
   return 0u;
 }
 
+static size_t capability_audit_start_from_cursor(size_t cursor) {
+  size_t base = capability_audit_base();
+  if (cursor < base) {
+    return base;
+  }
+  if (cursor > g_audit_count) {
+    return g_audit_count;
+  }
+  return cursor;
+}
+
 static int append_format(char *out, size_t out_size, size_t *offset, const char *fmt, ...) {
   int written = 0;
   va_list args;
@@ -300,18 +311,37 @@ int aegis_capability_audit_get(size_t index, aegis_capability_audit_event_t *eve
 }
 
 int aegis_capability_audit_export_json(char *out, size_t out_size) {
+  return aegis_capability_audit_export_json_page(capability_audit_base(), g_audit_count, out, out_size, 0);
+}
+
+int aegis_capability_audit_export_csv(char *out, size_t out_size) {
+  return aegis_capability_audit_export_csv_page(capability_audit_base(), g_audit_count, out, out_size, 0);
+}
+
+int aegis_capability_audit_export_json_page(size_t cursor, size_t limit,
+                                            char *out, size_t out_size,
+                                            aegis_capability_audit_page_t *page) {
   size_t offset = 0;
-  size_t start = capability_audit_base();
+  size_t start = capability_audit_start_from_cursor(cursor);
+  size_t end = g_audit_count;
   size_t i = 0;
   aegis_capability_audit_event_t event;
+  if (limit < (end - start)) {
+    end = start + limit;
+  }
   if (out == 0 || out_size == 0u) {
     return -1;
   }
   out[0] = '\0';
+  if (page != 0) {
+    page->next_cursor = end;
+    page->exported_count = end - start;
+    page->has_more = end < g_audit_count ? 1u : 0u;
+  }
   if (append_format(out, out_size, &offset, "[") != 0) {
     return -1;
   }
-  for (i = start; i < g_audit_count; ++i) {
+  for (i = start; i < end; ++i) {
     if (aegis_capability_audit_get(i, &event) != 0) {
       return -1;
     }
@@ -332,7 +362,8 @@ int aegis_capability_audit_export_json(char *out, size_t out_size) {
     if (append_json_escaped(out, out_size, &offset, event.actor_label) != 0) {
       return -1;
     }
-    if (append_format(out, out_size, &offset, "\",\"event_type\":%u,\"reason\":\"", event.event_type) != 0) {
+    if (append_format(out, out_size, &offset, "\",\"event_type\":%u,\"reason\":\"",
+                      event.event_type) != 0) {
       return -1;
     }
     if (append_json_escaped(out, out_size, &offset, event.reason) != 0) {
@@ -348,23 +379,34 @@ int aegis_capability_audit_export_json(char *out, size_t out_size) {
   return (int)offset;
 }
 
-int aegis_capability_audit_export_csv(char *out, size_t out_size) {
+int aegis_capability_audit_export_csv_page(size_t cursor, size_t limit,
+                                           char *out, size_t out_size,
+                                           aegis_capability_audit_page_t *page) {
   size_t offset = 0;
-  size_t start = capability_audit_base();
+  size_t start = capability_audit_start_from_cursor(cursor);
+  size_t end = g_audit_count;
   size_t i = 0;
   aegis_capability_audit_event_t event;
   char safe_reason[64];
   size_t r = 0;
+  if (limit < (end - start)) {
+    end = start + limit;
+  }
   if (out == 0 || out_size == 0u) {
     return -1;
   }
   out[0] = '\0';
+  if (page != 0) {
+    page->next_cursor = end;
+    page->exported_count = end - start;
+    page->has_more = end < g_audit_count ? 1u : 0u;
+  }
   if (append_format(out, out_size, &offset,
                     "timestamp_epoch,process_id,requested_permissions,resulting_permissions,"
                     "actor_id,actor_source,actor_label,event_type,reason\n") != 0) {
     return -1;
   }
-  for (i = start; i < g_audit_count; ++i) {
+  for (i = start; i < end; ++i) {
     if (aegis_capability_audit_get(i, &event) != 0) {
       return -1;
     }
@@ -385,4 +427,17 @@ int aegis_capability_audit_export_csv(char *out, size_t out_size) {
     }
   }
   return (int)offset;
+}
+
+int aegis_capability_audit_file_sink_name(const char *prefix, uint32_t chunk_id,
+                                          char *out, size_t out_size) {
+  int written;
+  if (prefix == 0 || prefix[0] == '\0' || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  written = snprintf(out, out_size, "%s-%04u.log", prefix, chunk_id);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return 0;
 }
