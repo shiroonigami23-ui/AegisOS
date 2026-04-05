@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 11:16:26Z
+Last generated: 2026-04-05 11:19:06Z
 
 ## What AegisOS Is Building
 
@@ -44,7 +44,6 @@ We implement in vertical slices:
 - #53 Package_graph_rendering_guide (priority-p1)
 - #48 Docs_heatmap_trend_window (priority-p1)
 - #45 Capability_audit_actor_identity_model (priority-p1, security)
-- #43 Network_scope_precedence_debug_trace (priority-p1, security)
 - #42 Filesystem_scope_wildcard_validation_rules (priority-p1, security)
 - #40 Apply_branch_protection_profile_on_main (priority-p1)
 - #38 Package_signature_metadata_fields (priority-p1, security)
@@ -72,19 +71,19 @@ We implement in vertical slices:
 Recent commit touches (higher means more active recently):
 
 - kernel: 18
-- userland: 26
+- userland: 29
 - packages: 3
-- docs: 48
+- docs: 46
 - workflows: 2
-- tests: 16
+- tests: 17
 - tools: 0
 - platform: 0
-- scripts: 4
+- scripts: 3
 - other: 0
 
 Open issue pressure by component signal:
 
-- security: 8
+- security: 7
 - kernel: 3
 - packages: 3
 - docs: 1
@@ -92,6 +91,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `2ce62d0` (2026-04-05): Add_network_scope_precedence_debug_trace_api
+- `e5bb38d` (2026-04-05): docs: auto-update explain and changelog
 - `d669e1f` (2026-04-05): Add_dns_pinning_ipv6_support_and_guard_checks
 - `30c8c0e` (2026-04-05): docs: auto-update explain and changelog
 - `8a231e6` (2026-04-05): Add_policy_schema_versioning_and_hot_reload_revision_guard
@@ -105,5 +106,3 @@ Open issue pressure by component signal:
 - `f860e26` (2026-04-05): Add_sandbox_policy_hot_reload_with_safe_validation
 - `4c84428` (2026-04-05): docs: auto-update explain and changelog
 - `c9cfff6` (2026-04-05): Add_sandbox_policy_json_serialization_and_parsing_support
-- `e14edc6` (2026-04-05): docs: auto-update explain and changelog
-- `97c06b2` (2026-04-05): Add_one_command_onboarding_bootstrap_runner
