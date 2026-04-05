@@ -110,6 +110,48 @@ static int test_scheduler_remove(void) {
   return 0;
 }
 
+static int test_scheduler_metrics(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0;
+  uint32_t c1 = 0;
+  uint32_t c2 = 0;
+  int i;
+  aegis_scheduler_init(&scheduler);
+  if (aegis_scheduler_add(&scheduler, 5001u) != 0 || aegis_scheduler_add(&scheduler, 5002u) != 0) {
+    fprintf(stderr, "metrics add failed\n");
+    return 1;
+  }
+  if (aegis_scheduler_high_watermark(&scheduler) < 2u) {
+    fprintf(stderr, "expected watermark to track max queue depth\n");
+    return 1;
+  }
+  for (i = 0; i < 6; ++i) {
+    if (aegis_scheduler_next(&scheduler, &pid) != 0) {
+      fprintf(stderr, "metrics next failed\n");
+      return 1;
+    }
+  }
+  if (aegis_scheduler_total_dispatches(&scheduler) != 6u) {
+    fprintf(stderr, "expected total dispatch count of 6\n");
+    return 1;
+  }
+  if (aegis_scheduler_dispatch_count_for(&scheduler, 5001u, &c1) != 0 ||
+      aegis_scheduler_dispatch_count_for(&scheduler, 5002u, &c2) != 0) {
+    fprintf(stderr, "failed per-process dispatch lookup\n");
+    return 1;
+  }
+  if (c1 == 0u || c2 == 0u) {
+    fprintf(stderr, "expected both processes to be dispatched\n");
+    return 1;
+  }
+  aegis_scheduler_reset_metrics(&scheduler);
+  if (aegis_scheduler_total_dispatches(&scheduler) != 0u) {
+    fprintf(stderr, "expected metrics reset to clear total dispatches\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_kernel_boot() != 0) {
     return 1;
@@ -121,6 +163,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_priority_weighting() != 0) {
+    return 1;
+  }
+  if (test_scheduler_metrics() != 0) {
     return 1;
   }
   puts("kernel simulation check passed");

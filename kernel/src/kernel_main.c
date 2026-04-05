@@ -27,10 +27,14 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   }
   scheduler->count = 0;
   scheduler->head = 0;
+  scheduler->total_dispatches = 0;
+  scheduler->scheduler_ticks = 0;
+  scheduler->high_watermark = 0;
   for (i = 0; i < AEGIS_SCHEDULER_CAPACITY; ++i) {
     scheduler->process_ids[i] = 0;
     scheduler->priorities[i] = AEGIS_PRIORITY_NORMAL;
     scheduler->credits[i] = 0;
+    scheduler->dispatch_counts[i] = 0;
   }
 }
 
@@ -67,7 +71,11 @@ int aegis_scheduler_add_with_priority(aegis_scheduler_t *scheduler, uint32_t pro
   scheduler->process_ids[scheduler->count] = process_id;
   scheduler->priorities[scheduler->count] = normalize_priority(priority);
   scheduler->credits[scheduler->count] = scheduler->priorities[scheduler->count];
+  scheduler->dispatch_counts[scheduler->count] = 0;
   scheduler->count += 1;
+  if (scheduler->count > scheduler->high_watermark) {
+    scheduler->high_watermark = scheduler->count;
+  }
   return 0;
 }
 
@@ -81,6 +89,7 @@ int aegis_scheduler_remove(aegis_scheduler_t *scheduler, uint32_t process_id) {
     scheduler->process_ids[i - 1] = scheduler->process_ids[i];
     scheduler->priorities[i - 1] = scheduler->priorities[i];
     scheduler->credits[i - 1] = scheduler->credits[i];
+    scheduler->dispatch_counts[i - 1] = scheduler->dispatch_counts[i];
   }
   scheduler->count -= 1;
   if (scheduler->count == 0) {
@@ -127,6 +136,9 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
       continue;
     }
     scheduler->credits[idx] -= 1;
+    scheduler->dispatch_counts[idx] += 1;
+    scheduler->total_dispatches += 1;
+    scheduler->scheduler_ticks += 1;
     *process_id = scheduler->process_ids[idx];
     scheduler->head = (idx + 1) % scheduler->count;
     return 0;
@@ -139,4 +151,40 @@ size_t aegis_scheduler_count(const aegis_scheduler_t *scheduler) {
     return 0;
   }
   return scheduler->count;
+}
+
+uint64_t aegis_scheduler_total_dispatches(const aegis_scheduler_t *scheduler) {
+  if (scheduler == 0) {
+    return 0;
+  }
+  return scheduler->total_dispatches;
+}
+
+size_t aegis_scheduler_high_watermark(const aegis_scheduler_t *scheduler) {
+  if (scheduler == 0) {
+    return 0;
+  }
+  return scheduler->high_watermark;
+}
+
+int aegis_scheduler_dispatch_count_for(const aegis_scheduler_t *scheduler, uint32_t process_id,
+                                       uint32_t *dispatch_count) {
+  size_t idx = 0;
+  if (dispatch_count == 0 || scheduler == 0 || !find_index(scheduler, process_id, &idx)) {
+    return -1;
+  }
+  *dispatch_count = scheduler->dispatch_counts[idx];
+  return 0;
+}
+
+void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
+  size_t i;
+  if (scheduler == 0) {
+    return;
+  }
+  scheduler->total_dispatches = 0;
+  scheduler->scheduler_ticks = 0;
+  for (i = 0; i < scheduler->count; ++i) {
+    scheduler->dispatch_counts[i] = 0;
+  }
 }
