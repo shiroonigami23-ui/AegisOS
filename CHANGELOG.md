@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 12:46:31Z
+Last generated: 2026-04-05 12:48:54Z
 
 ## Unreleased
 
+- 2026-04-05 `02df452` "Add_onboarding_ci_command_equivalence_guardrails"
+- 2026-04-05 `4a96fa2` docs: auto-update explain and changelog
 - 2026-04-05 `4926515` "Add_seed_replay_harness_for_trace_json_property_tests"
 - 2026-04-05 `2827cf3` docs: auto-update explain and changelog
 - 2026-04-05 `469b842` "Add_json_endpoint_for_custom_window_histogram_query"
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 12:46:31Z
 - 2026-04-05 `2da5998` "Add_migration_dry_run_diff_preview_and_manifest_incremental_diff"
 - 2026-04-05 `046e182` docs: auto-update explain and changelog
 - 2026-04-05 `15c20a4` "Add_audit_sink_retention_manifest_generator_and_tests"
-- 2026-04-05 `b11b997` docs: auto-update explain and changelog
-- 2026-04-05 `1acc1f2` "Harden_network_trace_json_string_escaping"
