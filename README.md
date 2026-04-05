@@ -35,6 +35,7 @@ Build a modern, privacy-first operating system that combines the strongest quali
 2. Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 3. Read [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md).
 4. Follow milestone plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+5. Use execution backlog in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
 
 ## Current Status
 
