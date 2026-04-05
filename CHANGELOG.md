@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 12:58:52Z
+Last generated: 2026-04-05 12:59:48Z
 
 ## Unreleased
 
+- 2026-04-05 `dfb3685` "Add_package_profile_to_hardware_compatibility_matrix_docs"
+- 2026-04-05 `de08c6f` docs: auto-update explain and changelog
 - 2026-04-05 `15c3fc8` "Add_package_signature_placeholder_fields_and_schema_validation"
 - 2026-04-05 `fe4102e` docs: auto-update explain and changelog
 - 2026-04-05 `6eb55d1` "Add_scheduler_aging_boost_policy_for_low_priority_fairness"
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 12:58:52Z
 - 2026-04-05 `4926515` "Add_seed_replay_harness_for_trace_json_property_tests"
 - 2026-04-05 `2827cf3` docs: auto-update explain and changelog
 - 2026-04-05 `469b842` "Add_json_endpoint_for_custom_window_histogram_query"
-- 2026-04-05 `bd00809` docs: auto-update explain and changelog
-- 2026-04-05 `63ab58e` "Add_custom_window_scheduler_reason_histogram_query_api"

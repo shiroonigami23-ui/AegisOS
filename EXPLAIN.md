@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 12:58:52Z
+Last generated: 2026-04-05 12:59:48Z
 
 ## What AegisOS Is Building
 
@@ -62,8 +62,8 @@ Recent commit touches in `weekly` window (higher means more active recently):
 
 - kernel: 47
 - userland: 86
-- packages: 37
-- docs: 147
+- packages: 38
+- docs: 151
 - workflows: 13
 - tests: 55
 - tools: 1
@@ -81,6 +81,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `dfb3685` (2026-04-05): "Add_package_profile_to_hardware_compatibility_matrix_docs"
+- `de08c6f` (2026-04-05): docs: auto-update explain and changelog
 - `15c3fc8` (2026-04-05): "Add_package_signature_placeholder_fields_and_schema_validation"
 - `fe4102e` (2026-04-05): docs: auto-update explain and changelog
 - `6eb55d1` (2026-04-05): "Add_scheduler_aging_boost_policy_for_low_priority_fairness"
@@ -94,5 +96,3 @@ Open issue pressure by component signal:
 - `4926515` (2026-04-05): "Add_seed_replay_harness_for_trace_json_property_tests"
 - `2827cf3` (2026-04-05): docs: auto-update explain and changelog
 - `469b842` (2026-04-05): "Add_json_endpoint_for_custom_window_histogram_query"
-- `bd00809` (2026-04-05): docs: auto-update explain and changelog
-- `63ab58e` (2026-04-05): "Add_custom_window_scheduler_reason_histogram_query_api"
