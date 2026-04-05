@@ -49,6 +49,14 @@ typedef struct {
   int winner_rule_index;
   int winner_score;
   uint8_t tie_break_deny;
+  uint8_t dns_resolved_ipv4_present;
+  uint8_t dns_resolved_ipv6_present;
+  uint8_t dns_pin_match;
+  uint8_t dns_pin_has_ipv4;
+  uint8_t dns_pin_has_ipv6;
+  uint8_t dns_strict_mode;
+  uint8_t dns_strict_gate_blocked;
+  uint8_t dns_strict_gate_passed;
 } aegis_net_trace_stats_t;
 
 static int find_policy_index(const aegis_policy_engine_t *engine, uint32_t process_id, size_t *index) {
@@ -115,39 +123,125 @@ static int path_rule_matches(const char *path, const char *rule_pattern) {
   return prefix_matches(path, rule_pattern);
 }
 
-static int fs_pattern_valid(const char *pattern) {
+int aegis_policy_engine_lint_fs_scope_pattern(const char *pattern,
+                                              aegis_fs_pattern_lint_t *lint) {
   size_t i;
+  size_t len;
   size_t star_count = 0;
-  if (pattern == 0 || pattern[0] != '/') {
+  if (lint != 0) {
+    memset(lint, 0, sizeof(*lint));
+    lint->diagnostic[0] = '\0';
+    lint->normalized_pattern[0] = '\0';
+  }
+  if (pattern == 0 || pattern[0] == '\0') {
+    if (lint != 0) {
+      snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "pattern is required");
+    }
+    return 0;
+  }
+  len = strlen(pattern);
+  if (len >= 128u) {
+    if (lint != 0) {
+      snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "pattern exceeds max length");
+    }
+    return 0;
+  }
+  if (pattern[0] != '/') {
+    if (lint != 0) {
+      snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "pattern must start with '/'");
+    }
     return 0;
   }
   if (strstr(pattern, "..") != 0) {
+    if (lint != 0) {
+      snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "pattern must not contain '..'");
+    }
     return 0;
   }
   if (strstr(pattern, "//") != 0) {
+    if (lint != 0) {
+      snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "pattern must not contain '//'");
+    }
     return 0;
   }
-  if (pattern[strlen(pattern) - 1] == '/' && strlen(pattern) > 1u) {
+  if (len > 1u && pattern[len - 1] == '/') {
+    if (lint != 0) {
+      snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "pattern must not end with '/'");
+    }
     return 0;
   }
   for (i = 0; pattern[i] != '\0'; ++i) {
-    if (pattern[i] == '*') {
-      star_count += 1u;
-      if (star_count > 8u) {
-        return 0;
+    if (pattern[i] != '*') {
+      continue;
+    }
+    star_count += 1u;
+    if (star_count > 8u) {
+      if (lint != 0) {
+        snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "pattern has too many wildcards");
       }
-      if (i > 0 && pattern[i - 1] == '*') {
-        return 0;
+      return 0;
+    }
+    if (i > 0 && pattern[i - 1] == '*') {
+      if (lint != 0) {
+        snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "consecutive wildcards are not allowed");
       }
-      if (pattern[i + 1] != '\0' && pattern[i + 1] != '/') {
-        return 0;
+      return 0;
+    }
+    if (i > 0 && pattern[i - 1] != '/') {
+      if (lint != 0) {
+        snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "wildcard must start a full segment");
       }
-      if (i > 0 && pattern[i - 1] != '/') {
-        return 0;
+      return 0;
+    }
+    if (pattern[i + 1] != '\0' && pattern[i + 1] != '/') {
+      if (lint != 0) {
+        snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "wildcard must end a full segment");
       }
+      return 0;
     }
   }
+  if (lint != 0) {
+    lint->valid = 1u;
+    lint->wildcard_segments = (uint8_t)star_count;
+    lint->has_wildcards = star_count > 0 ? 1u : 0u;
+    snprintf(lint->normalized_pattern, sizeof(lint->normalized_pattern), "%s", pattern);
+    snprintf(lint->diagnostic, sizeof(lint->diagnostic), "%s", "ok");
+  }
   return 1;
+}
+
+int aegis_policy_engine_compile_fs_scope_pattern(const char *pattern,
+                                                 char *compiled_pattern,
+                                                 size_t compiled_pattern_size,
+                                                 char *diagnostic,
+                                                 size_t diagnostic_size) {
+  aegis_fs_pattern_lint_t lint;
+  int ok;
+  if (compiled_pattern == 0 || compiled_pattern_size == 0u) {
+    return -1;
+  }
+  compiled_pattern[0] = '\0';
+  if (diagnostic != 0 && diagnostic_size > 0u) {
+    diagnostic[0] = '\0';
+  }
+  ok = aegis_policy_engine_lint_fs_scope_pattern(pattern, &lint);
+  if (!ok) {
+    if (diagnostic != 0 && diagnostic_size > 0u) {
+      snprintf(diagnostic, diagnostic_size, "%s", lint.diagnostic);
+    }
+    return -1;
+  }
+  if (strlen(lint.normalized_pattern) + 1u > compiled_pattern_size) {
+    if (diagnostic != 0 && diagnostic_size > 0u) {
+      snprintf(diagnostic, diagnostic_size, "%s", "compiled pattern buffer too small");
+    }
+    return -1;
+  }
+  snprintf(compiled_pattern, compiled_pattern_size, "%s", lint.normalized_pattern);
+  if (diagnostic != 0 && diagnostic_size > 0u) {
+    snprintf(diagnostic, diagnostic_size, "%s", lint.diagnostic);
+  }
+  return 0;
 }
 
 static int host_matches(const char *host, const char *pattern) {
@@ -402,6 +496,7 @@ int aegis_policy_engine_add_fs_rule(aegis_policy_engine_t *engine,
                                     aegis_fs_scope_mode_t mode) {
   size_t i;
   size_t free_index = 256;
+  char compiled_pattern[128];
   if (engine == 0 || process_id == 0 || path_prefix == 0 || path_prefix[0] == '\0') {
     return -1;
   }
@@ -409,13 +504,17 @@ int aegis_policy_engine_add_fs_rule(aegis_policy_engine_t *engine,
       mode != AEGIS_FS_SCOPE_READ_WRITE) {
     return -1;
   }
-  if (!fs_pattern_valid(path_prefix)) {
+  if (aegis_policy_engine_compile_fs_scope_pattern(path_prefix,
+                                                   compiled_pattern,
+                                                   sizeof(compiled_pattern),
+                                                   0,
+                                                   0u) != 0) {
     return -1;
   }
   for (i = 0; i < 256; ++i) {
     if (engine->fs_rules[i].active != 0 &&
         engine->fs_rules[i].process_id == process_id &&
-        strcmp(engine->fs_rules[i].path_prefix, path_prefix) == 0) {
+        strcmp(engine->fs_rules[i].path_prefix, compiled_pattern) == 0) {
       engine->fs_rules[i].mode = mode;
       return 0;
     }
@@ -431,7 +530,7 @@ int aegis_policy_engine_add_fs_rule(aegis_policy_engine_t *engine,
   snprintf(engine->fs_rules[free_index].path_prefix,
            sizeof(engine->fs_rules[free_index].path_prefix),
            "%s",
-           path_prefix);
+           compiled_pattern);
   engine->fs_rules[free_index].mode = mode;
   return 0;
 }
@@ -841,11 +940,21 @@ static int check_network_with_ip_internal(const aegis_policy_engine_t *engine,
   int best_score = -1;
   int best_allow = 0;
   int best_index = -1;
+  uint8_t resolved_ipv4_present = resolved_ipv4 != 0u ? 1u : 0u;
+  uint8_t resolved_ipv6_present = (resolved_ipv6 != 0 && resolved_ipv6[0] != '\0') ? 1u : 0u;
   if (stats != 0) {
     stats->matched_rules = 0;
     stats->winner_rule_index = -1;
     stats->winner_score = -1;
     stats->tie_break_deny = 0;
+    stats->dns_resolved_ipv4_present = resolved_ipv4_present;
+    stats->dns_resolved_ipv6_present = resolved_ipv6_present;
+    stats->dns_pin_match = 0;
+    stats->dns_pin_has_ipv4 = 0;
+    stats->dns_pin_has_ipv6 = 0;
+    stats->dns_strict_mode = 0;
+    stats->dns_strict_gate_blocked = 0;
+    stats->dns_strict_gate_passed = 0;
   }
   set_trace(trace, trace_size, "");
   if (action != AEGIS_ACTION_NET_CONNECT && action != AEGIS_ACTION_NET_BIND) {
@@ -868,6 +977,11 @@ static int check_network_with_ip_internal(const aegis_policy_engine_t *engine,
     set_trace(trace, trace_size, "protocol unsupported");
     return 0;
   }
+  append_trace(trace,
+               trace_size,
+               "dns-evidence resolved_ipv4_present=%u resolved_ipv6_present=%u",
+               (unsigned int)resolved_ipv4_present,
+               (unsigned int)resolved_ipv6_present);
   if (resolved_ipv4 != 0u) {
     for (i = 0; i < 128; ++i) {
       const aegis_dns_pin_rule_t *pin = &engine->dns_pin_rules[i];
@@ -877,11 +991,29 @@ static int check_network_with_ip_internal(const aegis_policy_engine_t *engine,
       if (strcmp(pin->host, host) != 0) {
         continue;
       }
+      if (stats != 0) {
+        stats->dns_pin_match = 1u;
+        stats->dns_pin_has_ipv4 = pin->has_ipv4;
+        stats->dns_pin_has_ipv6 = pin->has_ipv6;
+        stats->dns_strict_mode = pin->strict_dual_stack;
+      }
       if (pin->strict_dual_stack != 0 && pin->has_ipv4 != 0 && pin->has_ipv6 != 0) {
         if (resolved_ipv4 == 0u || resolved_ipv6 == 0 || resolved_ipv6[0] == '\0') {
+          if (stats != 0) {
+            stats->dns_strict_gate_blocked = 1u;
+          }
           set_reason(decision, "dns dual-stack strict mode requires both ipv4 and ipv6 resolution", 0);
-          append_trace(trace, trace_size, "dns strict dual-stack missing family host=%s", host);
+          append_trace(trace,
+                       trace_size,
+                       " dns-strict host=%s pin_has_ipv4=%u pin_has_ipv6=%u strict=%u gate=blocked",
+                       host,
+                       (unsigned int)pin->has_ipv4,
+                       (unsigned int)pin->has_ipv6,
+                       (unsigned int)pin->strict_dual_stack);
           return 0;
+        }
+        if (stats != 0) {
+          stats->dns_strict_gate_passed = 1u;
         }
       }
       if (pin->has_ipv4 != 0 && pin->pinned_ipv4 != resolved_ipv4) {
@@ -908,11 +1040,29 @@ static int check_network_with_ip_internal(const aegis_policy_engine_t *engine,
       if (strcmp(pin->host, host) != 0) {
         continue;
       }
+      if (stats != 0) {
+        stats->dns_pin_match = 1u;
+        stats->dns_pin_has_ipv4 = pin->has_ipv4;
+        stats->dns_pin_has_ipv6 = pin->has_ipv6;
+        stats->dns_strict_mode = pin->strict_dual_stack;
+      }
       if (pin->strict_dual_stack != 0 && pin->has_ipv4 != 0 && pin->has_ipv6 != 0) {
         if (resolved_ipv4 == 0u || resolved_ipv6 == 0 || resolved_ipv6[0] == '\0') {
+          if (stats != 0) {
+            stats->dns_strict_gate_blocked = 1u;
+          }
           set_reason(decision, "dns dual-stack strict mode requires both ipv4 and ipv6 resolution", 0);
-          append_trace(trace, trace_size, "dns strict dual-stack missing family host=%s", host);
+          append_trace(trace,
+                       trace_size,
+                       " dns-strict host=%s pin_has_ipv4=%u pin_has_ipv6=%u strict=%u gate=blocked",
+                       host,
+                       (unsigned int)pin->has_ipv4,
+                       (unsigned int)pin->has_ipv6,
+                       (unsigned int)pin->strict_dual_stack);
           return 0;
+        }
+        if (stats != 0) {
+          stats->dns_strict_gate_passed = 1u;
         }
       }
       if (pin->has_ipv6 != 0 && strcmp(pin->pinned_ipv6, resolved_ipv6) != 0) {
@@ -1058,10 +1208,23 @@ int aegis_policy_engine_check_network_with_ip_trace_json(const aegis_policy_engi
   written = snprintf(json_trace, json_trace_size,
                      "{\"process_id\":%u,\"host\":\"%s\",\"port\":%u,\"protocol\":%u,"
                      "\"matched_rules\":%d,\"winner_rule_index\":%d,\"winner_score\":%d,"
-                     "\"tie_break_deny\":%u,\"decision_allowed\":%u,\"decision_reason\":\"%s\"}",
+                     "\"tie_break_deny\":%u,\"dns_resolved_ipv4_present\":%u,"
+                     "\"dns_resolved_ipv6_present\":%u,\"dns_pin_match\":%u,"
+                     "\"dns_pin_has_ipv4\":%u,\"dns_pin_has_ipv6\":%u,\"dns_strict_mode\":%u,"
+                     "\"dns_strict_gate_blocked\":%u,\"dns_strict_gate_passed\":%u,"
+                     "\"decision_allowed\":%u,\"decision_reason\":\"%s\"}",
                      process_id, host != 0 ? host : "", (unsigned int)port, (unsigned int)protocol,
                      stats.matched_rules, stats.winner_rule_index, stats.winner_score,
-                     (unsigned int)stats.tie_break_deny, (unsigned int)(decision != 0 ? decision->allowed : 0u),
+                     (unsigned int)stats.tie_break_deny,
+                     (unsigned int)stats.dns_resolved_ipv4_present,
+                     (unsigned int)stats.dns_resolved_ipv6_present,
+                     (unsigned int)stats.dns_pin_match,
+                     (unsigned int)stats.dns_pin_has_ipv4,
+                     (unsigned int)stats.dns_pin_has_ipv6,
+                     (unsigned int)stats.dns_strict_mode,
+                     (unsigned int)stats.dns_strict_gate_blocked,
+                     (unsigned int)stats.dns_strict_gate_passed,
+                     (unsigned int)(decision != 0 ? decision->allowed : 0u),
                      decision != 0 ? decision->reason : "");
   if (written < 0 || (size_t)written >= json_trace_size) {
     return -1;

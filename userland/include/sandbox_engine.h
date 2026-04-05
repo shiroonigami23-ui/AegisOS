@@ -33,6 +33,14 @@ typedef struct {
   uint8_t active;
 } aegis_fs_scope_rule_t;
 
+typedef struct {
+  uint8_t valid;
+  uint8_t has_wildcards;
+  uint8_t wildcard_segments;
+  char normalized_pattern[128];
+  char diagnostic[96];
+} aegis_fs_pattern_lint_t;
+
 typedef enum {
   AEGIS_NET_PROTO_TCP = 1,
   AEGIS_NET_PROTO_UDP = 2,
@@ -94,6 +102,13 @@ int aegis_policy_engine_add_fs_rule(aegis_policy_engine_t *engine,
                                     uint32_t process_id,
                                     const char *path_prefix,
                                     aegis_fs_scope_mode_t mode);
+int aegis_policy_engine_lint_fs_scope_pattern(const char *pattern,
+                                              aegis_fs_pattern_lint_t *lint);
+int aegis_policy_engine_compile_fs_scope_pattern(const char *pattern,
+                                                 char *compiled_pattern,
+                                                 size_t compiled_pattern_size,
+                                                 char *diagnostic,
+                                                 size_t diagnostic_size);
 int aegis_policy_engine_clear_fs_rules(aegis_policy_engine_t *engine, uint32_t process_id);
 int aegis_policy_engine_check_path(const aegis_policy_engine_t *engine,
                                    const aegis_capability_store_t *store,

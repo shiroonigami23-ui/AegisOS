@@ -528,6 +528,51 @@ static int test_filesystem_wildcard_validation_rules(void) {
   return 0;
 }
 
+static int test_filesystem_wildcard_lint_and_compile(void) {
+  aegis_fs_pattern_lint_t lint;
+  char compiled[128];
+  char diagnostic[96];
+  if (aegis_policy_engine_lint_fs_scope_pattern("/home/*/public/*", &lint) != 1) {
+    fprintf(stderr, "expected wildcard lint to pass\n");
+    return 1;
+  }
+  if (lint.valid == 0 || lint.has_wildcards == 0 || lint.wildcard_segments != 2u) {
+    fprintf(stderr, "unexpected lint summary for wildcard pattern\n");
+    return 1;
+  }
+  if (strcmp(lint.normalized_pattern, "/home/*/public/*") != 0) {
+    fprintf(stderr, "unexpected normalized wildcard pattern: %s\n", lint.normalized_pattern);
+    return 1;
+  }
+  if (aegis_policy_engine_compile_fs_scope_pattern(
+          "/home/*/public/*", compiled, sizeof(compiled), diagnostic, sizeof(diagnostic)) != 0) {
+    fprintf(stderr, "expected wildcard compile to pass: %s\n", diagnostic);
+    return 1;
+  }
+  if (strcmp(compiled, "/home/*/public/*") != 0) {
+    fprintf(stderr, "unexpected compiled pattern: %s\n", compiled);
+    return 1;
+  }
+  if (aegis_policy_engine_lint_fs_scope_pattern("/bad/pre*fix/path", &lint) != 0) {
+    fprintf(stderr, "expected inline wildcard lint to fail\n");
+    return 1;
+  }
+  if (strstr(lint.diagnostic, "wildcard must") == 0) {
+    fprintf(stderr, "expected lint diagnostic for inline wildcard: %s\n", lint.diagnostic);
+    return 1;
+  }
+  if (aegis_policy_engine_compile_fs_scope_pattern(
+          "/bad/../escape", compiled, sizeof(compiled), diagnostic, sizeof(diagnostic)) == 0) {
+    fprintf(stderr, "expected traversal compile to fail\n");
+    return 1;
+  }
+  if (strstr(diagnostic, "must not contain '..'") == 0) {
+    fprintf(stderr, "unexpected traversal compile diagnostic: %s\n", diagnostic);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_dns_rebinding_guard(void) {
   aegis_capability_store_t cap_store;
   aegis_policy_engine_t engine;
@@ -714,6 +759,89 @@ static int test_dns_dual_stack_strict_mode(void) {
   return 0;
 }
 
+static int test_dns_dual_stack_resolution_evidence_trace_json(void) {
+  aegis_capability_store_t cap_store;
+  aegis_policy_engine_t engine;
+  aegis_sandbox_policy_t policy = {
+      5203u, AEGIS_CAP_NET_CLIENT, 0u, 0u, 1u, 0u, 0u};
+  aegis_policy_decision_t decision;
+  const uint32_t pinned_v4 = 0xC0A80123; /* 192.168.1.35 */
+  const char *pinned_v6 = "2001:db8::23";
+  char json_trace[1024];
+
+  aegis_capability_store_init(&cap_store);
+  aegis_policy_engine_init(&engine);
+  if (aegis_capability_issue(&cap_store, 5203u, AEGIS_CAP_NET_CLIENT) != 0) {
+    fprintf(stderr, "dns evidence capability issue failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_set_policy(&engine, &policy) != 0) {
+    fprintf(stderr, "dns evidence set policy failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_add_net_rule(
+          &engine, 5203u, "api.evidence.local", 443, 443, AEGIS_NET_PROTO_TCP, 1u, 0u, 1u) != 0) {
+    fprintf(stderr, "dns evidence add net rule failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_pin_dns_ipv4(&engine, 5203u, "api.evidence.local", pinned_v4) != 0 ||
+      aegis_policy_engine_pin_dns_ipv6(&engine, 5203u, "api.evidence.local", pinned_v6) != 0) {
+    fprintf(stderr, "dns evidence pin failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_set_dns_dual_stack_strict(&engine, 5203u, "api.evidence.local", 1u) != 0) {
+    fprintf(stderr, "dns evidence strict enable failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check_network_with_ip_trace_json(&engine,
+                                                           &cap_store,
+                                                           5203u,
+                                                           AEGIS_ACTION_NET_CONNECT,
+                                                           "api.evidence.local",
+                                                           443,
+                                                           AEGIS_NET_PROTO_TCP,
+                                                           pinned_v4,
+                                                           0,
+                                                           json_trace,
+                                                           sizeof(json_trace),
+                                                           &decision) != 0) {
+    fprintf(stderr, "expected strict dual-stack missing family deny for evidence trace\n");
+    return 1;
+  }
+  if (strstr(json_trace, "\"dns_resolved_ipv4_present\":1") == 0 ||
+      strstr(json_trace, "\"dns_resolved_ipv6_present\":0") == 0 ||
+      strstr(json_trace, "\"dns_pin_has_ipv4\":1") == 0 ||
+      strstr(json_trace, "\"dns_pin_has_ipv6\":1") == 0 ||
+      strstr(json_trace, "\"dns_strict_mode\":1") == 0 ||
+      strstr(json_trace, "\"dns_strict_gate_blocked\":1") == 0) {
+    fprintf(stderr, "missing dns evidence fields in blocked trace json: %s\n", json_trace);
+    return 1;
+  }
+  if (aegis_policy_engine_check_network_with_ip_trace_json(&engine,
+                                                           &cap_store,
+                                                           5203u,
+                                                           AEGIS_ACTION_NET_CONNECT,
+                                                           "api.evidence.local",
+                                                           443,
+                                                           AEGIS_NET_PROTO_TCP,
+                                                           pinned_v4,
+                                                           pinned_v6,
+                                                           json_trace,
+                                                           sizeof(json_trace),
+                                                           &decision) != 1) {
+    fprintf(stderr, "expected strict dual-stack allow for evidence trace\n");
+    return 1;
+  }
+  if (strstr(json_trace, "\"dns_resolved_ipv4_present\":1") == 0 ||
+      strstr(json_trace, "\"dns_resolved_ipv6_present\":1") == 0 ||
+      strstr(json_trace, "\"dns_strict_gate_passed\":1") == 0 ||
+      strstr(json_trace, "\"decision_allowed\":1") == 0) {
+    fprintf(stderr, "missing dns evidence fields in allow trace json: %s\n", json_trace);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_policy_hot_reload(void) {
   aegis_capability_store_t cap_store;
   aegis_policy_engine_t engine;
@@ -802,6 +930,9 @@ int main(void) {
   if (test_filesystem_wildcard_validation_rules() != 0) {
     return 1;
   }
+  if (test_filesystem_wildcard_lint_and_compile() != 0) {
+    return 1;
+  }
   if (test_dns_rebinding_guard() != 0) {
     return 1;
   }
@@ -809,6 +940,9 @@ int main(void) {
     return 1;
   }
   if (test_dns_dual_stack_strict_mode() != 0) {
+    return 1;
+  }
+  if (test_dns_dual_stack_resolution_evidence_trace_json() != 0) {
     return 1;
   }
   if (test_policy_hot_reload() != 0) {
