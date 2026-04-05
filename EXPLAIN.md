@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 13:12:37Z
+Last generated: 2026-04-05 13:14:30Z
 
 ## What AegisOS Is Building
 
@@ -46,7 +46,7 @@ We implement in vertical slices:
 - none
 
 ### Good First Task
-- #9 Toolchain_bootstrap_for_contributors (good-first-task)
+- none
 
 ### Other
 - none
@@ -56,11 +56,11 @@ We implement in vertical slices:
 Recent commit touches in `weekly` window (higher means more active recently):
 
 - kernel: 47
-- userland: 89
+- userland: 92
 - packages: 39
-- docs: 167
+- docs: 169
 - workflows: 15
-- tests: 62
+- tests: 63
 - tools: 1
 - platform: 1
 - scripts: 33
@@ -72,10 +72,12 @@ Open issue pressure by component signal:
 - kernel: 0
 - packages: 0
 - docs: 0
-- other: 2
+- other: 1
 
 ## Recent Engineering Changes
 
+- `5707523` (2026-04-05): "Add_actor_registry_snapshot_and_restore_persistence_api"
+- `b49f9a3` (2026-04-05): docs: auto-update explain and changelog
 - `1091117` (2026-04-05): "Add_cross_platform_toolchain_bootstrap_scripts_for_contributors"
 - `5312e24` (2026-04-05): docs: auto-update explain and changelog
 - `f8fd4c7` (2026-04-05): "Add_trace_json_property_perf_baseline_and_seed_corpus_tooling"
@@ -89,5 +91,3 @@ Open issue pressure by component signal:
 - `dfb3685` (2026-04-05): "Add_package_profile_to_hardware_compatibility_matrix_docs"
 - `de08c6f` (2026-04-05): docs: auto-update explain and changelog
 - `15c3fc8` (2026-04-05): "Add_package_signature_placeholder_fields_and_schema_validation"
-- `fe4102e` (2026-04-05): docs: auto-update explain and changelog
-- `6eb55d1` (2026-04-05): "Add_scheduler_aging_boost_policy_for_low_priority_fairness"
