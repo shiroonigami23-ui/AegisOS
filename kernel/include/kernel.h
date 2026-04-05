@@ -115,6 +115,9 @@ int aegis_vm_split_region(aegis_vm_space_t *space,
                           uint64_t size,
                           uint64_t split_offset);
 int aegis_ipc_envelope_validate(const aegis_ipc_envelope_t *envelope, uint32_t max_payload_size);
+int aegis_ipc_envelope_payload_fits(const aegis_ipc_envelope_t *envelope,
+                                    uint32_t max_frame_size,
+                                    uint32_t *remaining_bytes);
 int aegis_ipc_envelope_encode(const aegis_ipc_envelope_t *envelope, uint8_t *out, size_t out_size);
 int aegis_ipc_envelope_decode(const uint8_t *in, size_t in_size, aegis_ipc_envelope_t *envelope);
 void aegis_scheduler_init(aegis_scheduler_t *scheduler);

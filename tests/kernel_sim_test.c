@@ -150,6 +150,29 @@ static int test_ipc_envelope_format_helpers(void) {
   return 0;
 }
 
+static int test_ipc_payload_guard_helper(void) {
+  aegis_ipc_envelope_t env = {AEGIS_IPC_ENVELOPE_SCHEMA_VERSION, 9u, 0u, 100u, 500u};
+  uint32_t remaining = 0u;
+  if (aegis_ipc_envelope_payload_fits(&env, 200u, &remaining) != 1 || remaining != 84u) {
+    fprintf(stderr, "ipc payload guard expected fit with remaining bytes\n");
+    return 1;
+  }
+  if (aegis_ipc_envelope_payload_fits(&env, 100u, &remaining) != 0 || remaining != 0u) {
+    fprintf(stderr, "ipc payload guard expected overflow reject\n");
+    return 1;
+  }
+  env.payload_size = UINT32_MAX;
+  if (aegis_ipc_envelope_payload_fits(&env, UINT32_MAX, &remaining) >= 0) {
+    fprintf(stderr, "ipc payload guard expected arithmetic overflow fail\n");
+    return 1;
+  }
+  if (aegis_ipc_envelope_payload_fits(0, 200u, &remaining) >= 0) {
+    fprintf(stderr, "ipc payload guard expected null input failure\n");
+    return 1;
+  }
+  return 0;
+}
+
 static int test_scheduler_round_robin(void) {
   aegis_scheduler_t scheduler;
   uint32_t pid = 0;
@@ -791,6 +814,9 @@ int main(void) {
     return 1;
   }
   if (test_ipc_envelope_format_helpers() != 0) {
+    return 1;
+  }
+  if (test_ipc_payload_guard_helper() != 0) {
     return 1;
   }
   if (test_scheduler_round_robin() != 0) {

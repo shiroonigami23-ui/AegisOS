@@ -64,6 +64,29 @@ int aegis_ipc_envelope_validate(const aegis_ipc_envelope_t *envelope, uint32_t m
   return 0;
 }
 
+int aegis_ipc_envelope_payload_fits(const aegis_ipc_envelope_t *envelope,
+                                    uint32_t max_frame_size,
+                                    uint32_t *remaining_bytes) {
+  uint32_t total_size;
+  if (envelope == 0 || max_frame_size < 16u) {
+    return -1;
+  }
+  if (envelope->payload_size > UINT32_MAX - 16u) {
+    return -1;
+  }
+  total_size = 16u + envelope->payload_size;
+  if (total_size > max_frame_size) {
+    if (remaining_bytes != 0) {
+      *remaining_bytes = 0u;
+    }
+    return 0;
+  }
+  if (remaining_bytes != 0) {
+    *remaining_bytes = max_frame_size - total_size;
+  }
+  return 1;
+}
+
 int aegis_ipc_envelope_encode(const aegis_ipc_envelope_t *envelope, uint8_t *out, size_t out_size) {
   if (envelope == 0 || out == 0 || out_size < 16u) {
     return -1;
