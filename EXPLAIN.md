@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 11:30:54Z
+Last generated: 2026-04-05 11:36:26Z
 
 ## What AegisOS Is Building
 
@@ -36,13 +36,13 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #67 Network_trace_schema_version_field (priority-p1, security)
 - #66 DNS_dual_stack_resolution_evidence_trace (priority-p1, security)
 - #65 Sandbox_policy_migration_batch_tool (priority-p1, security)
 - #64 Capability_audit_sink_rotation_retention_policy (priority-p1, security)
 - #63 Scheduler_snapshot_reason_histogram_window (priority-p1, kernel)
 - #62 Capability_actor_registry_and_revocation_hooks (priority-p1, security)
 - #61 Filesystem_scope_wildcard_compiler_and_lint (priority-p1, security)
-- #60 Network_scope_trace_machine_readable_mode (priority-p1, security)
 - #53 Package_graph_rendering_guide (priority-p1)
 - #48 Docs_heatmap_trend_window (priority-p1)
 - #40 Apply_branch_protection_profile_on_main (priority-p1)
@@ -70,8 +70,8 @@ We implement in vertical slices:
 
 Recent commit touches (higher means more active recently):
 
-- kernel: 21
-- userland: 36
+- kernel: 18
+- userland: 39
 - packages: 3
 - docs: 44
 - workflows: 0
@@ -91,6 +91,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `9f37adb` (2026-04-05): "Add_dns_dual_stack_trace_evidence_and_fs_wildcard_lint_compile"
+- `f56fd91` (2026-04-05): docs: auto-update explain and changelog
 - `206412e` (2026-04-05): Add_machine_readable_json_network_trace_api
 - `cc19e78` (2026-04-05): docs: auto-update explain and changelog
 - `c29ca17` (2026-04-05): Add_dns_dual_stack_strict_mode_enforcement
@@ -104,5 +106,3 @@ Open issue pressure by component signal:
 - `6934178` (2026-04-05): Add_capability_actor_identity_model_and_validation
 - `bd9e491` (2026-04-05): docs: auto-update explain and changelog
 - `2606126` (2026-04-05): Add_filesystem_wildcard_validation_rules
-- `c93539f` (2026-04-05): docs: auto-update explain and changelog
-- `2ce62d0` (2026-04-05): Add_network_scope_precedence_debug_trace_api
