@@ -17,3 +17,4 @@ Core userspace services, shell tools, and runtime components live here.
   - network rule precedence is deterministic: most specific match wins; tie -> deny.
   - includes optional DNS pinning guard (`host -> pinned IPv4`) for rebinding defense.
   - includes symlink mapping resolution before filesystem scope checks.
+  - supports policy hot reload with validation and safe replacement semantics.

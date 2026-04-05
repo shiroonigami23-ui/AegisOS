@@ -213,6 +213,25 @@ int aegis_policy_engine_set_policy(aegis_policy_engine_t *engine,
   return 0;
 }
 
+int aegis_policy_engine_hot_reload_policy(aegis_policy_engine_t *engine,
+                                          const aegis_sandbox_policy_t *policy) {
+  aegis_sandbox_policy_t candidate;
+  char reason[96];
+  size_t index = 0;
+  if (engine == 0 || policy == 0) {
+    return -1;
+  }
+  candidate = *policy;
+  if (!aegis_sandbox_policy_validate(&candidate, reason, sizeof(reason))) {
+    return -1;
+  }
+  if (find_policy_index(engine, candidate.process_id, &index)) {
+    engine->policies[index] = candidate;
+    return 0;
+  }
+  return aegis_policy_engine_set_policy(engine, &candidate);
+}
+
 int aegis_policy_engine_remove_policy(aegis_policy_engine_t *engine, uint32_t process_id) {
   size_t index = 0;
   if (!find_policy_index(engine, process_id, &index)) {

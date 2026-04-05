@@ -78,6 +78,8 @@ typedef struct {
 void aegis_policy_engine_init(aegis_policy_engine_t *engine);
 int aegis_policy_engine_set_policy(aegis_policy_engine_t *engine,
                                    const aegis_sandbox_policy_t *policy);
+int aegis_policy_engine_hot_reload_policy(aegis_policy_engine_t *engine,
+                                          const aegis_sandbox_policy_t *policy);
 int aegis_policy_engine_remove_policy(aegis_policy_engine_t *engine, uint32_t process_id);
 int aegis_policy_engine_check(const aegis_policy_engine_t *engine,
                               const aegis_capability_store_t *store,

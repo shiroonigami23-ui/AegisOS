@@ -458,6 +458,50 @@ static int test_dns_rebinding_guard(void) {
   return 0;
 }
 
+static int test_policy_hot_reload(void) {
+  aegis_capability_store_t cap_store;
+  aegis_policy_engine_t engine;
+  aegis_sandbox_policy_t initial = {
+      5300u, AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE, 1u, 0u, 0u, 0u, 0u};
+  aegis_sandbox_policy_t updated = {
+      5300u, AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE, 1u, 1u, 0u, 0u, 0u};
+  aegis_sandbox_policy_t invalid = {
+      5300u, AEGIS_CAP_FS_READ, 1u, 1u, 0u, 0u, 0u};
+  aegis_policy_decision_t decision;
+
+  aegis_capability_store_init(&cap_store);
+  aegis_policy_engine_init(&engine);
+  if (aegis_capability_issue(&cap_store, 5300u, AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE) != 0) {
+    fprintf(stderr, "hot reload capability issue failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_set_policy(&engine, &initial) != 0) {
+    fprintf(stderr, "hot reload initial set failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check(&engine, &cap_store, 5300u, AEGIS_ACTION_FS_WRITE, &decision) != 0) {
+    fprintf(stderr, "expected initial write deny by policy gate\n");
+    return 1;
+  }
+  if (aegis_policy_engine_hot_reload_policy(&engine, &updated) != 0) {
+    fprintf(stderr, "hot reload valid update failed\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check(&engine, &cap_store, 5300u, AEGIS_ACTION_FS_WRITE, &decision) != 1) {
+    fprintf(stderr, "expected write allow after hot reload\n");
+    return 1;
+  }
+  if (aegis_policy_engine_hot_reload_policy(&engine, &invalid) == 0) {
+    fprintf(stderr, "expected invalid hot reload to fail\n");
+    return 1;
+  }
+  if (aegis_policy_engine_check(&engine, &cap_store, 5300u, AEGIS_ACTION_FS_WRITE, &decision) != 1) {
+    fprintf(stderr, "expected previous valid policy to remain active\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_allow_path() != 0) {
     return 1;
@@ -487,6 +531,9 @@ int main(void) {
     return 1;
   }
   if (test_dns_rebinding_guard() != 0) {
+    return 1;
+  }
+  if (test_policy_hot_reload() != 0) {
     return 1;
   }
   puts("sandbox engine tests passed");
