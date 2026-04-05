@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define AEGIS_SCHEDULER_SNAPSHOT_SCHEMA_VERSION 1u
+
 typedef struct {
   uint32_t process_ids[64];
   uint8_t priorities[64];
@@ -25,6 +27,7 @@ typedef struct {
 } aegis_scheduler_t;
 
 typedef struct {
+  uint32_t schema_version;
   size_t queue_depth;
   size_t high_watermark;
   uint64_t total_dispatches;
@@ -32,6 +35,10 @@ typedef struct {
   uint32_t current_pid;
   uint32_t quantum_ticks;
   uint32_t quantum_remaining;
+  uint64_t switch_process_start_count;
+  uint64_t switch_quantum_expired_count;
+  uint64_t switch_process_exit_count;
+  uint64_t switch_manual_yield_count;
 } aegis_scheduler_metrics_snapshot_t;
 
 typedef struct {

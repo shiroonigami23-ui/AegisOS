@@ -230,13 +230,14 @@ static int test_scheduler_metrics_snapshot_endpoint(void) {
   aegis_scheduler_metrics_snapshot_t snap;
   uint32_t pid = 0;
   uint8_t switched = 0;
+  uint8_t reason = AEGIS_SWITCH_NONE;
   aegis_scheduler_init(&scheduler);
   aegis_scheduler_set_quantum(&scheduler, 4u);
   if (aegis_scheduler_add(&scheduler, 8101u) != 0 || aegis_scheduler_add(&scheduler, 8102u) != 0) {
     fprintf(stderr, "snapshot add failed\n");
     return 1;
   }
-  if (aegis_scheduler_on_tick(&scheduler, &pid, &switched) != 0) {
+  if (aegis_scheduler_on_tick_ex(&scheduler, &pid, &switched, &reason) != 0) {
     fprintf(stderr, "snapshot tick failed\n");
     return 1;
   }
@@ -250,6 +251,14 @@ static int test_scheduler_metrics_snapshot_endpoint(void) {
   }
   if (snap.current_pid == 0u || snap.quantum_ticks != 4u) {
     fprintf(stderr, "snapshot running fields invalid\n");
+    return 1;
+  }
+  if (snap.schema_version != AEGIS_SCHEDULER_SNAPSHOT_SCHEMA_VERSION) {
+    fprintf(stderr, "snapshot schema version invalid\n");
+    return 1;
+  }
+  if (snap.switch_process_start_count == 0u) {
+    fprintf(stderr, "expected non-zero process-start reason count\n");
     return 1;
   }
   return 0;
@@ -362,7 +371,9 @@ static int test_scheduler_snapshot_serialization(void) {
     return 1;
   }
   if (strstr(metrics_json, "\"queue_depth\":2") == 0 ||
-      strstr(metrics_json, "\"scheduler_ticks\":") == 0) {
+      strstr(metrics_json, "\"scheduler_ticks\":") == 0 ||
+      strstr(metrics_json, "\"schema_version\":1") == 0 ||
+      strstr(metrics_json, "\"switch_process_start_count\":") == 0) {
     fprintf(stderr, "metrics json missing expected fields\n");
     return 1;
   }

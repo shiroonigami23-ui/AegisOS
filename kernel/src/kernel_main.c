@@ -309,6 +309,7 @@ int aegis_scheduler_metrics_snapshot(const aegis_scheduler_t *scheduler,
   if (scheduler == 0 || snapshot == 0) {
     return -1;
   }
+  snapshot->schema_version = AEGIS_SCHEDULER_SNAPSHOT_SCHEMA_VERSION;
   snapshot->queue_depth = scheduler->count;
   snapshot->high_watermark = scheduler->high_watermark;
   snapshot->total_dispatches = scheduler->total_dispatches;
@@ -316,6 +317,11 @@ int aegis_scheduler_metrics_snapshot(const aegis_scheduler_t *scheduler,
   snapshot->current_pid = scheduler->current_pid;
   snapshot->quantum_ticks = scheduler->quantum_ticks;
   snapshot->quantum_remaining = scheduler->quantum_remaining;
+  snapshot->switch_process_start_count = scheduler->reason_switch_counts[AEGIS_SWITCH_PROCESS_START];
+  snapshot->switch_quantum_expired_count =
+      scheduler->reason_switch_counts[AEGIS_SWITCH_QUANTUM_EXPIRED];
+  snapshot->switch_process_exit_count = scheduler->reason_switch_counts[AEGIS_SWITCH_PROCESS_EXIT];
+  snapshot->switch_manual_yield_count = scheduler->reason_switch_counts[AEGIS_SWITCH_MANUAL_YIELD];
   return 0;
 }
 
@@ -326,14 +332,21 @@ int aegis_scheduler_metrics_snapshot_json(const aegis_scheduler_metrics_snapshot
     return -1;
   }
   written = snprintf(out, out_size,
-                     "{\"queue_depth\":%llu,\"high_watermark\":%llu,\"total_dispatches\":%llu,"
+                     "{\"schema_version\":%u,\"queue_depth\":%llu,\"high_watermark\":%llu,"
+                     "\"total_dispatches\":%llu,"
                      "\"scheduler_ticks\":%llu,\"current_pid\":%u,\"quantum_ticks\":%u,"
-                     "\"quantum_remaining\":%u}",
-                     (unsigned long long)snapshot->queue_depth,
+                     "\"quantum_remaining\":%u,\"switch_process_start_count\":%llu,"
+                     "\"switch_quantum_expired_count\":%llu,\"switch_process_exit_count\":%llu,"
+                     "\"switch_manual_yield_count\":%llu}",
+                     snapshot->schema_version, (unsigned long long)snapshot->queue_depth,
                      (unsigned long long)snapshot->high_watermark,
                      (unsigned long long)snapshot->total_dispatches,
                      (unsigned long long)snapshot->scheduler_ticks, snapshot->current_pid,
-                     snapshot->quantum_ticks, snapshot->quantum_remaining);
+                     snapshot->quantum_ticks, snapshot->quantum_remaining,
+                     (unsigned long long)snapshot->switch_process_start_count,
+                     (unsigned long long)snapshot->switch_quantum_expired_count,
+                     (unsigned long long)snapshot->switch_process_exit_count,
+                     (unsigned long long)snapshot->switch_manual_yield_count);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
