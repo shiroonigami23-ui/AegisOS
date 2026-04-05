@@ -190,24 +190,39 @@ void aegis_policy_engine_init(aegis_policy_engine_t *engine) {
   }
 }
 
+static uint64_t effective_revision(const aegis_sandbox_policy_t *policy) {
+  if (policy->policy_revision == 0u) {
+    return 1u;
+  }
+  return policy->policy_revision;
+}
+
 int aegis_policy_engine_set_policy(aegis_policy_engine_t *engine,
                                    const aegis_sandbox_policy_t *policy) {
+  aegis_sandbox_policy_t candidate;
   size_t index = 0;
   char reason[96];
   if (engine == 0 || policy == 0) {
     return -1;
   }
-  if (!aegis_sandbox_policy_validate(policy, reason, sizeof(reason))) {
+  candidate = *policy;
+  if (candidate.schema_version == 0u) {
+    candidate.schema_version = AEGIS_SANDBOX_POLICY_SCHEMA_VERSION;
+  }
+  if (candidate.policy_revision == 0u) {
+    candidate.policy_revision = 1u;
+  }
+  if (!aegis_sandbox_policy_validate(&candidate, reason, sizeof(reason))) {
     return -1;
   }
-  if (find_policy_index(engine, policy->process_id, &index)) {
-    engine->policies[index] = *policy;
+  if (find_policy_index(engine, candidate.process_id, &index)) {
+    engine->policies[index] = candidate;
     return 0;
   }
   if (engine->count >= 128) {
     return -1;
   }
-  engine->policies[engine->count] = *policy;
+  engine->policies[engine->count] = candidate;
   engine->active[engine->count] = 1;
   engine->count += 1;
   return 0;
@@ -226,8 +241,26 @@ int aegis_policy_engine_hot_reload_policy(aegis_policy_engine_t *engine,
     return -1;
   }
   if (find_policy_index(engine, candidate.process_id, &index)) {
+    uint64_t current_rev = effective_revision(&engine->policies[index]);
+    uint64_t candidate_rev = effective_revision(&candidate);
+    if (candidate.schema_version == 0u) {
+      candidate.schema_version = AEGIS_SANDBOX_POLICY_SCHEMA_VERSION;
+    }
+    if (candidate.policy_revision == 0u) {
+      candidate.policy_revision = current_rev + 1u;
+      candidate_rev = candidate.policy_revision;
+    }
+    if (candidate_rev <= current_rev) {
+      return -1;
+    }
     engine->policies[index] = candidate;
     return 0;
+  }
+  if (candidate.schema_version == 0u) {
+    candidate.schema_version = AEGIS_SANDBOX_POLICY_SCHEMA_VERSION;
+  }
+  if (candidate.policy_revision == 0u) {
+    candidate.policy_revision = 1u;
   }
   return aegis_policy_engine_set_policy(engine, &candidate);
 }

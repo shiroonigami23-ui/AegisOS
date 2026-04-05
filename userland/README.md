@@ -11,6 +11,7 @@ Core userspace services, shell tools, and runtime components live here.
   - includes audit export API for JSON/CSV snapshots (latest ring window).
 - `sandbox_policy`: policy schema validation for filesystem/network/device permissions.
   - includes JSON serialization/deserialization helpers for distribution and storage.
+  - includes `schema_version` and `policy_revision` fields for versioned policy rollouts.
 - `sandbox_engine`: action-level enforcement using policy gates + capability tokens.
   - includes path-level filesystem scopes (`deny`, `read-only`, `read-write`) with deny override behavior.
   - supports simple wildcard patterns (`*`) in filesystem scope rules.
@@ -19,3 +20,4 @@ Core userspace services, shell tools, and runtime components live here.
   - includes optional DNS pinning guard (`host -> pinned IPv4`) for rebinding defense.
   - includes symlink mapping resolution before filesystem scope checks.
   - supports policy hot reload with validation and safe replacement semantics.
+  - hot reload enforces monotonic `policy_revision` to block stale policy rollback.

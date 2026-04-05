@@ -467,6 +467,8 @@ static int test_policy_hot_reload(void) {
       5300u, AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE, 1u, 1u, 0u, 0u, 0u};
   aegis_sandbox_policy_t invalid = {
       5300u, AEGIS_CAP_FS_READ, 1u, 1u, 0u, 0u, 0u};
+  aegis_sandbox_policy_t stale = {
+      5300u, AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE, 1u, 1u, 0u, 0u, 0u};
   aegis_policy_decision_t decision;
 
   aegis_capability_store_init(&cap_store);
@@ -493,6 +495,11 @@ static int test_policy_hot_reload(void) {
   }
   if (aegis_policy_engine_hot_reload_policy(&engine, &invalid) == 0) {
     fprintf(stderr, "expected invalid hot reload to fail\n");
+    return 1;
+  }
+  stale.policy_revision = 1u;
+  if (aegis_policy_engine_hot_reload_policy(&engine, &stale) == 0) {
+    fprintf(stderr, "expected stale policy_revision hot reload to fail\n");
     return 1;
   }
   if (aegis_policy_engine_check(&engine, &cap_store, 5300u, AEGIS_ACTION_FS_WRITE, &decision) != 1) {

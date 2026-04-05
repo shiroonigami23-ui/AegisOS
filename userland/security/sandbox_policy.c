@@ -10,6 +10,20 @@ static void write_reason(char *reason, size_t reason_size, const char *message) 
   snprintf(reason, reason_size, "%s", message);
 }
 
+static uint32_t policy_schema_version(const aegis_sandbox_policy_t *policy) {
+  if (policy->schema_version == 0u) {
+    return AEGIS_SANDBOX_POLICY_SCHEMA_VERSION;
+  }
+  return policy->schema_version;
+}
+
+static uint64_t policy_revision(const aegis_sandbox_policy_t *policy) {
+  if (policy->policy_revision == 0u) {
+    return 1u;
+  }
+  return policy->policy_revision;
+}
+
 int aegis_sandbox_policy_validate(const aegis_sandbox_policy_t *policy,
                                   char *reason, size_t reason_size) {
   const uint32_t known_mask = AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE | AEGIS_CAP_NET_CLIENT |
@@ -27,6 +41,10 @@ int aegis_sandbox_policy_validate(const aegis_sandbox_policy_t *policy,
   }
   if ((policy->capabilities & ~known_mask) != 0) {
     write_reason(reason, reason_size, "policy includes unknown capability bits");
+    return 0;
+  }
+  if (policy_schema_version(policy) != AEGIS_SANDBOX_POLICY_SCHEMA_VERSION) {
+    write_reason(reason, reason_size, "unsupported sandbox policy schema_version");
     return 0;
   }
   if ((policy->allow_fs_read != 0) && ((policy->capabilities & AEGIS_CAP_FS_READ) == 0)) {
@@ -81,6 +99,7 @@ int aegis_sandbox_policy_serialize_json(const aegis_sandbox_policy_t *policy,
       output_size,
       "{\"process_id\":%u,\"capabilities\":%u,\"allow_fs_read\":%u,"
       "\"allow_fs_write\":%u,\"allow_net_client\":%u,\"allow_net_server\":%u,"
+      "\"schema_version\":%u,\"policy_revision\":%llu,"
       "\"allow_device_io\":%u}",
       policy->process_id,
       policy->capabilities,
@@ -88,6 +107,8 @@ int aegis_sandbox_policy_serialize_json(const aegis_sandbox_policy_t *policy,
       (unsigned int)policy->allow_fs_write,
       (unsigned int)policy->allow_net_client,
       (unsigned int)policy->allow_net_server,
+      (unsigned int)policy_schema_version(policy),
+      (unsigned long long)policy_revision(policy),
       (unsigned int)policy->allow_device_io);
   if (written < 0 || (size_t)written >= output_size) {
     return -1;
@@ -104,6 +125,8 @@ int aegis_sandbox_policy_deserialize_json(const char *input,
   unsigned int allow_fs_write = 0;
   unsigned int allow_net_client = 0;
   unsigned int allow_net_server = 0;
+  unsigned int schema_version = 0;
+  unsigned long long policy_rev = 0;
   unsigned int allow_device_io = 0;
   int matched = 0;
   if (reason != 0 && reason_size > 0) {
@@ -117,20 +140,40 @@ int aegis_sandbox_policy_deserialize_json(const char *input,
       input,
       "{\"process_id\":%u,\"capabilities\":%u,\"allow_fs_read\":%u,"
       "\"allow_fs_write\":%u,\"allow_net_client\":%u,\"allow_net_server\":%u,"
-      "\"allow_device_io\":%u}",
+      "\"schema_version\":%u,\"policy_revision\":%llu,\"allow_device_io\":%u}",
       &process_id,
       &capabilities,
       &allow_fs_read,
       &allow_fs_write,
       &allow_net_client,
       &allow_net_server,
+      &schema_version,
+      &policy_rev,
       &allow_device_io);
-  if (matched != 7) {
-    write_reason(reason, reason_size, "invalid sandbox policy JSON format");
-    return -1;
+  if (matched != 9) {
+    matched = sscanf(
+        input,
+        "{\"process_id\":%u,\"capabilities\":%u,\"allow_fs_read\":%u,"
+        "\"allow_fs_write\":%u,\"allow_net_client\":%u,\"allow_net_server\":%u,"
+        "\"allow_device_io\":%u}",
+        &process_id,
+        &capabilities,
+        &allow_fs_read,
+        &allow_fs_write,
+        &allow_net_client,
+        &allow_net_server,
+        &allow_device_io);
+    if (matched != 7) {
+      write_reason(reason, reason_size, "invalid sandbox policy JSON format");
+      return -1;
+    }
+    schema_version = AEGIS_SANDBOX_POLICY_SCHEMA_VERSION;
+    policy_rev = 1u;
   }
   policy->process_id = process_id;
   policy->capabilities = capabilities;
+  policy->schema_version = schema_version;
+  policy->policy_revision = (uint64_t)policy_rev;
   policy->allow_fs_read = (uint8_t)allow_fs_read;
   policy->allow_fs_write = (uint8_t)allow_fs_write;
   policy->allow_net_client = (uint8_t)allow_net_client;

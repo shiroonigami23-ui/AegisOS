@@ -62,6 +62,10 @@ static int test_policy_json_roundtrip(void) {
     fprintf(stderr, "roundtrip mismatch\n");
     return 1;
   }
+  if (strstr(json, "\"schema_version\":1") == 0 || strstr(json, "\"policy_revision\":1") == 0) {
+    fprintf(stderr, "version fields missing from JSON\n");
+    return 1;
+  }
   return 0;
 }
 
@@ -71,6 +75,21 @@ static int test_policy_json_invalid_payload(void) {
   char reason[64];
   if (aegis_sandbox_policy_deserialize_json(bad, &parsed, reason, sizeof(reason)) == 0) {
     fprintf(stderr, "expected invalid payload to fail\n");
+    return 1;
+  }
+  return 0;
+}
+
+static int test_policy_schema_version_guard(void) {
+  aegis_sandbox_policy_t bad_schema = {
+      99u, AEGIS_CAP_FS_READ, 1u, 0u, 0u, 0u, 0u, 99u, 1u};
+  char reason[64];
+  if (aegis_sandbox_policy_validate(&bad_schema, reason, sizeof(reason))) {
+    fprintf(stderr, "expected bad schema to fail\n");
+    return 1;
+  }
+  if (strcmp(reason, "unsupported sandbox policy schema_version") != 0) {
+    fprintf(stderr, "unexpected schema reason: %s\n", reason);
     return 1;
   }
   return 0;
@@ -87,6 +106,9 @@ int main(void) {
     return 1;
   }
   if (test_policy_json_invalid_payload() != 0) {
+    return 1;
+  }
+  if (test_policy_schema_version_guard() != 0) {
     return 1;
   }
   puts("sandbox policy tests passed");
