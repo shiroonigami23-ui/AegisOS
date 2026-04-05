@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 12:39:54Z
+Last generated: 2026-04-05 12:41:19Z
 
 ## What AegisOS Is Building
 
@@ -36,7 +36,7 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
-- #76 Network_trace_json_property_based_generator (priority-p1, security)
+- #77 Trace_json_property_seed_replay_harness (priority-p1, security)
 - #70 Actor_registry_persistent_backing_store (priority-p1, security)
 - #69 Scheduler_reason_histogram_custom_window_query (priority-p1, kernel)
 - #53 Package_graph_rendering_guide (priority-p1)
@@ -66,12 +66,12 @@ We implement in vertical slices:
 
 Recent commit touches (higher means more active recently):
 
-- kernel: 6
-- userland: 40
+- kernel: 9
+- userland: 36
 - packages: 0
 - docs: 40
 - workflows: 0
-- tests: 24
+- tests: 23
 - tools: 0
 - platform: 0
 - scripts: 9
@@ -87,6 +87,8 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `63ab58e` (2026-04-05): "Add_custom_window_scheduler_reason_histogram_query_api"
+- `b2060fd` (2026-04-05): docs: auto-update explain and changelog
 - `36f49b1` (2026-04-05): "Add_property_style_network_trace_json_generator_tests"
 - `41c9387` (2026-04-05): docs: auto-update explain and changelog
 - `967570c` (2026-04-05): "Add_batch_migration_filters_shards_and_trace_json_fuzz_tests"
@@ -100,5 +102,3 @@ Open issue pressure by component signal:
 - `1bd30e4` (2026-04-05): "Add_batch_sandbox_policy_migration_cli_with_summary_and_exit_codes"
 - `7dd0f88` (2026-04-05): docs: auto-update explain and changelog
 - `982db4a` (2026-04-05): "Add_trace_schema_versioning_and_audit_retention_planning_helpers"
-- `8cf8915` (2026-04-05): docs: auto-update explain and changelog
-- `42bd665` (2026-04-05): "Add_actor_registry_lifecycle_and_scheduler_histogram_window"

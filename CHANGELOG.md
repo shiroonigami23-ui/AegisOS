@@ -1,10 +1,12 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-05 12:39:54Z
+Last generated: 2026-04-05 12:41:19Z
 
 ## Unreleased
 
+- 2026-04-05 `63ab58e` "Add_custom_window_scheduler_reason_histogram_query_api"
+- 2026-04-05 `b2060fd` docs: auto-update explain and changelog
 - 2026-04-05 `36f49b1` "Add_property_style_network_trace_json_generator_tests"
 - 2026-04-05 `41c9387` docs: auto-update explain and changelog
 - 2026-04-05 `967570c` "Add_batch_migration_filters_shards_and_trace_json_fuzz_tests"
@@ -18,5 +20,3 @@ Last generated: 2026-04-05 12:39:54Z
 - 2026-04-05 `1bd30e4` "Add_batch_sandbox_policy_migration_cli_with_summary_and_exit_codes"
 - 2026-04-05 `7dd0f88` docs: auto-update explain and changelog
 - 2026-04-05 `982db4a` "Add_trace_schema_versioning_and_audit_retention_planning_helpers"
-- 2026-04-05 `8cf8915` docs: auto-update explain and changelog
-- 2026-04-05 `42bd665` "Add_actor_registry_lifecycle_and_scheduler_histogram_window"
