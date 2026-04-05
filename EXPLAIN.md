@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 10:28:24Z
+Last generated: 2026-04-05 10:29:06Z
 
 ## What AegisOS Is Building
 
@@ -36,6 +36,8 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #34 Sanitizer_suppressions_baseline (priority-p1)
+- #33 Scheduler_context_switch_reason_codes (priority-p1, kernel)
 - #32 Scheduler_tick_counter_usage (priority-p1, kernel)
 - #31 Scheduler_metrics_export_endpoint (priority-p1, kernel)
 - #30 Docs_enrichment_component_heatmap (priority-p1)
@@ -45,14 +47,12 @@ We implement in vertical slices:
 - #26 Network_scope_dns_rebinding_guard (priority-p1, security)
 - #25 Network_scope_priority_and_specificity (priority-p1, security)
 - #24 Workflow_branch_protection_profile (priority-p1)
-- #23 Clang_sanitizer_job_asan_ubsan (priority-p1)
 - #21 Filesystem_scope_glob_patterns (priority-p1, security)
 - #20 Package_dependency_cycle_detection (priority-p1)
 - #19 Package_manifest_schema_versioning (priority-p1)
 - #14 Sandbox_policy_hot_reload (priority-p1, security)
 - #13 Sandbox_policy_serialization_format (priority-p1, security)
 - #8 Capability_audit_log_pipeline (priority-p1, security)
-- #7 Scheduler_preemption_tick_simulation (priority-p1, kernel)
 
 ### Security
 - none
@@ -69,6 +69,8 @@ We implement in vertical slices:
 
 ## Recent Engineering Changes
 
+- `887ffdd` (2026-04-05): Add_ASAN_UBSAN_sanitizer_jobs_to_clang_workflow
+- `6269434` (2026-04-05): docs: auto-update explain and changelog
 - `4f20083` (2026-04-05): Add_timer_tick_preemption_simulation_with_quantum_hooks
 - `c181e22` (2026-04-05): docs: auto-update explain and changelog
 - `0e65665` (2026-04-05): Add_scheduler_metrics_tracepoints_and_tests
@@ -82,5 +84,3 @@ We implement in vertical slices:
 - `44e7fac` (2026-04-05): Add_clang_matrix_workflow_for_core_module_tests
 - `e0f7189` (2026-04-05): docs: auto-update explain and changelog
 - `abdd8fa` (2026-04-05): Add_path_scoped_filesystem_enforcement_with_deny_override
-- `7b72999` (2026-04-05): docs: auto-update explain and changelog
-- `7ce10dc` (2026-04-05): Add_package_manifest_validator_and_ci_workflow
