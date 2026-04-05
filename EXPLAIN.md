@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 10:40:00Z
+Last generated: 2026-04-05 10:40:40Z
 
 ## What AegisOS Is Building
 
@@ -36,6 +36,7 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
+- #40 Apply_branch_protection_profile_on_main (priority-p1)
 - #39 Capability_audit_export_api (priority-p1, security)
 - #38 Package_signature_metadata_fields (priority-p1, security)
 - #37 Package_profile_compatibility_matrix (priority-p1)
@@ -51,7 +52,6 @@ We implement in vertical slices:
 - #27 Symlink_resolution_filesystem_backend (priority-p1, security)
 - #26 Network_scope_dns_rebinding_guard (priority-p1, security)
 - #25 Network_scope_priority_and_specificity (priority-p1, security)
-- #24 Workflow_branch_protection_profile (priority-p1)
 - #21 Filesystem_scope_glob_patterns (priority-p1, security)
 - #14 Sandbox_policy_hot_reload (priority-p1, security)
 - #13 Sandbox_policy_serialization_format (priority-p1, security)
@@ -70,6 +70,8 @@ We implement in vertical slices:
 
 ## Recent Engineering Changes
 
+- `43de16a` (2026-04-05): Add_contributor_onboarding_checklist_and_reference
+- `d8ee84a` (2026-04-05): docs: auto-update explain and changelog
 - `65fc46c` (2026-04-05): Add_branch_protection_profile_and_configuration_helper
 - `abdd8a3` (2026-04-05): docs: auto-update explain and changelog
 - `0b4425a` (2026-04-05): Add_project_board_automation_and_capability_audit_pipeline
@@ -83,5 +85,3 @@ We implement in vertical slices:
 - `887ffdd` (2026-04-05): Add_ASAN_UBSAN_sanitizer_jobs_to_clang_workflow
 - `6269434` (2026-04-05): docs: auto-update explain and changelog
 - `4f20083` (2026-04-05): Add_timer_tick_preemption_simulation_with_quantum_hooks
-- `c181e22` (2026-04-05): docs: auto-update explain and changelog
-- `0e65665` (2026-04-05): Add_scheduler_metrics_tracepoints_and_tests
