@@ -61,6 +61,15 @@ typedef struct {
 } aegis_capability_audit_page_t;
 
 typedef struct {
+  uint64_t total_events;
+  uint64_t issue_events;
+  uint64_t rotate_events;
+  uint64_t revoke_events;
+  uint64_t allow_events;
+  uint64_t deny_events;
+} aegis_capability_audit_summary_t;
+
+typedef struct {
   uint32_t latest_chunk_id;
   uint32_t retention_window_chunks;
   uint32_t keep_from_chunk_id;
@@ -130,6 +139,8 @@ size_t aegis_capability_audit_count(void);
 int aegis_capability_audit_get(size_t index, aegis_capability_audit_event_t *event);
 int aegis_capability_audit_export_json(char *out, size_t out_size);
 int aegis_capability_audit_export_csv(char *out, size_t out_size);
+int aegis_capability_audit_summary_snapshot(aegis_capability_audit_summary_t *summary);
+int aegis_capability_audit_summary_json(char *out, size_t out_size);
 int aegis_capability_audit_export_json_page(size_t cursor, size_t limit,
                                             char *out, size_t out_size,
                                             aegis_capability_audit_page_t *page);

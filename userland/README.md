@@ -17,6 +17,7 @@ Core userspace services, shell tools, and runtime components live here.
   - snapshot restore enforces input-size, line-count, and per-record length guardrails to fail closed on malformed oversized payloads.
   - includes redacted secret inventory JSON endpoint with deterministic `fingerprint64` and sorted key order for stable drift checks.
   - includes audit export API for JSON/CSV snapshots (latest ring window), pagination cursors, and sink chunk naming.
+  - includes audit summary counters endpoint (`snapshot` + JSON) for issue/rotate/revoke/allow/deny distribution visibility.
   - includes timestamp-based audit cursor seek helper for faster export triage in large rings.
   - includes audit sink retention planning helpers for chunk rotation/pruning guidance.
 - `sandbox_policy`: policy schema validation for filesystem/network/device permissions.

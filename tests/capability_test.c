@@ -358,6 +358,43 @@ static int test_capability_audit_export_api(void) {
   return 0;
 }
 
+static int test_capability_audit_summary_endpoint(void) {
+  aegis_capability_store_t store;
+  aegis_capability_audit_summary_t summary;
+  char json[512];
+  aegis_capability_store_init(&store);
+  aegis_capability_audit_reset();
+  if (aegis_capability_issue_with_ttl(&store, 550u, AEGIS_CAP_FS_READ, 70u, 20u) != 0) {
+    fprintf(stderr, "summary endpoint issue failed\n");
+    return 1;
+  }
+  (void)aegis_capability_is_allowed_at(&store, 550u, AEGIS_CAP_FS_READ, 71u);
+  (void)aegis_capability_is_allowed_at(&store, 550u, AEGIS_CAP_FS_WRITE, 72u);
+  if (aegis_capability_revoke(&store, 550u) != 0) {
+    fprintf(stderr, "summary endpoint revoke failed\n");
+    return 1;
+  }
+  if (aegis_capability_audit_summary_snapshot(&summary) != 0) {
+    fprintf(stderr, "summary endpoint snapshot failed\n");
+    return 1;
+  }
+  if (summary.total_events < 4u || summary.issue_events < 1u || summary.allow_events < 1u ||
+      summary.deny_events < 1u || summary.revoke_events < 1u) {
+    fprintf(stderr, "summary endpoint counters unexpected\n");
+    return 1;
+  }
+  if (aegis_capability_audit_summary_json(json, sizeof(json)) <= 0 ||
+      strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"total_events\":") == 0 ||
+      strstr(json, "\"issue_events\":") == 0 ||
+      strstr(json, "\"allow_events\":") == 0 ||
+      strstr(json, "\"deny_events\":") == 0) {
+    fprintf(stderr, "summary endpoint json missing fields: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_capability_audit_pagination_and_sink(void) {
   aegis_capability_store_t store;
   aegis_capability_audit_page_t page;
@@ -723,6 +760,9 @@ int main(void) {
     return 1;
   }
   if (test_capability_audit_export_api() != 0) {
+    return 1;
+  }
+  if (test_capability_audit_summary_endpoint() != 0) {
     return 1;
   }
   if (test_capability_audit_pagination_and_sink() != 0) {

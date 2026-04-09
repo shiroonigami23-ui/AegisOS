@@ -385,6 +385,61 @@ int aegis_capability_audit_export_csv(char *out, size_t out_size) {
   return aegis_capability_audit_export_csv_page(capability_audit_base(), g_audit_count, out, out_size, 0);
 }
 
+int aegis_capability_audit_summary_snapshot(aegis_capability_audit_summary_t *summary) {
+  size_t i;
+  size_t base;
+  aegis_capability_audit_event_t event;
+  if (summary == 0) {
+    return -1;
+  }
+  memset(summary, 0, sizeof(*summary));
+  base = capability_audit_base();
+  for (i = base; i < g_audit_count; ++i) {
+    if (aegis_capability_audit_get(i, &event) != 0) {
+      continue;
+    }
+    summary->total_events += 1u;
+    if (event.event_type == AEGIS_CAP_AUDIT_ISSUE) {
+      summary->issue_events += 1u;
+    } else if (event.event_type == AEGIS_CAP_AUDIT_ROTATE) {
+      summary->rotate_events += 1u;
+    } else if (event.event_type == AEGIS_CAP_AUDIT_REVOKE) {
+      summary->revoke_events += 1u;
+    } else if (event.event_type == AEGIS_CAP_AUDIT_ALLOW) {
+      summary->allow_events += 1u;
+    } else if (event.event_type == AEGIS_CAP_AUDIT_DENY) {
+      summary->deny_events += 1u;
+    }
+  }
+  return 0;
+}
+
+int aegis_capability_audit_summary_json(char *out, size_t out_size) {
+  int written;
+  aegis_capability_audit_summary_t summary;
+  if (out == 0 || out_size == 0u) {
+    return -1;
+  }
+  if (aegis_capability_audit_summary_snapshot(&summary) != 0) {
+    return -1;
+  }
+  written = snprintf(out,
+                     out_size,
+                     "{\"schema_version\":1,\"total_events\":%llu,"
+                     "\"issue_events\":%llu,\"rotate_events\":%llu,\"revoke_events\":%llu,"
+                     "\"allow_events\":%llu,\"deny_events\":%llu}",
+                     (unsigned long long)summary.total_events,
+                     (unsigned long long)summary.issue_events,
+                     (unsigned long long)summary.rotate_events,
+                     (unsigned long long)summary.revoke_events,
+                     (unsigned long long)summary.allow_events,
+                     (unsigned long long)summary.deny_events);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
+}
+
 int aegis_capability_audit_export_json_page(size_t cursor, size_t limit,
                                             char *out, size_t out_size,
                                             aegis_capability_audit_page_t *page) {
