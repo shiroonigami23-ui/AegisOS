@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import json
 import os
 import tempfile
@@ -126,6 +127,14 @@ class AtomicUpdateTransaction:
       raise ValueError("path must be a file path, not a directory")
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = self.summary_json()
+    envelope = json.dumps(
+        {
+            "schema_version": 1,
+            "checksum": "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+            "payload": json.loads(payload),
+        },
+        separators=(",", ":"),
+    )
     with tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
@@ -134,7 +143,7 @@ class AtomicUpdateTransaction:
         suffix=".tmp",
         delete=False,
     ) as tmp:
-      tmp.write(payload)
+      tmp.write(envelope)
       temp_path = tmp.name
     os.replace(temp_path, target)
 
@@ -144,7 +153,21 @@ class AtomicUpdateTransaction:
     source = Path(path)
     if not source.exists() or source.is_dir():
       raise ValueError("path must point to an existing file")
-    self.load_from_json(source.read_text(encoding="utf-8"))
+    raw = source.read_text(encoding="utf-8")
+    data = json.loads(raw)
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+      raise ValueError("invalid transaction file envelope")
+    checksum = data.get("checksum", "")
+    payload = data.get("payload")
+    if not isinstance(checksum, str) or not checksum.startswith("sha256:"):
+      raise ValueError("invalid transaction file checksum")
+    if not isinstance(payload, dict):
+      raise ValueError("invalid transaction file payload")
+    payload_text = json.dumps(payload, separators=(",", ":"))
+    actual = "sha256:" + hashlib.sha256(payload_text.encode("utf-8")).hexdigest()
+    if actual != checksum:
+      raise ValueError("transaction file checksum mismatch")
+    self.load_from_json(payload_text)
 
 
 def demo() -> int:
