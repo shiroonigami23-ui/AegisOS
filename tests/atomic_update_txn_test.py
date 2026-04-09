@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -73,6 +74,28 @@ class AtomicUpdateTxnTest(unittest.TestCase):
             txn.load_from_json('{"schema_version":1,"state":"prepared","transaction_id":"txn","manifest_hash":"sha256:x","staged_count":2,"staged_packages":["aegis-kernel"],"rollback_reason":""}')
         with self.assertRaises(ValueError):
             txn.load_from_json('{"schema_version":1,"state":"idle","transaction_id":"txn","manifest_hash":"","staged_count":0,"staged_packages":[],"rollback_reason":""}')
+
+    def test_file_persistence_roundtrip(self):
+        txn = AtomicUpdateTransaction()
+        txn.begin("txn-file-1", "sha256:file")
+        txn.stage_package("aegis-kernel")
+        txn.stage_package("aegis-security-core")
+        with tempfile.TemporaryDirectory() as tmp:
+            state_file = Path(tmp) / "state" / "txn.json"
+            txn.save_to_file(str(state_file))
+            resumed = AtomicUpdateTransaction()
+            resumed.load_from_file(str(state_file))
+            self.assertEqual(resumed.state, TxnState.PREPARED)
+            self.assertEqual(resumed.transaction_id, "txn-file-1")
+            self.assertEqual(resumed.staged_packages, ["aegis-kernel", "aegis-security-core"])
+
+    def test_file_persistence_rejects_invalid_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_file = Path(tmp) / "bad.json"
+            state_file.write_text('{"schema_version":99,"state":"prepared"}', encoding="utf-8")
+            txn = AtomicUpdateTransaction()
+            with self.assertRaises(ValueError):
+                txn.load_from_file(str(state_file))
 
 
 if __name__ == "__main__":

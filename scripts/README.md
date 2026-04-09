@@ -12,5 +12,5 @@ Helper scripts for local development and automation live here.
 - `run_sanitizer_suite.py`: ASAN/UBSAN test runner with suppression baseline.
 - `profile_trace_json_property.py`: seed-corpus replay and runtime profile utility for trace JSON property tests.
 - `validate_repo_index.py`: validates repository index trust policy, signature metadata, and manifest alignment.
-- `atomic_update_txn.py`: atomic update transaction state machine skeleton (`begin/stage/commit/rollback/reset`) with JSON summary and `load_from_json` resume helper including state invariant checks.
+- `atomic_update_txn.py`: atomic update transaction state machine skeleton (`begin/stage/commit/rollback/reset`) with JSON/file persistence helpers (`summary_json`, `load_from_json`, `save_to_file`, `load_from_file`) and state invariant checks.
 - `low_resource_profile_advisor.py`: recommends package profile by CPU/RAM class with rationale, tuning advice, and profile-manifest package preview JSON output.

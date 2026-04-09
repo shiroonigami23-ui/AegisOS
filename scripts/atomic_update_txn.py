@@ -2,6 +2,7 @@
 import json
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import List
 
 
@@ -114,6 +115,20 @@ class AtomicUpdateTransaction:
     self.manifest_hash = manifest_hash
     self.staged_packages = deduped
     self.rollback_reason = rollback_reason
+
+  def save_to_file(self, path: str) -> None:
+    if not path:
+      raise ValueError("path is required")
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(self.summary_json(), encoding="utf-8")
+
+  def load_from_file(self, path: str) -> None:
+    if not path:
+      raise ValueError("path is required")
+    source = Path(path)
+    payload = source.read_text(encoding="utf-8")
+    self.load_from_json(payload)
 
 
 def demo() -> int:
