@@ -12,6 +12,9 @@ on:
       - "EXPLAIN.md"
       - "CHANGELOG.md"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   markdown-lint:
     runs-on: ubuntu-latest

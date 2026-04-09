@@ -16,6 +16,9 @@ on:
       - "scripts/validate_repo_index.py"
       - ".github/workflows/packages.yml"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   validate-manifests:
     runs-on: ubuntu-latest
