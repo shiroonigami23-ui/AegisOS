@@ -7,6 +7,8 @@
 static aegis_capability_audit_event_t g_audit_events[512];
 static size_t g_audit_count = 0;
 static aegis_actor_registry_entry_t g_actor_registry[256];
+#define AEGIS_SECRET_SNAPSHOT_MAX_BYTES 65536u
+#define AEGIS_SECRET_SNAPSHOT_MAX_LINES 1024u
 
 static size_t capability_audit_base(void) {
   if (g_audit_count > 512u) {
@@ -1113,9 +1115,16 @@ int aegis_secret_snapshot_digest(const aegis_secret_store_t *store, uint64_t *di
 
 int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snapshot) {
   const char *cursor;
+  size_t snapshot_bytes = 0u;
+  size_t line_count = 0u;
+  size_t record_count = 0u;
   int has_expected_digest = 0;
   uint64_t expected_digest = 0u;
   if (store == 0 || snapshot == 0) {
+    return -1;
+  }
+  snapshot_bytes = strlen(snapshot);
+  if (snapshot_bytes == 0u || snapshot_bytes > AEGIS_SECRET_SNAPSHOT_MAX_BYTES) {
     return -1;
   }
   aegis_secret_store_init(store);
@@ -1179,6 +1188,10 @@ int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snaps
     if (*cursor == '\n') {
       cursor++;
     }
+    line_count += 1u;
+    if (line_count > AEGIS_SECRET_SNAPSHOT_MAX_LINES) {
+      return -1;
+    }
     if (len == 0u) {
       continue;
     }
@@ -1188,6 +1201,10 @@ int aegis_secret_snapshot_restore(aegis_secret_store_t *store, const char *snaps
     memcpy(line, line_start, len);
     line[len] = '\0';
     if (strncmp(line, "key=", 4) != 0) {
+      return -1;
+    }
+    record_count += 1u;
+    if (record_count > 128u) {
       return -1;
     }
     key[0] = '\0';

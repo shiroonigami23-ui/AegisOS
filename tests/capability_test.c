@@ -562,6 +562,9 @@ static int test_secret_store_skeleton(void) {
   const char *bad_header_snapshot =
       "schema_version=2\n"
       "key=dup,size=1,created=1,updated=1,value=aa\n";
+  char oversized_snapshot[70016];
+  char long_line_snapshot[768];
+  size_t i = 0u;
   char inventory[512];
   uint64_t digest = 0u;
   aegis_secret_store_init(&store);
@@ -661,6 +664,25 @@ static int test_secret_store_skeleton(void) {
   }
   if (aegis_secret_snapshot_restore(&restored, bad_header_snapshot) >= 0) {
     fprintf(stderr, "secret snapshot restore should fail on bad schema header\n");
+    return 1;
+  }
+  oversized_snapshot[0] = 's';
+  for (i = 1u; i < sizeof(oversized_snapshot) - 1u; ++i) {
+    oversized_snapshot[i] = 'a';
+  }
+  oversized_snapshot[sizeof(oversized_snapshot) - 1u] = '\0';
+  if (aegis_secret_snapshot_restore(&restored, oversized_snapshot) >= 0) {
+    fprintf(stderr, "secret snapshot restore should fail on oversized input\n");
+    return 1;
+  }
+  snprintf(long_line_snapshot, sizeof(long_line_snapshot), "schema_version=1\nkey=dup,size=1,created=1,updated=1,value=");
+  for (i = strlen(long_line_snapshot); i < sizeof(long_line_snapshot) - 2u; ++i) {
+    long_line_snapshot[i] = 'a';
+  }
+  long_line_snapshot[sizeof(long_line_snapshot) - 2u] = '\n';
+  long_line_snapshot[sizeof(long_line_snapshot) - 1u] = '\0';
+  if (aegis_secret_snapshot_restore(&restored, long_line_snapshot) >= 0) {
+    fprintf(stderr, "secret snapshot restore should fail on oversized line record\n");
     return 1;
   }
   if (aegis_secret_delete(&store, "db.master") != 0) {
