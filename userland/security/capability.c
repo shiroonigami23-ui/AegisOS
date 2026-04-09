@@ -1091,16 +1091,32 @@ int aegis_secret_snapshot_export(const aegis_secret_store_t *store, char *out, s
 
 int aegis_secret_snapshot_digest(const aegis_secret_store_t *store, uint64_t *digest_out) {
   size_t i;
+  size_t j;
+  size_t active_count = 0u;
+  size_t active_indices[128];
   uint64_t digest = 1469598103934665603ull;
   if (store == 0 || digest_out == 0) {
     return -1;
   }
   for (i = 0; i < 128u; ++i) {
-    const aegis_secret_entry_t *entry = &store->entries[i];
-    uint64_t fp;
-    if (entry->active == 0u) {
-      continue;
+    if (store->entries[i].active != 0u) {
+      active_indices[active_count] = i;
+      active_count += 1u;
     }
+  }
+  for (i = 1u; i < active_count; ++i) {
+    size_t key_index = active_indices[i];
+    j = i;
+    while (j > 0u &&
+           strcmp(store->entries[active_indices[j - 1u]].key, store->entries[key_index].key) > 0) {
+      active_indices[j] = active_indices[j - 1u];
+      j -= 1u;
+    }
+    active_indices[j] = key_index;
+  }
+  for (i = 0u; i < active_count; ++i) {
+    const aegis_secret_entry_t *entry = &store->entries[active_indices[i]];
+    uint64_t fp;
     fp = secret_fingerprint64(entry->key, entry->value, entry->value_size);
     digest ^= fp;
     digest *= 1099511628211ull;

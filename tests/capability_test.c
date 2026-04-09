@@ -567,8 +567,11 @@ static int test_secret_store_skeleton(void) {
   size_t i = 0u;
   char inventory[512];
   uint64_t digest = 0u;
+  uint64_t digest_reordered = 0u;
+  aegis_secret_store_t reorder_store;
   aegis_secret_store_init(&store);
   aegis_secret_store_init(&restored);
+  aegis_secret_store_init(&reorder_store);
 
   if (aegis_secret_put_at(&store, "db.master", v1, (uint32_t)sizeof(v1), 1000u) != 0) {
     fprintf(stderr, "secret put v1 failed\n");
@@ -617,6 +620,16 @@ static int test_secret_store_skeleton(void) {
   }
   if (aegis_secret_snapshot_digest(&store, &digest) != 0 || digest == 0u) {
     fprintf(stderr, "secret snapshot digest helper failed\n");
+    return 1;
+  }
+  if (aegis_secret_put_at(&reorder_store, "api.alpha", v3, (uint32_t)sizeof(v3), 1020u) != 0 ||
+      aegis_secret_put_at(&reorder_store, "db.master", v1, (uint32_t)sizeof(v1), 1000u) != 0 ||
+      aegis_secret_put_at(&reorder_store, "db.master", v2, (uint32_t)sizeof(v2), 1010u) != 0) {
+    fprintf(stderr, "secret reorder store setup failed\n");
+    return 1;
+  }
+  if (aegis_secret_snapshot_digest(&reorder_store, &digest_reordered) != 0 || digest_reordered != digest) {
+    fprintf(stderr, "secret snapshot digest should be order independent\n");
     return 1;
   }
   if (aegis_secret_snapshot_restore(&restored, snapshot) != 2) {
