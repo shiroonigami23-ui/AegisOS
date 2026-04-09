@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 13:14:30Z
+Last generated: 2026-04-09 18:19:16Z
 
 ## What AegisOS Is Building
 
@@ -36,8 +36,7 @@ We implement in vertical slices:
 - none
 
 ### Priority P1
-- #70 Actor_registry_persistent_backing_store (priority-p1, security)
-- #40 Apply_branch_protection_profile_on_main (priority-p1)
+- none
 
 ### Security
 - none
@@ -55,39 +54,39 @@ We implement in vertical slices:
 
 Recent commit touches in `weekly` window (higher means more active recently):
 
-- kernel: 47
-- userland: 92
-- packages: 39
-- docs: 169
-- workflows: 15
-- tests: 63
+- kernel: 62
+- userland: 119
+- packages: 42
+- docs: 172
+- workflows: 17
+- tests: 85
 - tools: 1
 - platform: 1
-- scripts: 33
+- scripts: 48
 - other: 14
 
 Open issue pressure by component signal:
 
-- security: 1
+- security: 0
 - kernel: 0
 - packages: 0
 - docs: 0
-- other: 1
+- other: 0
 
 ## Recent Engineering Changes
 
-- `5707523` (2026-04-05): "Add_actor_registry_snapshot_and_restore_persistence_api"
-- `b49f9a3` (2026-04-05): docs: auto-update explain and changelog
-- `1091117` (2026-04-05): "Add_cross_platform_toolchain_bootstrap_scripts_for_contributors"
-- `5312e24` (2026-04-05): docs: auto-update explain and changelog
-- `f8fd4c7` (2026-04-05): "Add_trace_json_property_perf_baseline_and_seed_corpus_tooling"
-- `395429a` (2026-04-05): docs: auto-update explain and changelog
-- `16a0ad2` (2026-04-05): "Add_filesystem_resolver_backend_hook_for_symlink_resolution"
-- `b458e87` (2026-04-05): docs: auto-update explain and changelog
-- `3fbc4c2` (2026-04-05): "Add_sanitizer_suppressions_baseline_and_runner"
-- `264139e` (2026-04-05): docs: auto-update explain and changelog
-- `294a3fe` (2026-04-05): "Add_package_manifest_schema_migration_helper_with_tests"
-- `fdc9706` (2026-04-05): docs: auto-update explain and changelog
-- `dfb3685` (2026-04-05): "Add_package_profile_to_hardware_compatibility_matrix_docs"
-- `de08c6f` (2026-04-05): docs: auto-update explain and changelog
-- `15c3fc8` (2026-04-05): "Add_package_signature_placeholder_fields_and_schema_validation"
+- `098345b` (2026-04-09): "Fix_auto_docs_protected_branch_flow_and_clang_runner_exec"
+- `baf00b4` (2026-04-06): "Harden_secret_snapshot_schema_inventory_and_txn_resume_invariants"
+- `deb0b99` (2026-04-06): "Harden_secret_snapshot_restore_duplicate_key_guard"
+- `0ba96fb` (2026-04-06): "Add_secret_snapshot_digest_verification_and_txn_json_resume"
+- `c03bf00` (2026-04-06): "Add_redacted_secret_inventory_fingerprint_endpoint"
+- `3ed3c40` (2026-04-06): "Add_secret_snapshot_restore_and_timestamp_metadata"
+- `8b1eba4` (2026-04-06): "Harden_sandbox_policy_json_parser_with_field_tolerant_decode"
+- `94d9e9f` (2026-04-06): "Enhance_profile_advisor_with_manifest_package_preview"
+- `fbf3288` (2026-04-06): "Fix_permission_center_summary_to_use_policy_gates"
+- `b2f59bc` (2026-04-06): "Add_permission_center_policy_summary_endpoint_and_profile_tuning_advisor"
+- `26ea167` (2026-04-06): "Add_atomic_update_transaction_state_machine_skeleton"
+- `f591d9a` (2026-04-06): "Add_repository_index_trust_policy_validator_and_tests"
+- `b603c7e` (2026-04-05): "Add_policy_evaluation_trace_summary_counters_and_json"
+- `7345405` (2026-04-05): "Add_secrets_key_storage_service_skeleton"
+- `e252ca8` (2026-04-05): "Add_ipc_payload_guard_helper_for_max_frame_enforcement"
