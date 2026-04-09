@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -73,6 +74,32 @@ class AtomicUpdateTxnTest(unittest.TestCase):
             txn.load_from_json('{"schema_version":1,"state":"prepared","transaction_id":"txn","manifest_hash":"sha256:x","staged_count":2,"staged_packages":["aegis-kernel"],"rollback_reason":""}')
         with self.assertRaises(ValueError):
             txn.load_from_json('{"schema_version":1,"state":"idle","transaction_id":"txn","manifest_hash":"","staged_count":0,"staged_packages":[],"rollback_reason":""}')
+
+    def test_file_roundtrip_and_atomic_save(self):
+        txn = AtomicUpdateTransaction()
+        txn.begin("txn-file", "sha256:file")
+        txn.stage_package("aegis-kernel")
+        with tempfile.TemporaryDirectory() as tmp:
+            state_file = Path(tmp) / "state" / "txn.json"
+            txn.save_to_file(str(state_file))
+            resumed = AtomicUpdateTransaction()
+            resumed.load_from_file(str(state_file))
+            self.assertEqual(resumed.state, TxnState.PREPARED)
+            self.assertEqual(resumed.transaction_id, "txn-file")
+            self.assertEqual(resumed.staged_packages, ["aegis-kernel"])
+
+    def test_file_helpers_reject_invalid_paths(self):
+        txn = AtomicUpdateTransaction()
+        with tempfile.TemporaryDirectory() as tmp:
+            as_dir = Path(tmp) / "as_dir"
+            as_dir.mkdir()
+            with self.assertRaises(ValueError):
+                txn.save_to_file(str(as_dir))
+            with self.assertRaises(ValueError):
+                txn.load_from_file(str(as_dir))
+            missing = Path(tmp) / "missing.json"
+            with self.assertRaises(ValueError):
+                txn.load_from_file(str(missing))
 
 
 if __name__ == "__main__":

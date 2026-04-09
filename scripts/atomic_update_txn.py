@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import json
+import os
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import List
 
 
@@ -114,6 +117,34 @@ class AtomicUpdateTransaction:
     self.manifest_hash = manifest_hash
     self.staged_packages = deduped
     self.rollback_reason = rollback_reason
+
+  def save_to_file(self, path: str) -> None:
+    if not path:
+      raise ValueError("path is required")
+    target = Path(path)
+    if target.exists() and target.is_dir():
+      raise ValueError("path must be a file path, not a directory")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = self.summary_json()
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=str(target.parent),
+        prefix=f".{target.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as tmp:
+      tmp.write(payload)
+      temp_path = tmp.name
+    os.replace(temp_path, target)
+
+  def load_from_file(self, path: str) -> None:
+    if not path:
+      raise ValueError("path is required")
+    source = Path(path)
+    if not source.exists() or source.is_dir():
+      raise ValueError("path must point to an existing file")
+    self.load_from_json(source.read_text(encoding="utf-8"))
 
 
 def demo() -> int:
