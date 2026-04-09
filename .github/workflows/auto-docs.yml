@@ -13,8 +13,7 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
       issues: read
     steps:
       - name: Checkout
@@ -38,19 +37,7 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create docs update pull request
+      - name: Report docs drift
         if: steps.changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "docs: auto-update explain and changelog"
-          title: "docs: auto-update explain and changelog"
-          body: |
-            Automated docs refresh from workflow.
-            - Updates `EXPLAIN.md`
-            - Updates `CHANGELOG.md`
-          branch: "bot/docs-auto-update"
-          delete-branch: true
-          add-paths: |
-            EXPLAIN.md
-            CHANGELOG.md
+        run: |
+          echo "::warning::Docs drift detected in EXPLAIN.md / CHANGELOG.md. Regenerate locally with: python scripts/update_project_docs.py --heatmap-window weekly and commit the changes."
