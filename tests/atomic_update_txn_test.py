@@ -82,6 +82,8 @@ class AtomicUpdateTxnTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             state_file = Path(tmp) / "state" / "txn.json"
             txn.save_to_file(str(state_file))
+            raw = state_file.read_text(encoding="utf-8")
+            self.assertIn('"checksum":"sha256:', raw)
             resumed = AtomicUpdateTransaction()
             resumed.load_from_file(str(state_file))
             self.assertEqual(resumed.state, TxnState.PREPARED)
@@ -100,6 +102,19 @@ class AtomicUpdateTxnTest(unittest.TestCase):
             missing = Path(tmp) / "missing.json"
             with self.assertRaises(ValueError):
                 txn.load_from_file(str(missing))
+
+    def test_file_checksum_tamper_detection(self):
+        txn = AtomicUpdateTransaction()
+        txn.begin("txn-file-2", "sha256:file2")
+        txn.stage_package("aegis-kernel")
+        with tempfile.TemporaryDirectory() as tmp:
+            state_file = Path(tmp) / "txn.json"
+            txn.save_to_file(str(state_file))
+            data = json.loads(state_file.read_text(encoding="utf-8"))
+            data["payload"]["staged_packages"] = ["aegis-kernel", "aegis-extra"]
+            state_file.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                txn.load_from_file(str(state_file))
 
 
 if __name__ == "__main__":
