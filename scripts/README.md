@@ -19,3 +19,4 @@ Helper scripts for local development and automation live here.
 - `device_profile_boot_budget_enforcer.py`: enforces per-profile cold/warm boot budgets and emits pass/fail severity reports.
 - `installer_bootstrap_state_machine.py`: installer bootstrap state machine with recovery paths and attestation hook gating.
 - `package_repo_delta_apply_simulator.py`: simulates delta apply with digest validation and full-package fallback path.
+- `security_key_rotation_schedule_enforcer.py`: evaluates key age against rotation policy and emits warning/critical reports.

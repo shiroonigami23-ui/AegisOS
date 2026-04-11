@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "default_max_age_days": 90,
+  "warning_window_days": 14,
+  "critical_window_days": 0,
+  "key_classes": {
+    "signing": {
+      "max_age_days": 60
+    },
+    "encryption": {
+      "max_age_days": 90
+    },
+    "auth": {
+      "max_age_days": 45
+    }
+  }
+}
