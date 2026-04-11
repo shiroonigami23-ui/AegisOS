@@ -16,6 +16,7 @@
 #define AEGIS_MEMORY_ZONE_CAPACITY 16u
 #define AEGIS_PROCESS_CHECKPOINT_CAPACITY 128u
 #define AEGIS_PROCESS_CHECKPOINT_TAG_MAX 48u
+#define AEGIS_TIME_ATTEST_NONCE_MAX 32u
 
 typedef struct {
   uint64_t base;
@@ -238,6 +239,32 @@ typedef struct {
 } aegis_process_checkpoint_table_t;
 
 typedef struct {
+  uint64_t last_wallclock_epoch;
+  uint64_t last_monotonic_tick;
+  uint64_t drift_budget_ppm;
+  uint64_t attestations_ok;
+  uint64_t attestations_failed;
+  uint64_t rollback_detected;
+  uint64_t drift_violations;
+  uint32_t boot_id;
+  uint8_t initialized;
+} aegis_secure_time_attestor_t;
+
+typedef struct {
+  uint32_t schema_version;
+  uint32_t boot_id;
+  uint64_t observed_wallclock_epoch;
+  uint64_t observed_monotonic_tick;
+  uint64_t expected_min_wallclock_epoch;
+  uint64_t expected_max_wallclock_epoch;
+  uint64_t drift_budget_ppm;
+  uint8_t accepted;
+  uint8_t nonce_size;
+  char nonce[AEGIS_TIME_ATTEST_NONCE_MAX + 1u];
+  char reason[96];
+} aegis_secure_time_attestation_result_t;
+
+typedef struct {
   uint32_t namespace_id;
   uint32_t parent_namespace_id;
   uint32_t member_count;
@@ -438,5 +465,18 @@ int aegis_process_checkpoint_query(const aegis_process_checkpoint_table_t *table
 int aegis_process_checkpoint_snapshot_json(const aegis_process_checkpoint_table_t *table,
                                           char *out,
                                           size_t out_size);
+void aegis_secure_time_attestor_init(aegis_secure_time_attestor_t *attestor,
+                                     uint32_t boot_id,
+                                     uint64_t baseline_wallclock_epoch,
+                                     uint64_t baseline_monotonic_tick,
+                                     uint64_t drift_budget_ppm);
+int aegis_secure_time_attest(aegis_secure_time_attestor_t *attestor,
+                             uint64_t observed_wallclock_epoch,
+                             uint64_t observed_monotonic_tick,
+                             const char *nonce,
+                             aegis_secure_time_attestation_result_t *result_out);
+int aegis_secure_time_attestation_json(const aegis_secure_time_attestation_result_t *result,
+                                       char *out,
+                                       size_t out_size);
 
 #endif

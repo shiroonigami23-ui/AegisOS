@@ -1,10 +1,11 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-11 15:34:00Z
+Last generated: 2026-04-11 15:45:29Z
 
 ## Unreleased
 
+- 2026-04-11 `8003e8b` Add_checkpoint_supervisor_and_sandbox_escape_regression_suite
 - 2026-04-11 `fe651fa` Add_key_rotation_enforcer_and_close_issue_131
 - 2026-04-11 `c00e203` Remove_accidental_pycache_artifacts
 - 2026-04-11 `ac90dac` Implement_permission_center_diff_installer_state_machine_and_delta_apply_simulator
@@ -19,4 +20,3 @@ Last generated: 2026-04-11 15:34:00Z
 - 2026-04-10 `9677e10` "Add_secret_snapshot_input_size_and_line_guardrails" (#108)
 - 2026-04-09 `807ed28` "Harden_github_workflows_for_node24_actions_runtime"
 - 2026-04-09 `fb03b4f` "Make_auto_docs_report_drift_without_repo_write_ops"
-- 2026-04-09 `098345b` "Fix_auto_docs_protected_branch_flow_and_clang_runner_exec"

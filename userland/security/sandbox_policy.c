@@ -5,6 +5,9 @@
 
 static aegis_permission_center_audit_event_t g_permission_center_audit[256];
 static size_t g_permission_center_audit_count = 0u;
+static aegis_permission_change_request_t g_permission_center_requests[256];
+static size_t g_permission_center_request_count = 0u;
+static uint64_t g_permission_center_next_request_id = 1u;
 
 static void write_reason(char *reason, size_t reason_size, const char *message) {
   if (reason == 0 || reason_size == 0 || message == 0) {
@@ -569,5 +572,195 @@ int aegis_permission_center_audit_export_csv(char *output, size_t output_size) {
     }
     offset += (size_t)written;
   }
+  return (int)offset;
+}
+
+void aegis_permission_center_approval_reset(void) {
+  g_permission_center_request_count = 0u;
+  g_permission_center_next_request_id = 1u;
+}
+
+size_t aegis_permission_center_approval_count(void) {
+  return g_permission_center_request_count;
+}
+
+size_t aegis_permission_center_approval_pending_count(void) {
+  size_t i;
+  size_t pending = 0u;
+  size_t total =
+      g_permission_center_request_count > 256u ? 256u : g_permission_center_request_count;
+  size_t base =
+      g_permission_center_request_count > 256u ? g_permission_center_request_count - 256u : 0u;
+  for (i = 0; i < total; ++i) {
+    size_t idx = (base + i) % 256u;
+    if (g_permission_center_requests[idx].status == AEGIS_PERMISSION_APPROVAL_PENDING) {
+      pending += 1u;
+    }
+  }
+  return pending;
+}
+
+static int find_request_index_by_id(uint64_t request_id, size_t *index_out) {
+  size_t i;
+  size_t total =
+      g_permission_center_request_count > 256u ? 256u : g_permission_center_request_count;
+  size_t base =
+      g_permission_center_request_count > 256u ? g_permission_center_request_count - 256u : 0u;
+  if (request_id == 0u || index_out == 0) {
+    return 0;
+  }
+  for (i = 0; i < total; ++i) {
+    size_t idx = (base + i) % 256u;
+    if (g_permission_center_requests[idx].request_id == request_id) {
+      *index_out = idx;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int aegis_permission_center_submit_change_request(const aegis_sandbox_policy_t *before_policy,
+                                                  const aegis_sandbox_policy_t *proposed_policy,
+                                                  uint64_t now_epoch,
+                                                  const char *requested_by,
+                                                  const char *rationale,
+                                                  uint64_t *request_id_out) {
+  char reason[64];
+  size_t idx;
+  if (before_policy == 0 || proposed_policy == 0 || request_id_out == 0) {
+    return -1;
+  }
+  if (!aegis_sandbox_policy_validate(before_policy, reason, sizeof(reason)) ||
+      !aegis_sandbox_policy_validate(proposed_policy, reason, sizeof(reason))) {
+    return -1;
+  }
+  if (before_policy->process_id != proposed_policy->process_id) {
+    return -1;
+  }
+  idx = g_permission_center_request_count % 256u;
+  memset(&g_permission_center_requests[idx], 0, sizeof(g_permission_center_requests[idx]));
+  g_permission_center_requests[idx].request_id = g_permission_center_next_request_id;
+  g_permission_center_requests[idx].created_epoch = now_epoch;
+  g_permission_center_requests[idx].process_id = proposed_policy->process_id;
+  g_permission_center_requests[idx].status = AEGIS_PERMISSION_APPROVAL_PENDING;
+  g_permission_center_requests[idx].before_policy = *before_policy;
+  g_permission_center_requests[idx].proposed_policy = *proposed_policy;
+  snprintf(g_permission_center_requests[idx].requested_by,
+           sizeof(g_permission_center_requests[idx].requested_by),
+           "%s",
+           requested_by != 0 ? requested_by : "unknown");
+  snprintf(g_permission_center_requests[idx].rationale,
+           sizeof(g_permission_center_requests[idx].rationale),
+           "%s",
+           rationale != 0 ? rationale : "policy_change_request");
+  *request_id_out = g_permission_center_next_request_id;
+  g_permission_center_next_request_id += 1u;
+  g_permission_center_request_count += 1u;
+  return 0;
+}
+
+int aegis_permission_center_approve_change_request(uint64_t request_id,
+                                                   uint64_t now_epoch,
+                                                   const char *resolved_by,
+                                                   const char *note,
+                                                   aegis_sandbox_policy_t *applied_policy_out) {
+  size_t idx;
+  if (applied_policy_out == 0 || !find_request_index_by_id(request_id, &idx)) {
+    return -1;
+  }
+  if (g_permission_center_requests[idx].status != AEGIS_PERMISSION_APPROVAL_PENDING) {
+    return -1;
+  }
+  g_permission_center_requests[idx].status = AEGIS_PERMISSION_APPROVAL_APPROVED;
+  g_permission_center_requests[idx].resolved_epoch = now_epoch;
+  snprintf(g_permission_center_requests[idx].resolved_by,
+           sizeof(g_permission_center_requests[idx].resolved_by),
+           "%s",
+           resolved_by != 0 ? resolved_by : "reviewer");
+  snprintf(g_permission_center_requests[idx].resolution_note,
+           sizeof(g_permission_center_requests[idx].resolution_note),
+           "%s",
+           note != 0 ? note : "approved");
+  *applied_policy_out = g_permission_center_requests[idx].proposed_policy;
+  return 0;
+}
+
+int aegis_permission_center_reject_change_request(uint64_t request_id,
+                                                  uint64_t now_epoch,
+                                                  const char *resolved_by,
+                                                  const char *note) {
+  size_t idx;
+  if (!find_request_index_by_id(request_id, &idx)) {
+    return -1;
+  }
+  if (g_permission_center_requests[idx].status != AEGIS_PERMISSION_APPROVAL_PENDING) {
+    return -1;
+  }
+  g_permission_center_requests[idx].status = AEGIS_PERMISSION_APPROVAL_REJECTED;
+  g_permission_center_requests[idx].resolved_epoch = now_epoch;
+  snprintf(g_permission_center_requests[idx].resolved_by,
+           sizeof(g_permission_center_requests[idx].resolved_by),
+           "%s",
+           resolved_by != 0 ? resolved_by : "reviewer");
+  snprintf(g_permission_center_requests[idx].resolution_note,
+           sizeof(g_permission_center_requests[idx].resolution_note),
+           "%s",
+           note != 0 ? note : "rejected");
+  return 0;
+}
+
+int aegis_permission_center_approval_export_json(char *output, size_t output_size) {
+  size_t offset = 0u;
+  size_t total =
+      g_permission_center_request_count > 256u ? 256u : g_permission_center_request_count;
+  size_t base =
+      g_permission_center_request_count > 256u ? g_permission_center_request_count - 256u : 0u;
+  size_t i;
+  int written;
+  if (output == 0 || output_size == 0u) {
+    return -1;
+  }
+  written = snprintf(output,
+                     output_size,
+                     "{\"schema_version\":1,\"request_count\":%llu,\"pending_count\":%llu,"
+                     "\"requests\":[",
+                     (unsigned long long)total,
+                     (unsigned long long)aegis_permission_center_approval_pending_count());
+  if (written < 0 || (size_t)written >= output_size) {
+    return -1;
+  }
+  offset = (size_t)written;
+  for (i = 0; i < total; ++i) {
+    size_t idx = (base + i) % 256u;
+    const aegis_permission_change_request_t *req = &g_permission_center_requests[idx];
+    written = snprintf(output + offset,
+                       output_size - offset,
+                       "%s{\"request_id\":%llu,\"process_id\":%u,\"status\":%u,"
+                       "\"created_epoch\":%llu,\"resolved_epoch\":%llu,"
+                       "\"requested_by\":\"%s\",\"resolved_by\":\"%s\",\"rationale\":\"%s\","
+                       "\"resolution_note\":\"%s\",\"before_revision\":%llu,"
+                       "\"proposed_revision\":%llu}",
+                       i == 0u ? "" : ",",
+                       (unsigned long long)req->request_id,
+                       req->process_id,
+                       (unsigned int)req->status,
+                       (unsigned long long)req->created_epoch,
+                       (unsigned long long)req->resolved_epoch,
+                       req->requested_by,
+                       req->resolved_by,
+                       req->rationale,
+                       req->resolution_note,
+                       (unsigned long long)policy_revision(&req->before_policy),
+                       (unsigned long long)policy_revision(&req->proposed_policy));
+    if (written < 0 || (size_t)written >= (output_size - offset)) {
+      return -1;
+    }
+    offset += (size_t)written;
+  }
+  written = snprintf(output + offset, output_size - offset, "]}");
+  if (written < 0 || (size_t)written >= (output_size - offset)) {
+    return -1;
+  }
+  offset += (size_t)written;
   return (int)offset;
 }

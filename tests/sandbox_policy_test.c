@@ -347,6 +347,111 @@ static int test_permission_center_audit_export_endpoints(void) {
   return 0;
 }
 
+static int test_permission_center_change_approval_flow(void) {
+  aegis_sandbox_policy_t before = {
+      880u,
+      AEGIS_CAP_FS_READ,
+      1u,
+      0u,
+      0u,
+      0u,
+      0u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      4u};
+  aegis_sandbox_policy_t proposed = {
+      880u,
+      AEGIS_CAP_FS_READ | AEGIS_CAP_NET_CLIENT,
+      1u,
+      0u,
+      1u,
+      0u,
+      0u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      5u};
+  aegis_sandbox_policy_t applied;
+  uint64_t req_approve = 0u;
+  uint64_t req_reject = 0u;
+  char json[2048];
+  char tiny[32];
+  memset(&applied, 0, sizeof(applied));
+
+  aegis_permission_center_approval_reset();
+  if (aegis_permission_center_submit_change_request(&before,
+                                                    &proposed,
+                                                    200u,
+                                                    "settings-ui",
+                                                    "user_enabled_network",
+                                                    &req_approve) != 0 ||
+      req_approve == 0u) {
+    fprintf(stderr, "approval flow submit approve-request failed\n");
+    return 1;
+  }
+  if (aegis_permission_center_submit_change_request(&before,
+                                                    &proposed,
+                                                    201u,
+                                                    "settings-ui",
+                                                    "second_request_for_reject_path",
+                                                    &req_reject) != 0 ||
+      req_reject == 0u) {
+    fprintf(stderr, "approval flow submit reject-request failed\n");
+    return 1;
+  }
+  if (aegis_permission_center_approval_count() != 2u ||
+      aegis_permission_center_approval_pending_count() != 2u) {
+    fprintf(stderr, "approval flow expected 2 pending requests\n");
+    return 1;
+  }
+  if (aegis_permission_center_approve_change_request(req_approve,
+                                                     210u,
+                                                     "policy-admin",
+                                                     "approved_after_review",
+                                                     &applied) != 0) {
+    fprintf(stderr, "approval flow approve failed\n");
+    return 1;
+  }
+  if (applied.process_id != proposed.process_id ||
+      applied.policy_revision != proposed.policy_revision ||
+      applied.allow_net_client != 1u) {
+    fprintf(stderr, "approval flow applied policy mismatch\n");
+    return 1;
+  }
+  if (aegis_permission_center_reject_change_request(req_reject,
+                                                    211u,
+                                                    "policy-admin",
+                                                    "risk_not_accepted") != 0) {
+    fprintf(stderr, "approval flow reject failed\n");
+    return 1;
+  }
+  if (aegis_permission_center_approval_pending_count() != 0u) {
+    fprintf(stderr, "approval flow expected no pending requests after resolve\n");
+    return 1;
+  }
+  if (aegis_permission_center_approval_export_json(json, sizeof(json)) <= 0 ||
+      strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"request_count\":2") == 0 ||
+      strstr(json, "\"pending_count\":0") == 0 ||
+      strstr(json, "\"status\":2") == 0 ||
+      strstr(json, "\"status\":3") == 0 ||
+      strstr(json, "\"requested_by\":\"settings-ui\"") == 0 ||
+      strstr(json, "\"resolved_by\":\"policy-admin\"") == 0) {
+    fprintf(stderr, "approval flow json missing expected fields: %s\n", json);
+    return 1;
+  }
+  if (aegis_permission_center_approval_export_json(tiny, sizeof(tiny)) >= 0) {
+    fprintf(stderr, "approval flow expected tiny json buffer failure\n");
+    return 1;
+  }
+  if (aegis_permission_center_approve_change_request(req_approve,
+                                                     212u,
+                                                     "policy-admin",
+                                                     "duplicate_approve",
+                                                     &applied) == 0) {
+    fprintf(stderr, "approval flow duplicate approve should fail\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_valid_policy() != 0) {
     return 1;
@@ -385,6 +490,9 @@ int main(void) {
     return 1;
   }
   if (test_permission_center_audit_export_endpoints() != 0) {
+    return 1;
+  }
+  if (test_permission_center_change_approval_flow() != 0) {
     return 1;
   }
   puts("sandbox policy tests passed");
