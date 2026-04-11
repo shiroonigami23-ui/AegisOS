@@ -6,6 +6,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_library(kernel_sim STATIC
   kernel/src/kernel_main.c
+  kernel/src/process_checkpoint.c
 )
 target_include_directories(kernel_sim PUBLIC kernel/include)
 target_compile_options(kernel_sim PRIVATE -Wall -Wextra -Wpedantic)
@@ -41,8 +42,12 @@ target_link_libraries(sandbox_policy_test PRIVATE aegis_sandbox)
 add_executable(sandbox_engine_test tests/sandbox_engine_test.c)
 target_link_libraries(sandbox_engine_test PRIVATE aegis_sandbox_engine)
 
+add_executable(sandbox_escape_regression_test tests/sandbox_escape_regression_test.c)
+target_link_libraries(sandbox_escape_regression_test PRIVATE aegis_sandbox_engine)
+
 enable_testing()
 add_test(NAME kernel-sim-test COMMAND kernel_sim_test)
 add_test(NAME capability-test COMMAND capability_test)
 add_test(NAME sandbox-policy-test COMMAND sandbox_policy_test)
 add_test(NAME sandbox-engine-test COMMAND sandbox_engine_test)
+add_test(NAME sandbox-escape-regression-test COMMAND sandbox_escape_regression_test)

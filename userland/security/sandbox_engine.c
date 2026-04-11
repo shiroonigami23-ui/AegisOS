@@ -1,5 +1,6 @@
 #include "sandbox_engine.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -203,6 +204,45 @@ static int path_rule_matches(const char *path, const char *rule_pattern) {
     return wildcard_match(rule_pattern, path);
   }
   return prefix_matches(path, rule_pattern);
+}
+
+static int path_contains_escape_pattern(const char *path) {
+  const char *cursor;
+  size_t len;
+  if (path == 0 || path[0] == '\0') {
+    return 1;
+  }
+  if (path[0] != '/') {
+    return 1;
+  }
+  if (strstr(path, "//") != 0 || strstr(path, "/./") != 0 || strstr(path, "/../") != 0) {
+    return 1;
+  }
+  len = strlen(path);
+  if (len >= 2u && strcmp(path + len - 2u, "/.") == 0) {
+    return 1;
+  }
+  if (len >= 3u && strcmp(path + len - 3u, "/..") == 0) {
+    return 1;
+  }
+  if (len >= 2u && path[0] == '.' && path[1] == '/') {
+    return 1;
+  }
+  if (len >= 3u && path[0] == '.' && path[1] == '.' && path[2] == '/') {
+    return 1;
+  }
+  cursor = path;
+  while ((cursor = strchr(cursor, '%')) != 0) {
+    if (cursor[1] != '\0' && cursor[2] != '\0') {
+      char h1 = (char)tolower((unsigned char)cursor[1]);
+      char h2 = (char)tolower((unsigned char)cursor[2]);
+      if ((h1 == '2' && h2 == 'e') || (h1 == '2' && h2 == 'f') || (h1 == '5' && h2 == 'c')) {
+        return 1;
+      }
+    }
+    cursor += 1;
+  }
+  return 0;
 }
 
 int aegis_policy_engine_lint_fs_scope_pattern(const char *pattern,
@@ -709,6 +749,10 @@ int aegis_policy_engine_check_path(const aegis_policy_engine_t *engine,
     }
   } else if (resolve_path_with_symlink_rules(engine, process_id, resolved_path, sizeof(resolved_path)) != 0) {
     set_reason(decision, "symlink resolution depth exceeded", 0);
+    return 0;
+  }
+  if (path_contains_escape_pattern(resolved_path)) {
+    set_reason(decision, "filesystem path normalization guard blocked escape pattern", 0);
     return 0;
   }
 

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "policy_name": "service_supervisor_restart_budget",
+  "services": [
+    {
+      "service": "ui-shell",
+      "max_restarts": 4,
+      "window_seconds": 120,
+      "base_backoff_seconds": 2,
+      "max_backoff_seconds": 60,
+      "jitter_percent": 15,
+      "escalation_threshold": 3
+    },
+    {
+      "service": "network-agent",
+      "max_restarts": 3,
+      "window_seconds": 90,
+      "base_backoff_seconds": 1,
+      "max_backoff_seconds": 20,
+      "jitter_percent": 10,
+      "escalation_threshold": 4
+    },
+    {
+      "service": "update-daemon",
+      "max_restarts": 2,
+      "window_seconds": 300,
+      "base_backoff_seconds": 10,
+      "max_backoff_seconds": 180,
+      "jitter_percent": 5,
+      "escalation_threshold": 2
+    }
+  ]
+}

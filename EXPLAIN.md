@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-05 13:14:30Z
+Last generated: 2026-04-11 15:34:00Z
 
 ## What AegisOS Is Building
 
@@ -33,11 +33,15 @@ We implement in vertical slices:
 ## Live Backlog Snapshot
 
 ### Priority P0
-- none
+- #137 Package_signature_verifier_real_crypto_path (enhancement, priority-p0, security)
+- #136 Kernel_secure_time_source_attestation (enhancement, priority-p0, security, kernel)
+- #135 Runtime_sandbox_escape_regression_suite (enhancement, priority-p0, security)
 
 ### Priority P1
-- #70 Actor_registry_persistent_backing_store (priority-p1, security)
-- #40 Apply_branch_protection_profile_on_main (priority-p1)
+- #139 Userland_permission_center_change_approval_flow (enhancement, priority-p1, security)
+- #138 Device_profile_power_budget_optimizer (enhancement, priority-p1)
+- #134 Userland_service_supervisor_restart_budget (enhancement, priority-p1)
+- #133 Kernel_process_checkpoint_restore_scaffold (enhancement, priority-p1, kernel)
 
 ### Security
 - none
@@ -55,39 +59,39 @@ We implement in vertical slices:
 
 Recent commit touches in `weekly` window (higher means more active recently):
 
-- kernel: 47
-- userland: 92
-- packages: 39
-- docs: 169
-- workflows: 15
-- tests: 63
+- kernel: 64
+- userland: 128
+- packages: 45
+- docs: 181
+- workflows: 25
+- tests: 122
 - tools: 1
 - platform: 1
-- scripts: 33
-- other: 14
+- scripts: 78
+- other: 15
 
 Open issue pressure by component signal:
 
-- security: 1
-- kernel: 0
+- security: 4
+- kernel: 1
 - packages: 0
 - docs: 0
-- other: 1
+- other: 2
 
 ## Recent Engineering Changes
 
-- `5707523` (2026-04-05): "Add_actor_registry_snapshot_and_restore_persistence_api"
-- `b49f9a3` (2026-04-05): docs: auto-update explain and changelog
-- `1091117` (2026-04-05): "Add_cross_platform_toolchain_bootstrap_scripts_for_contributors"
-- `5312e24` (2026-04-05): docs: auto-update explain and changelog
-- `f8fd4c7` (2026-04-05): "Add_trace_json_property_perf_baseline_and_seed_corpus_tooling"
-- `395429a` (2026-04-05): docs: auto-update explain and changelog
-- `16a0ad2` (2026-04-05): "Add_filesystem_resolver_backend_hook_for_symlink_resolution"
-- `b458e87` (2026-04-05): docs: auto-update explain and changelog
-- `3fbc4c2` (2026-04-05): "Add_sanitizer_suppressions_baseline_and_runner"
-- `264139e` (2026-04-05): docs: auto-update explain and changelog
-- `294a3fe` (2026-04-05): "Add_package_manifest_schema_migration_helper_with_tests"
-- `fdc9706` (2026-04-05): docs: auto-update explain and changelog
-- `dfb3685` (2026-04-05): "Add_package_profile_to_hardware_compatibility_matrix_docs"
-- `de08c6f` (2026-04-05): docs: auto-update explain and changelog
-- `15c3fc8` (2026-04-05): "Add_package_signature_placeholder_fields_and_schema_validation"
+- `fe651fa` (2026-04-11): Add_key_rotation_enforcer_and_close_issue_131
+- `c00e203` (2026-04-11): Remove_accidental_pycache_artifacts
+- `ac90dac` (2026-04-11): Implement_permission_center_diff_installer_state_machine_and_delta_apply_simulator
+- `010ef42` (2026-04-11): Complete_permission_center_diff_and_installer_state_machine_close_122_129
+- `293e480` (2026-04-11): Sync_massive_security_and_kernel_batch_closing_issues_124_125_126_127_128_130
+- `68082c9` (2026-04-10): "Canonicalize_secret_snapshot_digest_by_sorted_keys" (#117)
+- `bcd8826` (2026-04-10): "Add_capability_audit_summary_counters_endpoint" (#116)
+- `bd61a43` (2026-04-10): "Add_atomic_txn_file_checksum_verification" (#115)
+- `038b040` (2026-04-10): "Refine_security_policy_wording_for_poc_clarity" (#114)
+- `b94b13a` (2026-04-10): "Reduce_auto_docs_workflow_token_scope" (#109)
+- `d8464db` (2026-04-10): "Harden_atomic_txn_file_persistence_with_atomic_writes" (#107)
+- `9677e10` (2026-04-10): "Add_secret_snapshot_input_size_and_line_guardrails" (#108)
+- `807ed28` (2026-04-09): "Harden_github_workflows_for_node24_actions_runtime"
+- `fb03b4f` (2026-04-09): "Make_auto_docs_report_drift_without_repo_write_ops"
+- `098345b` (2026-04-09): "Fix_auto_docs_protected_branch_flow_and_clang_runner_exec"

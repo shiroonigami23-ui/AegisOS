@@ -1141,6 +1141,88 @@ static int test_scheduler_fairness_snapshot_json_endpoint(void) {
   return 0;
 }
 
+static int test_process_checkpoint_restore_scaffold(void) {
+  aegis_process_checkpoint_table_t table;
+  aegis_process_runtime_state_t runtime_a;
+  aegis_process_runtime_state_t runtime_b;
+  aegis_process_runtime_state_t restored;
+  aegis_process_checkpoint_entry_t entry;
+  uint64_t epoch_a = 0u;
+  char json[4096];
+  char tiny[32];
+  memset(&runtime_a, 0, sizeof(runtime_a));
+  memset(&runtime_b, 0, sizeof(runtime_b));
+  memset(&restored, 0, sizeof(restored));
+  memset(&entry, 0, sizeof(entry));
+
+  aegis_process_checkpoint_table_init(&table);
+  runtime_a.process_id = 11001u;
+  runtime_a.namespace_id = 31u;
+  runtime_a.thread_count = 4u;
+  runtime_a.vm_bytes = 64u * 1024u * 1024u;
+  runtime_a.capability_mask = 0x1Fu;
+  runtime_a.policy_revision = 7u;
+  runtime_a.scheduler_tick = 420u;
+  runtime_a.active = 1u;
+  runtime_b.process_id = 11002u;
+  runtime_b.namespace_id = 31u;
+  runtime_b.thread_count = 2u;
+  runtime_b.vm_bytes = 20u * 1024u * 1024u;
+  runtime_b.capability_mask = 0x03u;
+  runtime_b.policy_revision = 2u;
+  runtime_b.scheduler_tick = 421u;
+  runtime_b.active = 1u;
+
+  if (aegis_process_checkpoint_register_runtime(&table, &runtime_a) != 0 ||
+      aegis_process_checkpoint_register_runtime(&table, &runtime_b) != 0) {
+    fprintf(stderr, "checkpoint register runtime failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_capture(&table,
+                                       11001u,
+                                       AEGIS_CHECKPOINT_REASON_PRE_UPDATE,
+                                       500u,
+                                       "pre-update",
+                                       &epoch_a) != 0 ||
+      epoch_a == 0u) {
+    fprintf(stderr, "checkpoint capture failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_query(&table, 11001u, &entry) != 0 ||
+      entry.checkpoint_epoch != epoch_a ||
+      entry.state.vm_bytes != runtime_a.vm_bytes ||
+      strcmp(entry.tag, "pre-update") != 0) {
+    fprintf(stderr, "checkpoint query mismatch\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_restore(&table, 11001u, epoch_a + 1u, &restored) == 0) {
+    fprintf(stderr, "checkpoint restore should fail on epoch mismatch\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_restore(&table, 11001u, epoch_a, &restored) != 0 ||
+      restored.process_id != 11001u ||
+      restored.thread_count != runtime_a.thread_count ||
+      restored.policy_revision != runtime_a.policy_revision) {
+    fprintf(stderr, "checkpoint restore success path mismatch\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_snapshot_json(&table, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"capture_count\":1") == 0 ||
+      strstr(json, "\"restore_count\":1") == 0 ||
+      strstr(json, "\"restore_failures\":1") == 0 ||
+      strstr(json, "\"process_id\":11001") == 0 ||
+      strstr(json, "\"tag\":\"pre-update\"") == 0) {
+    fprintf(stderr, "checkpoint snapshot json mismatch: %s\n", json);
+    return 1;
+  }
+  if (aegis_process_checkpoint_snapshot_json(&table, tiny, sizeof(tiny)) >= 0) {
+    fprintf(stderr, "expected tiny checkpoint snapshot json failure\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_kernel_boot() != 0) {
     return 1;
@@ -1218,6 +1300,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_fairness_snapshot_json_endpoint() != 0) {
+    return 1;
+  }
+  if (test_process_checkpoint_restore_scaffold() != 0) {
     return 1;
   }
   puts("kernel simulation check passed");

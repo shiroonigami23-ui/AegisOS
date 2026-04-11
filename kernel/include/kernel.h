@@ -14,6 +14,8 @@
 #define AEGIS_SYSCALL_RULE_CAPACITY 64u
 #define AEGIS_IPC_CHANNEL_CAPACITY 64u
 #define AEGIS_MEMORY_ZONE_CAPACITY 16u
+#define AEGIS_PROCESS_CHECKPOINT_CAPACITY 128u
+#define AEGIS_PROCESS_CHECKPOINT_TAG_MAX 48u
 
 typedef struct {
   uint64_t base;
@@ -195,6 +197,45 @@ typedef struct {
   uint64_t denied_charges;
   uint64_t reclaim_events;
 } aegis_memory_zone_table_t;
+
+typedef enum {
+  AEGIS_CHECKPOINT_REASON_MANUAL = 1,
+  AEGIS_CHECKPOINT_REASON_PRE_UPDATE = 2,
+  AEGIS_CHECKPOINT_REASON_PRE_MIGRATION = 3,
+  AEGIS_CHECKPOINT_REASON_AUTOMATED_RECOVERY = 4
+} aegis_process_checkpoint_reason_t;
+
+typedef struct {
+  uint32_t process_id;
+  uint32_t namespace_id;
+  uint32_t thread_count;
+  uint64_t vm_bytes;
+  uint32_t capability_mask;
+  uint64_t policy_revision;
+  uint64_t scheduler_tick;
+  uint8_t active;
+} aegis_process_runtime_state_t;
+
+typedef struct {
+  uint32_t process_id;
+  uint64_t checkpoint_epoch;
+  uint64_t captured_at_tick;
+  uint8_t reason;
+  uint8_t restore_count;
+  uint8_t last_restore_status;
+  uint8_t valid;
+  char tag[AEGIS_PROCESS_CHECKPOINT_TAG_MAX];
+  aegis_process_runtime_state_t state;
+} aegis_process_checkpoint_entry_t;
+
+typedef struct {
+  aegis_process_runtime_state_t runtime_states[AEGIS_PROCESS_CHECKPOINT_CAPACITY];
+  aegis_process_checkpoint_entry_t checkpoints[AEGIS_PROCESS_CHECKPOINT_CAPACITY];
+  uint64_t next_epoch;
+  uint64_t capture_count;
+  uint64_t restore_count;
+  uint64_t restore_failures;
+} aegis_process_checkpoint_table_t;
 
 typedef struct {
   uint32_t namespace_id;
@@ -378,5 +419,24 @@ int aegis_memory_zone_release(aegis_memory_zone_table_t *table,
 int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
                                     char *out,
                                     size_t out_size);
+void aegis_process_checkpoint_table_init(aegis_process_checkpoint_table_t *table);
+int aegis_process_checkpoint_register_runtime(aegis_process_checkpoint_table_t *table,
+                                              const aegis_process_runtime_state_t *state);
+int aegis_process_checkpoint_capture(aegis_process_checkpoint_table_t *table,
+                                     uint32_t process_id,
+                                     uint8_t reason,
+                                     uint64_t captured_at_tick,
+                                     const char *tag,
+                                     uint64_t *checkpoint_epoch_out);
+int aegis_process_checkpoint_restore(aegis_process_checkpoint_table_t *table,
+                                     uint32_t process_id,
+                                     uint64_t expected_epoch,
+                                     aegis_process_runtime_state_t *restored_state_out);
+int aegis_process_checkpoint_query(const aegis_process_checkpoint_table_t *table,
+                                   uint32_t process_id,
+                                   aegis_process_checkpoint_entry_t *entry_out);
+int aegis_process_checkpoint_snapshot_json(const aegis_process_checkpoint_table_t *table,
+                                          char *out,
+                                          size_t out_size);
 
 #endif

@@ -17,6 +17,7 @@ def suite_commands(c_standard, artifact_suffix):
   capability_out = f"out_capability_test{artifact_suffix}"
   sandbox_policy_out = f"out_sandbox_policy_test{artifact_suffix}"
   sandbox_engine_out = f"out_sandbox_engine_test{artifact_suffix}"
+  sandbox_escape_regression_out = f"out_sandbox_escape_regression_test{artifact_suffix}"
   return [
       [
           "clang",
@@ -24,6 +25,7 @@ def suite_commands(c_standard, artifact_suffix):
           *warn_flags,
           "-Ikernel/include",
           "kernel/src/kernel_main.c",
+          "kernel/src/process_checkpoint.c",
           "tests/kernel_sim_test.c",
           "-o",
           kernel_out,
@@ -64,6 +66,19 @@ def suite_commands(c_standard, artifact_suffix):
           sandbox_engine_out,
       ],
       [sandbox_engine_out],
+      [
+          "clang",
+          f"-std={c_standard}",
+          *warn_flags,
+          "-Iuserland/include",
+          "userland/security/capability.c",
+          "userland/security/sandbox_policy.c",
+          "userland/security/sandbox_engine.c",
+          "tests/sandbox_escape_regression_test.c",
+          "-o",
+          sandbox_escape_regression_out,
+      ],
+      [sandbox_escape_regression_out],
   ]
 
 
@@ -73,6 +88,7 @@ def cleanup_artifacts(artifact_suffix):
       f"out_capability_test{artifact_suffix}",
       f"out_sandbox_policy_test{artifact_suffix}",
       f"out_sandbox_engine_test{artifact_suffix}",
+      f"out_sandbox_escape_regression_test{artifact_suffix}",
   ]:
     try:
       os.remove(artifact)
