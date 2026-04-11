@@ -62,6 +62,8 @@ This repository contains:
 - Delta update manifest schema validation (payload digest, base version, and fallback digest).
 - Telemetry privacy redaction engine for logs, metrics, and trace exports.
 - Device-profile boot budget enforcer with severity reporting for CI gates.
+- Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
+- Installer secure bootstrap state machine with recovery and attestation hook gates.
 
 ## Feature Strategy
 

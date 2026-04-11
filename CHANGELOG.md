@@ -5,6 +5,8 @@ Last generated: 2026-04-05 13:14:30Z
 
 ## Unreleased
 
+- 2026-04-11 `local` "Add_permission_center_policy_diff_and_policy_change_audit_exports"
+- 2026-04-11 `local` "Add_installer_secure_bootstrap_state_machine_with_recovery_hooks"
 - 2026-04-11 `local` "Add_delta_update_manifest_schema_validation_and_core_manifest_fields"
 - 2026-04-11 `local` "Add_telemetry_privacy_redaction_engine_with_recursive_rules_and_tests"
 - 2026-04-11 `local` "Add_device_profile_boot_budget_enforcer_policy_and_batch_reports"

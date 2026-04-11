@@ -17,6 +17,7 @@
 - Secrets and key storage service.
 - Syscall-to-capability gate matrix and enforcement counters.
 - Telemetry privacy redaction rules for logs, metrics, and trace exports.
+- Permission center policy diff and policy-change audit export.
 
 ## Epic 3: Package + Update System
 
@@ -33,6 +34,7 @@
 - Settings and permission center.
 - Profile tuning for low-resource hardware.
 - Boot budget enforcement reports per profile (cold/warm).
+- Installer bootstrap state machine with attestation and recovery hooks.
 
 ## Epic 5: Compatibility
 

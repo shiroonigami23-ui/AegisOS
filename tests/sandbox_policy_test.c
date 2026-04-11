@@ -250,6 +250,103 @@ static int test_permission_center_summary_respects_policy_gates(void) {
   return 0;
 }
 
+static int test_permission_center_policy_diff_endpoint(void) {
+  aegis_sandbox_policy_t before = {
+      500u,
+      AEGIS_CAP_FS_READ | AEGIS_CAP_NET_CLIENT,
+      1u,
+      0u,
+      1u,
+      0u,
+      0u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      3u};
+  aegis_sandbox_policy_t after = {
+      500u,
+      AEGIS_CAP_FS_READ | AEGIS_CAP_FS_WRITE | AEGIS_CAP_NET_CLIENT,
+      1u,
+      1u,
+      1u,
+      0u,
+      0u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      4u};
+  char json[512];
+  if (aegis_permission_center_policy_diff_json(&before, &after, json, sizeof(json)) <= 0) {
+    fprintf(stderr, "permission center diff endpoint failed\n");
+    return 1;
+  }
+  if (strstr(json, "\"process_id\":500") == 0 ||
+      strstr(json, "\"before_revision\":3") == 0 ||
+      strstr(json, "\"after_revision\":4") == 0 ||
+      strstr(json, "\"added_capability_mask\":2") == 0 ||
+      strstr(json, "\"changed_gate_mask\":2") == 0) {
+    fprintf(stderr, "permission center diff json missing expected fields: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_permission_center_audit_export_endpoints(void) {
+  aegis_sandbox_policy_t before = {
+      777u,
+      AEGIS_CAP_FS_READ,
+      1u,
+      0u,
+      0u,
+      0u,
+      0u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      1u};
+  aegis_sandbox_policy_t after = {
+      777u,
+      AEGIS_CAP_FS_READ | AEGIS_CAP_DEVICE_IO,
+      1u,
+      0u,
+      0u,
+      0u,
+      1u,
+      AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
+      2u};
+  char json[1024];
+  char csv[1024];
+  aegis_permission_center_audit_reset();
+  if (aegis_permission_center_record_policy_change(&before,
+                                                   &after,
+                                                   12345u,
+                                                   "policyd",
+                                                   "grant_device_io") != 0) {
+    fprintf(stderr, "permission center audit record failed\n");
+    return 1;
+  }
+  if (aegis_permission_center_audit_count() != 1u) {
+    fprintf(stderr, "permission center audit count mismatch\n");
+    return 1;
+  }
+  if (aegis_permission_center_audit_export_json(json, sizeof(json)) <= 0) {
+    fprintf(stderr, "permission center audit json export failed\n");
+    return 1;
+  }
+  if (strstr(json, "\"process_id\":777") == 0 ||
+      strstr(json, "\"actor\":\"policyd\"") == 0 ||
+      strstr(json, "\"reason\":\"grant_device_io\"") == 0 ||
+      strstr(json, "\"added_capability_mask\":16") == 0) {
+    fprintf(stderr, "permission center audit json missing expected fields: %s\n", json);
+    return 1;
+  }
+  if (aegis_permission_center_audit_export_csv(csv, sizeof(csv)) <= 0) {
+    fprintf(stderr, "permission center audit csv export failed\n");
+    return 1;
+  }
+  if (strstr(csv, "timestamp_epoch,process_id,before_revision,after_revision") == 0 ||
+      strstr(csv, "777") == 0 ||
+      strstr(csv, "policyd") == 0) {
+    fprintf(stderr, "permission center audit csv missing expected fields: %s\n", csv);
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_valid_policy() != 0) {
     return 1;
@@ -282,6 +379,12 @@ int main(void) {
     return 1;
   }
   if (test_permission_center_summary_respects_policy_gates() != 0) {
+    return 1;
+  }
+  if (test_permission_center_policy_diff_endpoint() != 0) {
+    return 1;
+  }
+  if (test_permission_center_audit_export_endpoints() != 0) {
     return 1;
   }
   puts("sandbox policy tests passed");

@@ -17,3 +17,4 @@ Helper scripts for local development and automation live here.
 - `compat_runtime_allowlist.py`: compatibility runtime syscall allowlist scaffold with per-runtime counters and violation log export.
 - `telemetry_redaction_engine.py`: redacts sensitive fields from logs/metrics/traces and emits redaction summary telemetry.
 - `device_profile_boot_budget_enforcer.py`: enforces per-profile cold/warm boot budgets and emits pass/fail severity reports.
+- `installer_bootstrap_state_machine.py`: installer bootstrap state machine with recovery paths and attestation hook gating.

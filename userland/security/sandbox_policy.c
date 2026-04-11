@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+static aegis_permission_center_audit_event_t g_permission_center_audit[256];
+static size_t g_permission_center_audit_count = 0u;
+
 static void write_reason(char *reason, size_t reason_size, const char *message) {
   if (reason == 0 || reason_size == 0 || message == 0) {
     return;
@@ -352,4 +355,219 @@ int aegis_permission_center_policy_summary_json(const aegis_sandbox_policy_t *po
     return -1;
   }
   return 0;
+}
+
+static uint32_t permission_center_gate_mask(const aegis_sandbox_policy_t *policy) {
+  uint32_t mask = 0u;
+  if (policy == 0) {
+    return 0u;
+  }
+  if (policy->allow_fs_read != 0u) {
+    mask |= 1u << 0;
+  }
+  if (policy->allow_fs_write != 0u) {
+    mask |= 1u << 1;
+  }
+  if (policy->allow_net_client != 0u) {
+    mask |= 1u << 2;
+  }
+  if (policy->allow_net_server != 0u) {
+    mask |= 1u << 3;
+  }
+  if (policy->allow_device_io != 0u) {
+    mask |= 1u << 4;
+  }
+  return mask;
+}
+
+int aegis_permission_center_policy_diff_json(const aegis_sandbox_policy_t *before_policy,
+                                             const aegis_sandbox_policy_t *after_policy,
+                                             char *output,
+                                             size_t output_size) {
+  char reason[64];
+  uint32_t before_caps;
+  uint32_t after_caps;
+  uint32_t added_caps;
+  uint32_t removed_caps;
+  uint32_t before_gates;
+  uint32_t after_gates;
+  uint32_t changed_gates;
+  int written;
+  if (before_policy == 0 || after_policy == 0 || output == 0 || output_size == 0u) {
+    return -1;
+  }
+  if (!aegis_sandbox_policy_validate(before_policy, reason, sizeof(reason)) ||
+      !aegis_sandbox_policy_validate(after_policy, reason, sizeof(reason))) {
+    return -1;
+  }
+  if (before_policy->process_id != after_policy->process_id) {
+    return -1;
+  }
+  before_caps = before_policy->capabilities;
+  after_caps = after_policy->capabilities;
+  added_caps = after_caps & (~before_caps);
+  removed_caps = before_caps & (~after_caps);
+  before_gates = permission_center_gate_mask(before_policy);
+  after_gates = permission_center_gate_mask(after_policy);
+  changed_gates = before_gates ^ after_gates;
+  written = snprintf(
+      output,
+      output_size,
+      "{\"schema_version\":1,\"process_id\":%u,\"before_revision\":%llu,"
+      "\"after_revision\":%llu,\"added_capability_mask\":%u,\"removed_capability_mask\":%u,"
+      "\"changed_gate_mask\":%u,\"before\":{\"capability_mask\":%u,\"gate_mask\":%u},"
+      "\"after\":{\"capability_mask\":%u,\"gate_mask\":%u}}",
+      after_policy->process_id,
+      (unsigned long long)policy_revision(before_policy),
+      (unsigned long long)policy_revision(after_policy),
+      added_caps,
+      removed_caps,
+      changed_gates,
+      before_caps,
+      before_gates,
+      after_caps,
+      after_gates);
+  if (written < 0 || (size_t)written >= output_size) {
+    return -1;
+  }
+  return written;
+}
+
+void aegis_permission_center_audit_reset(void) {
+  g_permission_center_audit_count = 0u;
+}
+
+size_t aegis_permission_center_audit_count(void) {
+  return g_permission_center_audit_count;
+}
+
+int aegis_permission_center_record_policy_change(const aegis_sandbox_policy_t *before_policy,
+                                                 const aegis_sandbox_policy_t *after_policy,
+                                                 uint64_t now_epoch,
+                                                 const char *actor,
+                                                 const char *reason) {
+  char validate_reason[64];
+  size_t idx;
+  uint32_t before_caps;
+  uint32_t after_caps;
+  uint32_t before_gates;
+  uint32_t after_gates;
+  if (before_policy == 0 || after_policy == 0) {
+    return -1;
+  }
+  if (!aegis_sandbox_policy_validate(before_policy, validate_reason, sizeof(validate_reason)) ||
+      !aegis_sandbox_policy_validate(after_policy, validate_reason, sizeof(validate_reason))) {
+    return -1;
+  }
+  if (before_policy->process_id != after_policy->process_id) {
+    return -1;
+  }
+  idx = g_permission_center_audit_count % 256u;
+  before_caps = before_policy->capabilities;
+  after_caps = after_policy->capabilities;
+  before_gates = permission_center_gate_mask(before_policy);
+  after_gates = permission_center_gate_mask(after_policy);
+  g_permission_center_audit[idx].timestamp_epoch = now_epoch;
+  g_permission_center_audit[idx].process_id = after_policy->process_id;
+  g_permission_center_audit[idx].before_revision = policy_revision(before_policy);
+  g_permission_center_audit[idx].after_revision = policy_revision(after_policy);
+  g_permission_center_audit[idx].added_capability_mask = after_caps & (~before_caps);
+  g_permission_center_audit[idx].removed_capability_mask = before_caps & (~after_caps);
+  g_permission_center_audit[idx].changed_gate_mask = before_gates ^ after_gates;
+  snprintf(g_permission_center_audit[idx].actor,
+           sizeof(g_permission_center_audit[idx].actor),
+           "%s",
+           actor != 0 ? actor : "system");
+  snprintf(g_permission_center_audit[idx].reason,
+           sizeof(g_permission_center_audit[idx].reason),
+           "%s",
+           reason != 0 ? reason : "policy_change");
+  g_permission_center_audit_count += 1u;
+  return 0;
+}
+
+int aegis_permission_center_audit_export_json(char *output, size_t output_size) {
+  size_t offset = 0u;
+  size_t total = g_permission_center_audit_count > 256u ? 256u : g_permission_center_audit_count;
+  size_t base = g_permission_center_audit_count > 256u ? g_permission_center_audit_count - 256u : 0u;
+  size_t i;
+  int written;
+  if (output == 0 || output_size == 0u) {
+    return -1;
+  }
+  written = snprintf(output, output_size, "[");
+  if (written < 0 || (size_t)written >= output_size) {
+    return -1;
+  }
+  offset = (size_t)written;
+  for (i = 0; i < total; ++i) {
+    size_t idx = (base + i) % 256u;
+    const aegis_permission_center_audit_event_t *event = &g_permission_center_audit[idx];
+    written = snprintf(output + offset,
+                       output_size - offset,
+                       "%s{\"timestamp_epoch\":%llu,\"process_id\":%u,\"before_revision\":%llu,"
+                       "\"after_revision\":%llu,\"added_capability_mask\":%u,"
+                       "\"removed_capability_mask\":%u,\"changed_gate_mask\":%u,"
+                       "\"actor\":\"%s\",\"reason\":\"%s\"}",
+                       i == 0u ? "" : ",",
+                       (unsigned long long)event->timestamp_epoch,
+                       event->process_id,
+                       (unsigned long long)event->before_revision,
+                       (unsigned long long)event->after_revision,
+                       event->added_capability_mask,
+                       event->removed_capability_mask,
+                       event->changed_gate_mask,
+                       event->actor,
+                       event->reason);
+    if (written < 0 || (size_t)written >= (output_size - offset)) {
+      return -1;
+    }
+    offset += (size_t)written;
+  }
+  written = snprintf(output + offset, output_size - offset, "]");
+  if (written < 0 || (size_t)written >= (output_size - offset)) {
+    return -1;
+  }
+  offset += (size_t)written;
+  return (int)offset;
+}
+
+int aegis_permission_center_audit_export_csv(char *output, size_t output_size) {
+  size_t offset = 0u;
+  size_t total = g_permission_center_audit_count > 256u ? 256u : g_permission_center_audit_count;
+  size_t base = g_permission_center_audit_count > 256u ? g_permission_center_audit_count - 256u : 0u;
+  size_t i;
+  int written;
+  if (output == 0 || output_size == 0u) {
+    return -1;
+  }
+  written = snprintf(output,
+                     output_size,
+                     "timestamp_epoch,process_id,before_revision,after_revision,"
+                     "added_capability_mask,removed_capability_mask,changed_gate_mask,actor,reason\n");
+  if (written < 0 || (size_t)written >= output_size) {
+    return -1;
+  }
+  offset = (size_t)written;
+  for (i = 0; i < total; ++i) {
+    size_t idx = (base + i) % 256u;
+    const aegis_permission_center_audit_event_t *event = &g_permission_center_audit[idx];
+    written = snprintf(output + offset,
+                       output_size - offset,
+                       "%llu,%u,%llu,%llu,%u,%u,%u,%s,%s\n",
+                       (unsigned long long)event->timestamp_epoch,
+                       event->process_id,
+                       (unsigned long long)event->before_revision,
+                       (unsigned long long)event->after_revision,
+                       event->added_capability_mask,
+                       event->removed_capability_mask,
+                       event->changed_gate_mask,
+                       event->actor,
+                       event->reason);
+    if (written < 0 || (size_t)written >= (output_size - offset)) {
+      return -1;
+    }
+    offset += (size_t)written;
+  }
+  return (int)offset;
 }
