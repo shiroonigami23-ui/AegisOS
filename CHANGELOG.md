@@ -5,6 +5,7 @@ Last generated: 2026-04-05 13:14:30Z
 
 ## Unreleased
 
+- 2026-04-11 `local` "Add_package_repo_delta_apply_simulator_with_fallback_integrity_checks"
 - 2026-04-11 `local` "Add_permission_center_policy_diff_and_policy_change_audit_exports"
 - 2026-04-11 `local` "Add_installer_secure_bootstrap_state_machine_with_recovery_hooks"
 - 2026-04-11 `local` "Add_delta_update_manifest_schema_validation_and_core_manifest_fields"
