@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-11 15:53:29Z
+Last generated: 2026-04-11 15:56:31Z
 
 ## What AegisOS Is Building
 
@@ -34,13 +34,10 @@ We implement in vertical slices:
 
 ### Priority P0
 - #140 Sandbox_escape_property_fuzz_seed_corpus_expansion (enhancement, priority-p0, security)
-- #137 Package_signature_verifier_real_crypto_path (enhancement, priority-p0, security)
-- #136 Kernel_secure_time_source_attestation (enhancement, priority-p0, security, kernel)
 
 ### Priority P1
 - #142 Kernel_checkpoint_journal_persistence_and_replay (enhancement, priority-p1, kernel)
 - #141 Supervisor_restart_budget_health_probe_and_metrics_export (enhancement, priority-p1)
-- #139 Userland_permission_center_change_approval_flow (enhancement, priority-p1, security)
 - #138 Device_profile_power_budget_optimizer (enhancement, priority-p1)
 
 ### Security
@@ -59,20 +56,20 @@ We implement in vertical slices:
 
 Recent commit touches in `weekly` window (higher means more active recently):
 
-- kernel: 68
-- userland: 131
+- kernel: 70
+- userland: 133
 - packages: 47
-- docs: 185
+- docs: 187
 - workflows: 25
-- tests: 128
+- tests: 131
 - tools: 1
 - platform: 1
-- scripts: 84
+- scripts: 85
 - other: 17
 
 Open issue pressure by component signal:
 
-- security: 4
+- security: 1
 - kernel: 1
 - packages: 0
 - docs: 0
@@ -80,6 +77,7 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `e347b49` (2026-04-11): feat_followthrough_secure_time_signature_policy_and_approval_metrics (#144)
 - `fcdecfb` (2026-04-11): feat_secure_time_signature_and_permission_approval_flow (#143)
 - `8003e8b` (2026-04-11): Add_checkpoint_supervisor_and_sandbox_escape_regression_suite
 - `fe651fa` (2026-04-11): Add_key_rotation_enforcer_and_close_issue_131
@@ -94,4 +92,3 @@ Open issue pressure by component signal:
 - `b94b13a` (2026-04-10): "Reduce_auto_docs_workflow_token_scope" (#109)
 - `d8464db` (2026-04-10): "Harden_atomic_txn_file_persistence_with_atomic_writes" (#107)
 - `9677e10` (2026-04-10): "Add_secret_snapshot_input_size_and_line_guardrails" (#108)
-- `807ed28` (2026-04-09): "Harden_github_workflows_for_node24_actions_runtime"

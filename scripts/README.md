@@ -22,3 +22,4 @@ Helper scripts for local development and automation live here.
 - `security_key_rotation_schedule_enforcer.py`: evaluates key age against rotation policy and emits warning/critical reports.
 - `service_restart_budget_supervisor.py`: enforces per-service restart budgets with sliding windows, backoff, escalation, and incident reports.
 - `package_signature_verifier.py`: verifies HMAC-SHA256 package signatures from repository index entries using keyring input.
+- `sandbox_escape_fuzz_corpus.py`: generates deterministic path+DNS sandbox-escape fuzz corpus from seed sets with reason-coded expected blocks.

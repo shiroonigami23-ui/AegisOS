@@ -1,10 +1,11 @@
 # CHANGELOG
 
 Auto-updated by workflow.
-Last generated: 2026-04-11 15:53:29Z
+Last generated: 2026-04-11 15:56:31Z
 
 ## Unreleased
 
+- 2026-04-11 `e347b49` feat_followthrough_secure_time_signature_policy_and_approval_metrics (#144)
 - 2026-04-11 `fcdecfb` feat_secure_time_signature_and_permission_approval_flow (#143)
 - 2026-04-11 `8003e8b` Add_checkpoint_supervisor_and_sandbox_escape_regression_suite
 - 2026-04-11 `fe651fa` Add_key_rotation_enforcer_and_close_issue_131
@@ -19,4 +20,3 @@ Last generated: 2026-04-11 15:53:29Z
 - 2026-04-10 `b94b13a` "Reduce_auto_docs_workflow_token_scope" (#109)
 - 2026-04-10 `d8464db` "Harden_atomic_txn_file_persistence_with_atomic_writes" (#107)
 - 2026-04-10 `9677e10` "Add_secret_snapshot_input_size_and_line_guardrails" (#108)
-- 2026-04-09 `807ed28` "Harden_github_workflows_for_node24_actions_runtime"

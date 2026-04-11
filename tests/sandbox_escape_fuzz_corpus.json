@@ -1,0 +1,552 @@
+{
+  "count_per_kind": 4,
+  "entries": [
+    {
+      "expected_block": 1,
+      "id": 1,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/./secrets.txt"
+      },
+      "reason": "path_dot_segment",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 2,
+      "kind": "dns",
+      "payload": {
+        "host": "api%2esafe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 3,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%5cwindows/system32"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 4,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 5,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app//double/slash"
+      },
+      "reason": "path_double_slash",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 6,
+      "kind": "dns",
+      "payload": {
+        "host": "api..safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 7,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/./secrets.txt"
+      },
+      "reason": "path_dot_segment",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 8,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 991
+    },
+    {
+      "expected_block": 1,
+      "id": 9,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2Fetc/hosts"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 10,
+      "kind": "dns",
+      "payload": {
+        "host": "api..safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 11,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/./secrets.txt"
+      },
+      "reason": "path_dot_segment",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 12,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.11",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_rebinding_mismatch",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 13,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/../etc/passwd"
+      },
+      "reason": "path_traversal",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 14,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 15,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/../etc/passwd"
+      },
+      "reason": "path_traversal",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 16,
+      "kind": "dns",
+      "payload": {
+        "host": "api%2esafe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 1777
+    },
+    {
+      "expected_block": 1,
+      "id": 17,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2Fetc/hosts"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 18,
+      "kind": "dns",
+      "payload": {
+        "host": "api..safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 19,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2e%2e/etc/shadow"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 20,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.11",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_rebinding_mismatch",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 21,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2Fetc/hosts"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 22,
+      "kind": "dns",
+      "payload": {
+        "host": "api%2esafe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 23,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/./secrets.txt"
+      },
+      "reason": "path_dot_segment",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 24,
+      "kind": "dns",
+      "payload": {
+        "host": "api..safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 31415
+    },
+    {
+      "expected_block": 1,
+      "id": 25,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%5cwindows/system32"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 26,
+      "kind": "dns",
+      "payload": {
+        "host": "api..safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 27,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/../etc/passwd"
+      },
+      "reason": "path_traversal",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 28,
+      "kind": "dns",
+      "payload": {
+        "host": "api%2esafe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 29,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2Fetc/hosts"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 30,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.11",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_rebinding_mismatch",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 31,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/./secrets.txt"
+      },
+      "reason": "path_dot_segment",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 32,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.11",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_rebinding_mismatch",
+      "seed": 27182
+    },
+    {
+      "expected_block": 1,
+      "id": 33,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2e%2e/etc/shadow"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 34,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.11",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_rebinding_mismatch",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 35,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app//double/slash"
+      },
+      "reason": "path_double_slash",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 36,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 37,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2Fetc/hosts"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 38,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 39,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app//double/slash"
+      },
+      "reason": "path_double_slash",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 40,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 65537
+    },
+    {
+      "expected_block": 1,
+      "id": 41,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/./secrets.txt"
+      },
+      "reason": "path_dot_segment",
+      "seed": 104729
+    },
+    {
+      "expected_block": 1,
+      "id": 42,
+      "kind": "dns",
+      "payload": {
+        "host": "api%2esafe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 104729
+    },
+    {
+      "expected_block": 1,
+      "id": 43,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app//double/slash"
+      },
+      "reason": "path_double_slash",
+      "seed": 104729
+    },
+    {
+      "expected_block": 1,
+      "id": 44,
+      "kind": "dns",
+      "payload": {
+        "host": "api..safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": "2001:db8::64"
+      },
+      "reason": "dns_host_encoding_anomaly",
+      "seed": 104729
+    },
+    {
+      "expected_block": 1,
+      "id": 45,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/%2e%2e/etc/shadow"
+      },
+      "reason": "path_encoded_escape",
+      "seed": 104729
+    },
+    {
+      "expected_block": 1,
+      "id": 46,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 104729
+    },
+    {
+      "expected_block": 1,
+      "id": 47,
+      "kind": "path",
+      "payload": {
+        "path": "/sandbox/app/./secrets.txt"
+      },
+      "reason": "path_dot_segment",
+      "seed": 104729
+    },
+    {
+      "expected_block": 1,
+      "id": 48,
+      "kind": "dns",
+      "payload": {
+        "host": "api.safe.local",
+        "resolved_ipv4": "10.100.0.10",
+        "resolved_ipv6": ""
+      },
+      "reason": "dns_dual_stack_missing_family",
+      "seed": 104729
+    }
+  ],
+  "schema_version": 1,
+  "seed_count": 6,
+  "summary": {
+    "entries": 48,
+    "kind_counts": {
+      "dns": 24,
+      "path": 24
+    },
+    "reason_counts": {
+      "dns_dual_stack_missing_family": 8,
+      "dns_host_encoding_anomaly": 11,
+      "dns_rebinding_mismatch": 5,
+      "path_dot_segment": 7,
+      "path_double_slash": 4,
+      "path_encoded_escape": 10,
+      "path_traversal": 3
+    },
+    "schema_version": 1
+  }
+}
