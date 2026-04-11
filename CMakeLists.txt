@@ -7,6 +7,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 add_library(kernel_sim STATIC
   kernel/src/kernel_main.c
   kernel/src/process_checkpoint.c
+  kernel/src/secure_time_attestation.c
 )
 target_include_directories(kernel_sim PUBLIC kernel/include)
 target_compile_options(kernel_sim PRIVATE -Wall -Wextra -Wpedantic)

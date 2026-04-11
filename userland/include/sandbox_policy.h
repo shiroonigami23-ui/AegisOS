@@ -39,6 +39,26 @@ typedef struct {
   char reason[64];
 } aegis_permission_center_audit_event_t;
 
+typedef enum {
+  AEGIS_PERMISSION_APPROVAL_PENDING = 1,
+  AEGIS_PERMISSION_APPROVAL_APPROVED = 2,
+  AEGIS_PERMISSION_APPROVAL_REJECTED = 3
+} aegis_permission_approval_status_t;
+
+typedef struct {
+  uint64_t request_id;
+  uint64_t created_epoch;
+  uint64_t resolved_epoch;
+  uint32_t process_id;
+  uint8_t status;
+  aegis_sandbox_policy_t before_policy;
+  aegis_sandbox_policy_t proposed_policy;
+  char requested_by[32];
+  char rationale[96];
+  char resolved_by[32];
+  char resolution_note[96];
+} aegis_permission_change_request_t;
+
 int aegis_sandbox_policy_validate(const aegis_sandbox_policy_t *policy,
                                   char *reason, size_t reason_size);
 int aegis_sandbox_policy_allows(const aegis_sandbox_policy_t *policy,
@@ -67,5 +87,24 @@ int aegis_permission_center_record_policy_change(const aegis_sandbox_policy_t *b
                                                  const char *reason);
 int aegis_permission_center_audit_export_json(char *output, size_t output_size);
 int aegis_permission_center_audit_export_csv(char *output, size_t output_size);
+void aegis_permission_center_approval_reset(void);
+size_t aegis_permission_center_approval_count(void);
+size_t aegis_permission_center_approval_pending_count(void);
+int aegis_permission_center_submit_change_request(const aegis_sandbox_policy_t *before_policy,
+                                                  const aegis_sandbox_policy_t *proposed_policy,
+                                                  uint64_t now_epoch,
+                                                  const char *requested_by,
+                                                  const char *rationale,
+                                                  uint64_t *request_id_out);
+int aegis_permission_center_approve_change_request(uint64_t request_id,
+                                                   uint64_t now_epoch,
+                                                   const char *resolved_by,
+                                                   const char *note,
+                                                   aegis_sandbox_policy_t *applied_policy_out);
+int aegis_permission_center_reject_change_request(uint64_t request_id,
+                                                  uint64_t now_epoch,
+                                                  const char *resolved_by,
+                                                  const char *note);
+int aegis_permission_center_approval_export_json(char *output, size_t output_size);
 
 #endif

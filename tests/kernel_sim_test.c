@@ -1223,6 +1223,47 @@ static int test_process_checkpoint_restore_scaffold(void) {
   return 0;
 }
 
+static int test_secure_time_source_attestation(void) {
+  aegis_secure_time_attestor_t attestor;
+  aegis_secure_time_attestation_result_t result;
+  char json[1024];
+  char tiny[32];
+  memset(&attestor, 0, sizeof(attestor));
+  memset(&result, 0, sizeof(result));
+  aegis_secure_time_attestor_init(&attestor, 77u, 1700000000u, 1000u, 100000u);
+  if (aegis_secure_time_attest(&attestor, 1700000010u, 1010u, "nonce-1", &result) != 1 ||
+      result.accepted != 1u ||
+      strcmp(result.reason, "ok") != 0) {
+    fprintf(stderr, "secure time attestation expected pass\n");
+    return 1;
+  }
+  if (aegis_secure_time_attest(&attestor, 1699999999u, 1011u, "nonce-2", &result) != 0 ||
+      result.accepted != 0u ||
+      strcmp(result.reason, "rollback_detected") != 0) {
+    fprintf(stderr, "secure time rollback detection expected fail\n");
+    return 1;
+  }
+  if (aegis_secure_time_attest(&attestor, 1700000100u, 1020u, "nonce-3", &result) != 0 ||
+      result.accepted != 0u ||
+      strcmp(result.reason, "drift_budget_exceeded") != 0) {
+    fprintf(stderr, "secure time drift guard expected fail\n");
+    return 1;
+  }
+  if (aegis_secure_time_attestation_json(&result, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"boot_id\":77") == 0 ||
+      strstr(json, "\"accepted\":0") == 0 ||
+      strstr(json, "\"reason\":\"drift_budget_exceeded\"") == 0) {
+    fprintf(stderr, "secure time json mismatch: %s\n", json);
+    return 1;
+  }
+  if (aegis_secure_time_attestation_json(&result, tiny, sizeof(tiny)) >= 0) {
+    fprintf(stderr, "secure time json tiny buffer should fail\n");
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
   if (test_kernel_boot() != 0) {
     return 1;
@@ -1303,6 +1344,9 @@ int main(void) {
     return 1;
   }
   if (test_process_checkpoint_restore_scaffold() != 0) {
+    return 1;
+  }
+  if (test_secure_time_source_attestation() != 0) {
     return 1;
   }
   puts("kernel simulation check passed");

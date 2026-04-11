@@ -21,3 +21,4 @@ Helper scripts for local development and automation live here.
 - `package_repo_delta_apply_simulator.py`: simulates delta apply with digest validation and full-package fallback path.
 - `security_key_rotation_schedule_enforcer.py`: evaluates key age against rotation policy and emits warning/critical reports.
 - `service_restart_budget_supervisor.py`: enforces per-service restart budgets with sliding windows, backoff, escalation, and incident reports.
+- `package_signature_verifier.py`: verifies HMAC-SHA256 package signatures from repository index entries using keyring input.

@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-11 15:34:00Z
+Last generated: 2026-04-11 15:45:29Z
 
 ## What AegisOS Is Building
 
@@ -33,15 +33,15 @@ We implement in vertical slices:
 ## Live Backlog Snapshot
 
 ### Priority P0
+- #140 Sandbox_escape_property_fuzz_seed_corpus_expansion (enhancement, priority-p0, security)
 - #137 Package_signature_verifier_real_crypto_path (enhancement, priority-p0, security)
 - #136 Kernel_secure_time_source_attestation (enhancement, priority-p0, security, kernel)
-- #135 Runtime_sandbox_escape_regression_suite (enhancement, priority-p0, security)
 
 ### Priority P1
+- #142 Kernel_checkpoint_journal_persistence_and_replay (enhancement, priority-p1, kernel)
+- #141 Supervisor_restart_budget_health_probe_and_metrics_export (enhancement, priority-p1)
 - #139 Userland_permission_center_change_approval_flow (enhancement, priority-p1, security)
 - #138 Device_profile_power_budget_optimizer (enhancement, priority-p1)
-- #134 Userland_service_supervisor_restart_budget (enhancement, priority-p1)
-- #133 Kernel_process_checkpoint_restore_scaffold (enhancement, priority-p1, kernel)
 
 ### Security
 - none
@@ -59,16 +59,16 @@ We implement in vertical slices:
 
 Recent commit touches in `weekly` window (higher means more active recently):
 
-- kernel: 64
-- userland: 128
-- packages: 45
-- docs: 181
+- kernel: 66
+- userland: 129
+- packages: 46
+- docs: 183
 - workflows: 25
-- tests: 122
+- tests: 125
 - tools: 1
 - platform: 1
-- scripts: 78
-- other: 15
+- scripts: 81
+- other: 16
 
 Open issue pressure by component signal:
 
@@ -80,6 +80,7 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `8003e8b` (2026-04-11): Add_checkpoint_supervisor_and_sandbox_escape_regression_suite
 - `fe651fa` (2026-04-11): Add_key_rotation_enforcer_and_close_issue_131
 - `c00e203` (2026-04-11): Remove_accidental_pycache_artifacts
 - `ac90dac` (2026-04-11): Implement_permission_center_diff_installer_state_machine_and_delta_apply_simulator
@@ -94,4 +95,3 @@ Open issue pressure by component signal:
 - `9677e10` (2026-04-10): "Add_secret_snapshot_input_size_and_line_guardrails" (#108)
 - `807ed28` (2026-04-09): "Harden_github_workflows_for_node24_actions_runtime"
 - `fb03b4f` (2026-04-09): "Make_auto_docs_report_drift_without_repo_write_ops"
-- `098345b` (2026-04-09): "Fix_auto_docs_protected_branch_flow_and_clang_runner_exec"

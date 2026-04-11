@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "signature_format": "hmac-sha256-v1",
+  "allowed_key_id_prefix": "aegis-hmac-",
+  "rotation_days": 30,
+  "digest_algorithm": "sha256",
+  "notes": "MVP real-crypto path for package signature verification before asymmetric signer rollout."
+}

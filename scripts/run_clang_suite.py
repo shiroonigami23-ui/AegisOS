@@ -26,6 +26,7 @@ def suite_commands(c_standard, artifact_suffix):
           "-Ikernel/include",
           "kernel/src/kernel_main.c",
           "kernel/src/process_checkpoint.c",
+          "kernel/src/secure_time_attestation.c",
           "tests/kernel_sim_test.c",
           "-o",
           kernel_out,
