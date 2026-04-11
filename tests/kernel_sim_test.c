@@ -1227,6 +1227,7 @@ static int test_secure_time_source_attestation(void) {
   aegis_secure_time_attestor_t attestor;
   aegis_secure_time_attestation_result_t result;
   char json[1024];
+  char snapshot_json[1024];
   char tiny[32];
   memset(&attestor, 0, sizeof(attestor));
   memset(&result, 0, sizeof(result));
@@ -1259,6 +1260,20 @@ static int test_secure_time_source_attestation(void) {
   }
   if (aegis_secure_time_attestation_json(&result, tiny, sizeof(tiny)) >= 0) {
     fprintf(stderr, "secure time json tiny buffer should fail\n");
+    return 1;
+  }
+  if (aegis_secure_time_attest(&attestor, 1700000011u, 1011u, "nonce-1", &result) != 0 ||
+      result.accepted != 0u ||
+      strcmp(result.reason, "nonce_replay_detected") != 0) {
+    fprintf(stderr, "secure time nonce replay expected fail\n");
+    return 1;
+  }
+  if (aegis_secure_time_attestor_snapshot_json(&attestor, snapshot_json, sizeof(snapshot_json)) <= 0 ||
+      strstr(snapshot_json, "\"schema_version\":1") == 0 ||
+      strstr(snapshot_json, "\"attestations_ok\":1") == 0 ||
+      strstr(snapshot_json, "\"attestations_failed\":3") == 0 ||
+      strstr(snapshot_json, "\"nonce_replay_detected\":1") == 0) {
+    fprintf(stderr, "secure time snapshot mismatch: %s\n", snapshot_json);
     return 1;
   }
   return 0;

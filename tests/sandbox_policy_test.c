@@ -360,18 +360,19 @@ static int test_permission_center_change_approval_flow(void) {
       4u};
   aegis_sandbox_policy_t proposed = {
       880u,
-      AEGIS_CAP_FS_READ | AEGIS_CAP_NET_CLIENT,
+      AEGIS_CAP_FS_READ | AEGIS_CAP_NET_CLIENT | AEGIS_CAP_DEVICE_IO,
       1u,
       0u,
       1u,
       0u,
-      0u,
+      1u,
       AEGIS_SANDBOX_POLICY_SCHEMA_VERSION,
       5u};
   aegis_sandbox_policy_t applied;
   uint64_t req_approve = 0u;
   uint64_t req_reject = 0u;
   char json[2048];
+  char metrics[512];
   char tiny[32];
   memset(&applied, 0, sizeof(applied));
 
@@ -405,6 +406,14 @@ static int test_permission_center_change_approval_flow(void) {
                                                      210u,
                                                      "policy-admin",
                                                      "approved_after_review",
+                                                     &applied) == 0) {
+    fprintf(stderr, "approval flow should reject non-security approver for high-risk request\n");
+    return 1;
+  }
+  if (aegis_permission_center_approve_change_request(req_approve,
+                                                     210u,
+                                                     "security-admin",
+                                                     "approved_after_security_review",
                                                      &applied) != 0) {
     fprintf(stderr, "approval flow approve failed\n");
     return 1;
@@ -432,9 +441,20 @@ static int test_permission_center_change_approval_flow(void) {
       strstr(json, "\"pending_count\":0") == 0 ||
       strstr(json, "\"status\":2") == 0 ||
       strstr(json, "\"status\":3") == 0 ||
+      strstr(json, "\"risk_score\":55") == 0 ||
+      strstr(json, "\"requires_security_review\":1") == 0 ||
       strstr(json, "\"requested_by\":\"settings-ui\"") == 0 ||
-      strstr(json, "\"resolved_by\":\"policy-admin\"") == 0) {
+      strstr(json, "\"resolved_by\":\"security-admin\"") == 0) {
     fprintf(stderr, "approval flow json missing expected fields: %s\n", json);
+    return 1;
+  }
+  if (aegis_permission_center_approval_metrics_json(metrics, sizeof(metrics)) <= 0 ||
+      strstr(metrics, "\"schema_version\":1") == 0 ||
+      strstr(metrics, "\"request_count\":2") == 0 ||
+      strstr(metrics, "\"approved_count\":1") == 0 ||
+      strstr(metrics, "\"rejected_count\":1") == 0 ||
+      strstr(metrics, "\"security_review_required_count\":2") == 0) {
+    fprintf(stderr, "approval flow metrics missing expected fields: %s\n", metrics);
     return 1;
   }
   if (aegis_permission_center_approval_export_json(tiny, sizeof(tiny)) >= 0) {

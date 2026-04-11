@@ -619,6 +619,46 @@ static int find_request_index_by_id(uint64_t request_id, size_t *index_out) {
   return 0;
 }
 
+static uint32_t capability_risk_score(uint32_t added_mask) {
+  uint32_t score = 0u;
+  if ((added_mask & AEGIS_CAP_FS_READ) != 0u) {
+    score += 5u;
+  }
+  if ((added_mask & AEGIS_CAP_FS_WRITE) != 0u) {
+    score += 10u;
+  }
+  if ((added_mask & AEGIS_CAP_NET_CLIENT) != 0u) {
+    score += 15u;
+  }
+  if ((added_mask & AEGIS_CAP_NET_SERVER) != 0u) {
+    score += 25u;
+  }
+  if ((added_mask & AEGIS_CAP_DEVICE_IO) != 0u) {
+    score += 20u;
+  }
+  return score;
+}
+
+static uint32_t gate_risk_score(uint32_t changed_gate_mask) {
+  uint32_t score = 0u;
+  if ((changed_gate_mask & (1u << 0)) != 0u) {
+    score += 4u;
+  }
+  if ((changed_gate_mask & (1u << 1)) != 0u) {
+    score += 8u;
+  }
+  if ((changed_gate_mask & (1u << 2)) != 0u) {
+    score += 8u;
+  }
+  if ((changed_gate_mask & (1u << 3)) != 0u) {
+    score += 16u;
+  }
+  if ((changed_gate_mask & (1u << 4)) != 0u) {
+    score += 12u;
+  }
+  return score;
+}
+
 int aegis_permission_center_submit_change_request(const aegis_sandbox_policy_t *before_policy,
                                                   const aegis_sandbox_policy_t *proposed_policy,
                                                   uint64_t now_epoch,
@@ -627,6 +667,8 @@ int aegis_permission_center_submit_change_request(const aegis_sandbox_policy_t *
                                                   uint64_t *request_id_out) {
   char reason[64];
   size_t idx;
+  uint32_t added_caps;
+  uint32_t changed_gates;
   if (before_policy == 0 || proposed_policy == 0 || request_id_out == 0) {
     return -1;
   }
@@ -645,6 +687,12 @@ int aegis_permission_center_submit_change_request(const aegis_sandbox_policy_t *
   g_permission_center_requests[idx].status = AEGIS_PERMISSION_APPROVAL_PENDING;
   g_permission_center_requests[idx].before_policy = *before_policy;
   g_permission_center_requests[idx].proposed_policy = *proposed_policy;
+  added_caps = proposed_policy->capabilities & (~before_policy->capabilities);
+  changed_gates = permission_center_gate_mask(before_policy) ^ permission_center_gate_mask(proposed_policy);
+  g_permission_center_requests[idx].risk_score =
+      capability_risk_score(added_caps) + gate_risk_score(changed_gates);
+  g_permission_center_requests[idx].requires_security_review =
+      g_permission_center_requests[idx].risk_score >= 25u ? 1u : 0u;
   snprintf(g_permission_center_requests[idx].requested_by,
            sizeof(g_permission_center_requests[idx].requested_by),
            "%s",
@@ -665,10 +713,15 @@ int aegis_permission_center_approve_change_request(uint64_t request_id,
                                                    const char *note,
                                                    aegis_sandbox_policy_t *applied_policy_out) {
   size_t idx;
+  const char *actor = resolved_by != 0 ? resolved_by : "reviewer";
   if (applied_policy_out == 0 || !find_request_index_by_id(request_id, &idx)) {
     return -1;
   }
   if (g_permission_center_requests[idx].status != AEGIS_PERMISSION_APPROVAL_PENDING) {
+    return -1;
+  }
+  if (g_permission_center_requests[idx].requires_security_review != 0u &&
+      strncmp(actor, "security-", 9) != 0) {
     return -1;
   }
   g_permission_center_requests[idx].status = AEGIS_PERMISSION_APPROVAL_APPROVED;
@@ -676,7 +729,7 @@ int aegis_permission_center_approve_change_request(uint64_t request_id,
   snprintf(g_permission_center_requests[idx].resolved_by,
            sizeof(g_permission_center_requests[idx].resolved_by),
            "%s",
-           resolved_by != 0 ? resolved_by : "reviewer");
+           actor);
   snprintf(g_permission_center_requests[idx].resolution_note,
            sizeof(g_permission_center_requests[idx].resolution_note),
            "%s",
@@ -738,7 +791,8 @@ int aegis_permission_center_approval_export_json(char *output, size_t output_siz
                        "%s{\"request_id\":%llu,\"process_id\":%u,\"status\":%u,"
                        "\"created_epoch\":%llu,\"resolved_epoch\":%llu,"
                        "\"requested_by\":\"%s\",\"resolved_by\":\"%s\",\"rationale\":\"%s\","
-                       "\"resolution_note\":\"%s\",\"before_revision\":%llu,"
+                       "\"resolution_note\":\"%s\",\"risk_score\":%u,"
+                       "\"requires_security_review\":%u,\"before_revision\":%llu,"
                        "\"proposed_revision\":%llu}",
                        i == 0u ? "" : ",",
                        (unsigned long long)req->request_id,
@@ -750,6 +804,8 @@ int aegis_permission_center_approval_export_json(char *output, size_t output_siz
                        req->resolved_by,
                        req->rationale,
                        req->resolution_note,
+                       req->risk_score,
+                       (unsigned int)req->requires_security_review,
                        (unsigned long long)policy_revision(&req->before_policy),
                        (unsigned long long)policy_revision(&req->proposed_policy));
     if (written < 0 || (size_t)written >= (output_size - offset)) {
@@ -763,4 +819,57 @@ int aegis_permission_center_approval_export_json(char *output, size_t output_siz
   }
   offset += (size_t)written;
   return (int)offset;
+}
+
+int aegis_permission_center_approval_metrics_json(char *output, size_t output_size) {
+  size_t i;
+  size_t total =
+      g_permission_center_request_count > 256u ? 256u : g_permission_center_request_count;
+  size_t base =
+      g_permission_center_request_count > 256u ? g_permission_center_request_count - 256u : 0u;
+  uint64_t pending = 0u;
+  uint64_t approved = 0u;
+  uint64_t rejected = 0u;
+  uint64_t security_review_required = 0u;
+  uint64_t security_review_pending = 0u;
+  uint64_t risk_score_sum = 0u;
+  int written;
+  if (output == 0 || output_size == 0u) {
+    return -1;
+  }
+  for (i = 0; i < total; ++i) {
+    size_t idx = (base + i) % 256u;
+    const aegis_permission_change_request_t *req = &g_permission_center_requests[idx];
+    risk_score_sum += req->risk_score;
+    if (req->status == AEGIS_PERMISSION_APPROVAL_PENDING) {
+      pending += 1u;
+    } else if (req->status == AEGIS_PERMISSION_APPROVAL_APPROVED) {
+      approved += 1u;
+    } else if (req->status == AEGIS_PERMISSION_APPROVAL_REJECTED) {
+      rejected += 1u;
+    }
+    if (req->requires_security_review != 0u) {
+      security_review_required += 1u;
+      if (req->status == AEGIS_PERMISSION_APPROVAL_PENDING) {
+        security_review_pending += 1u;
+      }
+    }
+  }
+  written = snprintf(output,
+                     output_size,
+                     "{\"schema_version\":1,\"request_count\":%llu,\"pending_count\":%llu,"
+                     "\"approved_count\":%llu,\"rejected_count\":%llu,"
+                     "\"security_review_required_count\":%llu,"
+                     "\"security_review_pending_count\":%llu,\"risk_score_sum\":%llu}",
+                     (unsigned long long)total,
+                     (unsigned long long)pending,
+                     (unsigned long long)approved,
+                     (unsigned long long)rejected,
+                     (unsigned long long)security_review_required,
+                     (unsigned long long)security_review_pending,
+                     (unsigned long long)risk_score_sum);
+  if (written < 0 || (size_t)written >= output_size) {
+    return -1;
+  }
+  return written;
 }

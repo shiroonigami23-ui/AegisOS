@@ -32,7 +32,7 @@ class PackageSignatureVerifierTest(unittest.TestCase):
             )
             digest = module.compute_manifest_digest(manifest)
             payload = module.canonical_signing_payload("aegis-test-pkg", "1.2.3", "pkg.yaml", digest)
-            signature = module.hmac_sha256_hex("secret-1", payload)
+            signature = module.hmac_sha256_hex("aegis-secret-key-0001", payload)
             entry = {
                 "name": "aegis-test-pkg",
                 "version": "1.2.3",
@@ -43,7 +43,7 @@ class PackageSignatureVerifierTest(unittest.TestCase):
                 "signature_value": signature,
             }
             ok, reason = module.verify_package_entry(
-                entry, keyring={"aegis-hmac-core": "secret-1"}, base_dir=root
+                entry, keyring={"aegis-hmac-core": "aegis-secret-key-0001"}, base_dir=root
             )
             self.assertTrue(ok)
             self.assertEqual(reason, "ok")
@@ -55,7 +55,7 @@ class PackageSignatureVerifierTest(unittest.TestCase):
             manifest.write_text("name: pkg\nversion: 0.0.1\n", encoding="utf-8")
             digest = module.compute_manifest_digest(manifest)
             payload = module.canonical_signing_payload("pkg", "0.0.1", "pkg.yaml", digest)
-            sig = module.hmac_sha256_hex("secret-2", payload)
+            sig = module.hmac_sha256_hex("aegis-secret-key-0002", payload)
             entry = {
                 "name": "pkg",
                 "version": "0.0.1",
@@ -66,7 +66,7 @@ class PackageSignatureVerifierTest(unittest.TestCase):
                 "signature_value": sig,
             }
             ok, reason = module.verify_package_entry(
-                entry, keyring={"aegis-hmac-core": "secret-2"}, base_dir=root
+                entry, keyring={"aegis-hmac-core": "aegis-secret-key-0002"}, base_dir=root
             )
             self.assertFalse(ok)
             self.assertEqual(reason, "signature_digest_mismatch")
@@ -78,7 +78,7 @@ class PackageSignatureVerifierTest(unittest.TestCase):
             manifest.write_text("name: pkg\nversion: 0.0.1\n", encoding="utf-8")
             digest = module.compute_manifest_digest(manifest)
             payload = module.canonical_signing_payload("pkg", "0.0.1", "pkg.yaml", digest)
-            sig = module.hmac_sha256_hex("secret-3", payload)
+            sig = module.hmac_sha256_hex("aegis-secret-key-0003", payload)
             idx = {
                 "schema_version": 1,
                 "packages": [
@@ -96,11 +96,52 @@ class PackageSignatureVerifierTest(unittest.TestCase):
             index_path = root / "index.json"
             index_path.write_text(json.dumps(idx), encoding="utf-8")
             report = module.verify_repository_index(
-                index_path, keyring={"aegis-hmac-core": "secret-3"}, base_dir=root
+                index_path, keyring={"aegis-hmac-core": "aegis-secret-key-0003"}, base_dir=root
             )
             self.assertEqual(report["all_ok"], 1)
             self.assertEqual(report["ok_count"], 1)
             self.assertEqual(report["failed_count"], 0)
+
+    def test_prefix_and_secret_strength_policy_enforced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "pkg.yaml"
+            manifest.write_text("name: pkg\nversion: 0.0.1\n", encoding="utf-8")
+            digest = module.compute_manifest_digest(manifest)
+            payload = module.canonical_signing_payload("pkg", "0.0.1", "pkg.yaml", digest)
+            sig = module.hmac_sha256_hex("aegis-secret-key-0004", payload)
+            entry = {
+                "name": "pkg",
+                "version": "0.0.1",
+                "manifest_path": "pkg.yaml",
+                "signature_format": "hmac-sha256-v1",
+                "signature_key_id": "bad-prefix",
+                "signature_digest": digest,
+                "signature_value": sig,
+            }
+            ok, reason = module.verify_package_entry(
+                entry, keyring={"bad-prefix": "short"}, base_dir=root
+            )
+            self.assertFalse(ok)
+            self.assertEqual(reason, "signature_key_id_prefix_mismatch")
+
+    def test_load_signature_policy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "policy.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "signature_format": "hmac-sha256-v1",
+                        "allowed_key_id_prefix": "aegis-hmac-",
+                        "digest_algorithm": "sha256",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            policy = module.load_signature_policy(path)
+            self.assertEqual(policy["signature_format"], "hmac-sha256-v1")
+            self.assertEqual(policy["allowed_key_id_prefix"], "aegis-hmac-")
 
 
 if __name__ == "__main__":

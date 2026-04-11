@@ -57,6 +57,8 @@ typedef struct {
   char rationale[96];
   char resolved_by[32];
   char resolution_note[96];
+  uint32_t risk_score;
+  uint8_t requires_security_review;
 } aegis_permission_change_request_t;
 
 int aegis_sandbox_policy_validate(const aegis_sandbox_policy_t *policy,
@@ -106,5 +108,6 @@ int aegis_permission_center_reject_change_request(uint64_t request_id,
                                                   const char *resolved_by,
                                                   const char *note);
 int aegis_permission_center_approval_export_json(char *output, size_t output_size);
+int aegis_permission_center_approval_metrics_json(char *output, size_t output_size);
 
 #endif

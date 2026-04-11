@@ -246,7 +246,11 @@ typedef struct {
   uint64_t attestations_failed;
   uint64_t rollback_detected;
   uint64_t drift_violations;
+  uint64_t nonce_replay_detected;
   uint32_t boot_id;
+  char recent_nonces[8][AEGIS_TIME_ATTEST_NONCE_MAX + 1u];
+  uint8_t recent_nonce_count;
+  uint8_t recent_nonce_head;
   uint8_t initialized;
 } aegis_secure_time_attestor_t;
 
@@ -478,5 +482,8 @@ int aegis_secure_time_attest(aegis_secure_time_attestor_t *attestor,
 int aegis_secure_time_attestation_json(const aegis_secure_time_attestation_result_t *result,
                                        char *out,
                                        size_t out_size);
+int aegis_secure_time_attestor_snapshot_json(const aegis_secure_time_attestor_t *attestor,
+                                             char *out,
+                                             size_t out_size);
 
 #endif

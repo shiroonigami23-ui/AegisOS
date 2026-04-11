@@ -1,7 +1,7 @@
 # EXPLAIN
 
 Auto-updated project explainer for contributors.
-Last generated: 2026-04-11 15:45:29Z
+Last generated: 2026-04-11 15:53:29Z
 
 ## What AegisOS Is Building
 
@@ -59,16 +59,16 @@ We implement in vertical slices:
 
 Recent commit touches in `weekly` window (higher means more active recently):
 
-- kernel: 66
-- userland: 129
-- packages: 46
-- docs: 183
+- kernel: 68
+- userland: 131
+- packages: 47
+- docs: 185
 - workflows: 25
-- tests: 125
+- tests: 128
 - tools: 1
 - platform: 1
-- scripts: 81
-- other: 16
+- scripts: 84
+- other: 17
 
 Open issue pressure by component signal:
 
@@ -80,6 +80,7 @@ Open issue pressure by component signal:
 
 ## Recent Engineering Changes
 
+- `fcdecfb` (2026-04-11): feat_secure_time_signature_and_permission_approval_flow (#143)
 - `8003e8b` (2026-04-11): Add_checkpoint_supervisor_and_sandbox_escape_regression_suite
 - `fe651fa` (2026-04-11): Add_key_rotation_enforcer_and_close_issue_131
 - `c00e203` (2026-04-11): Remove_accidental_pycache_artifacts
@@ -94,4 +95,3 @@ Open issue pressure by component signal:
 - `d8464db` (2026-04-10): "Harden_atomic_txn_file_persistence_with_atomic_writes" (#107)
 - `9677e10` (2026-04-10): "Add_secret_snapshot_input_size_and_line_guardrails" (#108)
 - `807ed28` (2026-04-09): "Harden_github_workflows_for_node24_actions_runtime"
-- `fb03b4f` (2026-04-09): "Make_auto_docs_report_drift_without_repo_write_ops"

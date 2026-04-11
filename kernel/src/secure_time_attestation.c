@@ -7,6 +7,32 @@ static uint64_t abs_diff_u64(uint64_t a, uint64_t b) {
   return a >= b ? (a - b) : (b - a);
 }
 
+static int nonce_seen(const aegis_secure_time_attestor_t *attestor, const char *nonce) {
+  size_t i;
+  if (attestor == 0 || nonce == 0 || nonce[0] == '\0') {
+    return 0;
+  }
+  for (i = 0; i < attestor->recent_nonce_count && i < 8u; ++i) {
+    if (strcmp(attestor->recent_nonces[i], nonce) == 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static void nonce_record(aegis_secure_time_attestor_t *attestor, const char *nonce) {
+  size_t head;
+  if (attestor == 0 || nonce == 0 || nonce[0] == '\0') {
+    return;
+  }
+  head = attestor->recent_nonce_head % 8u;
+  snprintf(attestor->recent_nonces[head], sizeof(attestor->recent_nonces[head]), "%s", nonce);
+  attestor->recent_nonce_head = (uint8_t)((head + 1u) % 8u);
+  if (attestor->recent_nonce_count < 8u) {
+    attestor->recent_nonce_count += 1u;
+  }
+}
+
 void aegis_secure_time_attestor_init(aegis_secure_time_attestor_t *attestor,
                                      uint32_t boot_id,
                                      uint64_t baseline_wallclock_epoch,
@@ -48,6 +74,13 @@ int aegis_secure_time_attest(aegis_secure_time_attestor_t *attestor,
     memcpy(result_out->nonce, nonce, len);
     result_out->nonce[len] = '\0';
     result_out->nonce_size = (uint8_t)len;
+    if (nonce_seen(attestor, result_out->nonce)) {
+      result_out->accepted = 0u;
+      snprintf(result_out->reason, sizeof(result_out->reason), "%s", "nonce_replay_detected");
+      attestor->nonce_replay_detected += 1u;
+      attestor->attestations_failed += 1u;
+      return 0;
+    }
   }
 
   if (observed_monotonic_tick < attestor->last_monotonic_tick ||
@@ -86,6 +119,7 @@ int aegis_secure_time_attest(aegis_secure_time_attestor_t *attestor,
   attestor->last_monotonic_tick = observed_monotonic_tick;
   attestor->last_wallclock_epoch = observed_wallclock_epoch;
   attestor->attestations_ok += 1u;
+  nonce_record(attestor, result_out->nonce);
   return 1;
 }
 
@@ -112,6 +146,35 @@ int aegis_secure_time_attestation_json(const aegis_secure_time_attestation_resul
                      (unsigned int)result->accepted,
                      result->nonce,
                      result->reason);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
+}
+
+int aegis_secure_time_attestor_snapshot_json(const aegis_secure_time_attestor_t *attestor,
+                                             char *out,
+                                             size_t out_size) {
+  int written;
+  if (attestor == 0 || out == 0 || out_size == 0u || attestor->initialized == 0u) {
+    return -1;
+  }
+  written = snprintf(out,
+                     out_size,
+                     "{\"schema_version\":1,\"boot_id\":%u,\"last_wallclock_epoch\":%llu,"
+                     "\"last_monotonic_tick\":%llu,\"drift_budget_ppm\":%llu,"
+                     "\"attestations_ok\":%llu,\"attestations_failed\":%llu,"
+                     "\"rollback_detected\":%llu,\"drift_violations\":%llu,"
+                     "\"nonce_replay_detected\":%llu}",
+                     (unsigned int)attestor->boot_id,
+                     (unsigned long long)attestor->last_wallclock_epoch,
+                     (unsigned long long)attestor->last_monotonic_tick,
+                     (unsigned long long)attestor->drift_budget_ppm,
+                     (unsigned long long)attestor->attestations_ok,
+                     (unsigned long long)attestor->attestations_failed,
+                     (unsigned long long)attestor->rollback_detected,
+                     (unsigned long long)attestor->drift_violations,
+                     (unsigned long long)attestor->nonce_replay_detected);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
