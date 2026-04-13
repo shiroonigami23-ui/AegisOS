@@ -374,6 +374,41 @@ static void record_switch_reason(aegis_scheduler_t *scheduler, uint8_t reason) {
   }
 }
 
+static int scheduler_pick_turbo_index(const aegis_scheduler_t *scheduler, size_t *index_out) {
+  size_t i;
+  int best_score = -2147483647;
+  size_t best_index = 0u;
+  int found = 0;
+  if (scheduler == 0 || index_out == 0 || scheduler->count == 0u) {
+    return 0;
+  }
+  for (i = 0; i < scheduler->count; ++i) {
+    uint64_t waited_ticks = scheduler->scheduler_ticks - scheduler->enqueued_tick[i];
+    int score;
+    if (scheduler->credits[i] == 0u) {
+      continue;
+    }
+    score = (int)(scheduler->priorities[i] * scheduler->turbo_priority_weight);
+    score += (int)(waited_ticks * scheduler->turbo_wait_weight);
+    score -= (int)(scheduler->dispatch_counts[i] / 4u);
+    if (scheduler->process_ids[i] == scheduler->turbo_last_pid) {
+      score += 3;
+    }
+    if (!found || score > best_score ||
+        (score == best_score &&
+         scheduler->enqueued_tick[i] < scheduler->enqueued_tick[best_index])) {
+      found = 1;
+      best_score = score;
+      best_index = i;
+    }
+  }
+  if (!found) {
+    return 0;
+  }
+  *index_out = best_index;
+  return 1;
+}
+
 void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   size_t i;
   if (scheduler == 0) {
@@ -388,6 +423,10 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->pending_switch_reason = AEGIS_SWITCH_PROCESS_START;
   scheduler->quantum_ticks = 3;
   scheduler->quantum_remaining = 0;
+  scheduler->dispatch_strategy = AEGIS_SCHED_STRATEGY_ROUND_ROBIN;
+  scheduler->turbo_wait_weight = 2u;
+  scheduler->turbo_priority_weight = 4u;
+  scheduler->turbo_last_pid = 0u;
   scheduler->admission_profile_id = AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM;
   scheduler->reason_switch_window_head = 0;
   scheduler->reason_switch_window_count = 0;
@@ -410,6 +449,7 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   for (i = 0; i < AEGIS_SCHEDULER_REASON_HISTOGRAM_WINDOW; ++i) {
     scheduler->reason_switch_window[i] = AEGIS_SWITCH_NONE;
   }
+  scheduler->turbo_last_pid = 0u;
 }
 
 static int find_index(const aegis_scheduler_t *scheduler, uint32_t process_id, size_t *index) {
@@ -517,6 +557,7 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   size_t attempts;
   int any_credit = 0;
   size_t i;
+  size_t chosen_idx = 0u;
   if (scheduler == 0 || process_id == 0 || scheduler->count == 0) {
     return -1;
   }
@@ -528,6 +569,20 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   }
   if (!any_credit) {
     refill_credits(scheduler);
+  }
+  if (scheduler->dispatch_strategy == AEGIS_SCHED_STRATEGY_TURBO &&
+      scheduler_pick_turbo_index(scheduler, &chosen_idx)) {
+    scheduler->credits[chosen_idx] -= 1;
+    scheduler->last_wait_latency[chosen_idx] =
+        scheduler->scheduler_ticks - scheduler->enqueued_tick[chosen_idx];
+    scheduler->wait_ticks_total[chosen_idx] += scheduler->last_wait_latency[chosen_idx];
+    scheduler->dispatch_counts[chosen_idx] += 1;
+    scheduler->total_dispatches += 1;
+    *process_id = scheduler->process_ids[chosen_idx];
+    scheduler->head = (chosen_idx + 1u) % scheduler->count;
+    scheduler->enqueued_tick[chosen_idx] = scheduler->scheduler_ticks;
+    scheduler->turbo_last_pid = *process_id;
+    return 0;
   }
   for (attempts = 0; attempts < scheduler->count; ++attempts) {
     size_t idx = (scheduler->head + attempts) % scheduler->count;
@@ -542,6 +597,7 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
     *process_id = scheduler->process_ids[idx];
     scheduler->head = (idx + 1) % scheduler->count;
     scheduler->enqueued_tick[idx] = scheduler->scheduler_ticks;
+    scheduler->turbo_last_pid = *process_id;
     return 0;
   }
   return -1;
@@ -612,6 +668,33 @@ void aegis_scheduler_set_quantum(aegis_scheduler_t *scheduler, uint32_t quantum_
   if (scheduler->quantum_remaining > quantum_ticks) {
     scheduler->quantum_remaining = quantum_ticks;
   }
+}
+
+void aegis_scheduler_enable_turbo(aegis_scheduler_t *scheduler, uint8_t enabled) {
+  if (scheduler == 0) {
+    return;
+  }
+  scheduler->dispatch_strategy =
+      enabled != 0u ? AEGIS_SCHED_STRATEGY_TURBO : AEGIS_SCHED_STRATEGY_ROUND_ROBIN;
+}
+
+int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *out, size_t out_size) {
+  int written;
+  if (scheduler == 0 || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  written = snprintf(out,
+                     out_size,
+                     "{\"schema_version\":1,\"dispatch_strategy\":%u,\"turbo_wait_weight\":%u,"
+                     "\"turbo_priority_weight\":%u,\"turbo_last_pid\":%u}",
+                     (unsigned int)scheduler->dispatch_strategy,
+                     (unsigned int)scheduler->turbo_wait_weight,
+                     (unsigned int)scheduler->turbo_priority_weight,
+                     scheduler->turbo_last_pid);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
 }
 
 int aegis_scheduler_on_tick(aegis_scheduler_t *scheduler, uint32_t *running_pid,
