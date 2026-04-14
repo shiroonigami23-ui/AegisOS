@@ -7,18 +7,47 @@
 #define AEGIS_AGING_TICKS_PER_BOOST 5u
 #define AEGIS_AGING_MAX_BOOST 2u
 
-static void sort_u64(uint64_t *arr, size_t n) {
-  size_t i;
-  size_t j;
-  for (i = 0; i < n; ++i) {
-    for (j = i + 1; j < n; ++j) {
-      if (arr[j] < arr[i]) {
+static uint64_t select_kth_u64(uint64_t *arr, size_t n, size_t k) {
+  size_t left = 0u;
+  size_t right;
+  if (arr == 0 || n == 0u || k >= n) {
+    return 0u;
+  }
+  right = n - 1u;
+  while (left < right) {
+    uint64_t pivot = arr[(left + right) / 2u];
+    size_t i = left;
+    size_t j = right;
+    while (i <= j) {
+      while (arr[i] < pivot) {
+        i += 1u;
+      }
+      while (arr[j] > pivot) {
+        if (j == 0u) {
+          break;
+        }
+        j -= 1u;
+      }
+      if (i <= j) {
         uint64_t tmp = arr[i];
         arr[i] = arr[j];
         arr[j] = tmp;
+        i += 1u;
+        if (j == 0u) {
+          break;
+        }
+        j -= 1u;
       }
     }
+    if (k <= j) {
+      right = j;
+    } else if (k >= i) {
+      left = i;
+    } else {
+      return arr[k];
+    }
   }
+  return arr[left];
 }
 
 int aegis_kernel_boot_check(void) {
@@ -1242,8 +1271,12 @@ int aegis_scheduler_wait_report(const aegis_scheduler_t *scheduler,
                                 aegis_scheduler_wait_report_t *report) {
   uint64_t waits[AEGIS_SCHEDULER_CAPACITY];
   uint64_t lats[AEGIS_SCHEDULER_CAPACITY];
+  uint64_t waits_copy[AEGIS_SCHEDULER_CAPACITY];
+  uint64_t lats_copy[AEGIS_SCHEDULER_CAPACITY];
   uint64_t sum_wait = 0;
   uint64_t sum_lat = 0;
+  uint64_t max_wait = 0;
+  uint64_t max_lat = 0;
   size_t i;
   size_t n;
   size_t p95_index;
@@ -1263,21 +1296,27 @@ int aegis_scheduler_wait_report(const aegis_scheduler_t *scheduler,
   for (i = 0; i < n; ++i) {
     waits[i] = scheduler->wait_ticks_total[i];
     lats[i] = scheduler->last_wait_latency[i];
+    waits_copy[i] = waits[i];
+    lats_copy[i] = lats[i];
     sum_wait += waits[i];
     sum_lat += lats[i];
+    if (waits[i] > max_wait) {
+      max_wait = waits[i];
+    }
+    if (lats[i] > max_lat) {
+      max_lat = lats[i];
+    }
   }
-  sort_u64(waits, n);
-  sort_u64(lats, n);
   p95_index = (n * 95u) / 100u;
   if (p95_index >= n) {
     p95_index = n - 1;
   }
   report->mean_wait_ticks = sum_wait / n;
-  report->p95_wait_ticks = waits[p95_index];
-  report->max_wait_ticks = waits[n - 1];
+  report->p95_wait_ticks = select_kth_u64(waits_copy, n, p95_index);
+  report->max_wait_ticks = max_wait;
   report->mean_last_latency_ticks = sum_lat / n;
-  report->p95_last_latency_ticks = lats[p95_index];
-  report->max_last_latency_ticks = lats[n - 1];
+  report->p95_last_latency_ticks = select_kth_u64(lats_copy, n, p95_index);
+  report->max_last_latency_ticks = max_lat;
   return 0;
 }
 
@@ -1611,10 +1650,62 @@ static int namespace_process_find_by_global(const aegis_namespace_table_t *table
   if (table == 0 || index_out == 0 || process_id == 0u) {
     return 0;
   }
+  if (table->lookup_cache_valid != 0u &&
+      table->lookup_cache_process_id == process_id &&
+      table->lookup_cache_index < AEGIS_NAMESPACE_PROCESS_CAPACITY &&
+      table->processes[table->lookup_cache_index].active != 0u &&
+      table->processes[table->lookup_cache_index].process_id == process_id) {
+    *index_out = table->lookup_cache_index;
+    ((aegis_namespace_table_t *)table)->lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_namespace_table_t *)table)->lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_NAMESPACE_PROCESS_CAPACITY; ++i) {
     if (table->processes[i].active != 0u &&
         table->processes[i].process_id == process_id) {
       *index_out = i;
+      ((aegis_namespace_table_t *)table)->lookup_cache_valid = 1u;
+      ((aegis_namespace_table_t *)table)->lookup_cache_namespace_id =
+          table->processes[i].namespace_id;
+      ((aegis_namespace_table_t *)table)->lookup_cache_process_id = process_id;
+      ((aegis_namespace_table_t *)table)->lookup_cache_local_pid = table->processes[i].local_pid;
+      ((aegis_namespace_table_t *)table)->lookup_cache_index = (uint16_t)i;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static int namespace_process_find_by_local(const aegis_namespace_table_t *table,
+                                           uint32_t namespace_id,
+                                           uint32_t local_pid,
+                                           size_t *index_out) {
+  size_t i;
+  if (table == 0 || index_out == 0 || namespace_id == 0u || local_pid == 0u) {
+    return 0;
+  }
+  if (table->lookup_cache_valid != 0u &&
+      table->lookup_cache_namespace_id == namespace_id &&
+      table->lookup_cache_local_pid == local_pid &&
+      table->lookup_cache_index < AEGIS_NAMESPACE_PROCESS_CAPACITY &&
+      table->processes[table->lookup_cache_index].active != 0u &&
+      table->processes[table->lookup_cache_index].namespace_id == namespace_id &&
+      table->processes[table->lookup_cache_index].local_pid == local_pid) {
+    *index_out = table->lookup_cache_index;
+    ((aegis_namespace_table_t *)table)->lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_namespace_table_t *)table)->lookup_cache_misses += 1u;
+  for (i = 0; i < AEGIS_NAMESPACE_PROCESS_CAPACITY; ++i) {
+    if (table->processes[i].active != 0u &&
+        table->processes[i].namespace_id == namespace_id &&
+        table->processes[i].local_pid == local_pid) {
+      *index_out = i;
+      ((aegis_namespace_table_t *)table)->lookup_cache_valid = 1u;
+      ((aegis_namespace_table_t *)table)->lookup_cache_namespace_id = namespace_id;
+      ((aegis_namespace_table_t *)table)->lookup_cache_process_id = table->processes[i].process_id;
+      ((aegis_namespace_table_t *)table)->lookup_cache_local_pid = local_pid;
+      ((aegis_namespace_table_t *)table)->lookup_cache_index = (uint16_t)i;
       return 1;
     }
   }
@@ -1629,6 +1720,13 @@ void aegis_namespace_table_init(aegis_namespace_table_t *table) {
   table->next_namespace_id = 2u;
   table->namespace_count = 0u;
   table->process_count = 0u;
+  table->lookup_cache_namespace_id = 0u;
+  table->lookup_cache_process_id = 0u;
+  table->lookup_cache_local_pid = 0u;
+  table->lookup_cache_index = 0u;
+  table->lookup_cache_valid = 0u;
+  table->lookup_cache_hits = 0u;
+  table->lookup_cache_misses = 0u;
   for (i = 0; i < AEGIS_NAMESPACE_CAPACITY; ++i) {
     table->namespaces[i].namespace_id = 0u;
     table->namespaces[i].parent_namespace_id = 0u;
@@ -1674,6 +1772,7 @@ int aegis_namespace_create(aegis_namespace_table_t *table,
     *namespace_id_out = table->next_namespace_id;
     table->next_namespace_id += 1u;
     table->namespace_count += 1u;
+    table->lookup_cache_valid = 0u;
     return 0;
   }
   (void)parent_index;
@@ -1709,6 +1808,7 @@ int aegis_namespace_destroy(aegis_namespace_table_t *table, uint32_t namespace_i
   if (table->namespace_count > 0u) {
     table->namespace_count -= 1u;
   }
+  table->lookup_cache_valid = 0u;
   return 0;
 }
 
@@ -1742,6 +1842,11 @@ int aegis_namespace_attach_process(aegis_namespace_table_t *table,
     table->namespaces[ns_index].member_count += 1u;
     table->process_count += 1u;
     *local_pid_out = local_pid;
+    table->lookup_cache_valid = 1u;
+    table->lookup_cache_namespace_id = namespace_id;
+    table->lookup_cache_process_id = process_id;
+    table->lookup_cache_local_pid = local_pid;
+    table->lookup_cache_index = (uint16_t)i;
     return 0;
   }
   return -1;
@@ -1769,6 +1874,7 @@ int aegis_namespace_detach_process(aegis_namespace_table_t *table, uint32_t proc
   if (table->process_count > 0u) {
     table->process_count -= 1u;
   }
+  table->lookup_cache_valid = 0u;
   return 0;
 }
 
@@ -1780,15 +1886,9 @@ int aegis_namespace_translate_local_to_global(const aegis_namespace_table_t *tab
   if (table == 0 || local_pid == 0u || process_id_out == 0) {
     return -1;
   }
-  for (i = 0; i < AEGIS_NAMESPACE_PROCESS_CAPACITY; ++i) {
-    if (table->processes[i].active == 0u) {
-      continue;
-    }
-    if (table->processes[i].namespace_id == namespace_id &&
-        table->processes[i].local_pid == local_pid) {
-      *process_id_out = table->processes[i].process_id;
-      return 0;
-    }
+  if (namespace_process_find_by_local(table, namespace_id, local_pid, &i)) {
+    *process_id_out = table->processes[i].process_id;
+    return 0;
   }
   return -1;
 }
@@ -1801,15 +1901,10 @@ int aegis_namespace_translate_global_to_local(const aegis_namespace_table_t *tab
   if (table == 0 || process_id == 0u || local_pid_out == 0) {
     return -1;
   }
-  for (i = 0; i < AEGIS_NAMESPACE_PROCESS_CAPACITY; ++i) {
-    if (table->processes[i].active == 0u) {
-      continue;
-    }
-    if (table->processes[i].namespace_id == namespace_id &&
-        table->processes[i].process_id == process_id) {
-      *local_pid_out = table->processes[i].local_pid;
-      return 0;
-    }
+  if (namespace_process_find_by_global(table, process_id, &i) &&
+      table->processes[i].namespace_id == namespace_id) {
+    *local_pid_out = table->processes[i].local_pid;
+    return 0;
   }
   return -1;
 }
@@ -1848,9 +1943,12 @@ int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
   written = snprintf(out,
                      out_size,
                      "{\"schema_version\":1,\"namespace_count\":%llu,\"process_count\":%llu,"
+                     "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
                      "\"namespaces\":[",
                      (unsigned long long)table->namespace_count,
-                     (unsigned long long)table->process_count);
+                     (unsigned long long)table->process_count,
+                     (unsigned long long)table->lookup_cache_hits,
+                     (unsigned long long)table->lookup_cache_misses);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
