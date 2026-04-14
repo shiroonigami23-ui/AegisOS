@@ -329,21 +329,20 @@ static int priority_bucket_index(uint8_t priority) {
 }
 
 static uint8_t scheduler_priority_member_count(const aegis_scheduler_t *scheduler, uint8_t priority) {
-  size_t i;
-  uint8_t count = 0u;
+  int bucket;
   if (scheduler == 0) {
     return 0u;
   }
-  for (i = 0; i < scheduler->count; ++i) {
-    if (scheduler->priorities[i] == priority) {
-      count += 1u;
-    }
+  bucket = priority_bucket_index(priority);
+  if (bucket < 0) {
+    return 0u;
   }
-  return count;
+  return scheduler->priority_counts[(size_t)bucket];
 }
 
 static void refill_credits(aegis_scheduler_t *scheduler) {
   size_t i;
+  scheduler->runnable_credit_count = 0u;
   for (i = 0; i < scheduler->count; ++i) {
     uint8_t base = normalize_priority(scheduler->priorities[i]);
     /* Aging boost helps long-waiting low-priority tasks avoid starvation. */
@@ -356,6 +355,9 @@ static void refill_credits(aegis_scheduler_t *scheduler) {
       base = (uint8_t)(base + boost);
     }
     scheduler->credits[i] = base;
+    if (base > 0u) {
+      scheduler->runnable_credit_count += 1u;
+    }
   }
 }
 
@@ -432,6 +434,7 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->turbo_autotune_adjustments = 0u;
   scheduler->turbo_last_pid = 0u;
   scheduler->admission_profile_id = AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM;
+  scheduler->runnable_credit_count = 0u;
   scheduler->reason_switch_window_head = 0;
   scheduler->reason_switch_window_count = 0;
   for (i = 0; i < AEGIS_SCHEDULER_CAPACITY; ++i) {
@@ -445,6 +448,7 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   }
   for (i = 0; i < 4u; ++i) {
     scheduler->admission_limits[i] = 0u;
+    scheduler->priority_counts[i] = 0u;
     scheduler->admission_drops[i] = 0u;
   }
   for (i = 0; i < 5u; ++i) {
@@ -508,6 +512,10 @@ int aegis_scheduler_add_with_priority(aegis_scheduler_t *scheduler, uint32_t pro
   scheduler->enqueued_tick[scheduler->count] = scheduler->scheduler_ticks;
   scheduler->wait_ticks_total[scheduler->count] = 0;
   scheduler->last_wait_latency[scheduler->count] = 0;
+  scheduler->priority_counts[(size_t)bucket] += 1u;
+  if (scheduler->credits[scheduler->count] > 0u) {
+    scheduler->runnable_credit_count += 1u;
+  }
   scheduler->count += 1;
   if (scheduler->count > scheduler->high_watermark) {
     scheduler->high_watermark = scheduler->count;
@@ -518,8 +526,23 @@ int aegis_scheduler_add_with_priority(aegis_scheduler_t *scheduler, uint32_t pro
 int aegis_scheduler_remove(aegis_scheduler_t *scheduler, uint32_t process_id) {
   size_t idx = 0;
   size_t i;
+  uint8_t removed_priority;
+  int removed_bucket;
+  uint8_t removed_credit;
+  if (scheduler == 0) {
+    return -1;
+  }
   if (!find_index(scheduler, process_id, &idx)) {
     return -1;
+  }
+  removed_priority = scheduler->priorities[idx];
+  removed_bucket = priority_bucket_index(removed_priority);
+  removed_credit = scheduler->credits[idx];
+  if (removed_bucket >= 0 && scheduler->priority_counts[(size_t)removed_bucket] > 0u) {
+    scheduler->priority_counts[(size_t)removed_bucket] -= 1u;
+  }
+  if (removed_credit > 0u && scheduler->runnable_credit_count > 0u) {
+    scheduler->runnable_credit_count -= 1u;
   }
   if (scheduler->current_pid == process_id) {
     scheduler->current_pid = 0;
@@ -550,34 +573,49 @@ int aegis_scheduler_remove(aegis_scheduler_t *scheduler, uint32_t process_id) {
 
 int aegis_scheduler_set_priority(aegis_scheduler_t *scheduler, uint32_t process_id, uint8_t priority) {
   size_t idx = 0;
+  uint8_t old_priority;
+  uint8_t new_priority;
+  int old_bucket;
+  int new_bucket;
   if (scheduler == 0 || !find_index(scheduler, process_id, &idx)) {
     return -1;
   }
-  scheduler->priorities[idx] = normalize_priority(priority);
+  old_priority = scheduler->priorities[idx];
+  new_priority = normalize_priority(priority);
+  old_bucket = priority_bucket_index(old_priority);
+  new_bucket = priority_bucket_index(new_priority);
+  if (old_bucket >= 0 && scheduler->priority_counts[(size_t)old_bucket] > 0u) {
+    scheduler->priority_counts[(size_t)old_bucket] -= 1u;
+  }
+  if (new_bucket >= 0) {
+    scheduler->priority_counts[(size_t)new_bucket] += 1u;
+  }
+  scheduler->priorities[idx] = new_priority;
+  if (scheduler->credits[idx] > 0u && scheduler->runnable_credit_count > 0u) {
+    scheduler->runnable_credit_count -= 1u;
+  }
   scheduler->credits[idx] = scheduler->priorities[idx];
+  if (scheduler->credits[idx] > 0u) {
+    scheduler->runnable_credit_count += 1u;
+  }
   return 0;
 }
 
 int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   size_t attempts;
-  int any_credit = 0;
-  size_t i;
   size_t chosen_idx = 0u;
   if (scheduler == 0 || process_id == 0 || scheduler->count == 0) {
     return -1;
   }
-  for (i = 0; i < scheduler->count; ++i) {
-    if (scheduler->credits[i] > 0) {
-      any_credit = 1;
-      break;
-    }
-  }
-  if (!any_credit) {
+  if (scheduler->runnable_credit_count == 0u) {
     refill_credits(scheduler);
   }
   if (scheduler->dispatch_strategy == AEGIS_SCHED_STRATEGY_TURBO &&
       scheduler_pick_turbo_index(scheduler, &chosen_idx)) {
     scheduler->credits[chosen_idx] -= 1;
+    if (scheduler->credits[chosen_idx] == 0u && scheduler->runnable_credit_count > 0u) {
+      scheduler->runnable_credit_count -= 1u;
+    }
     scheduler->last_wait_latency[chosen_idx] =
         scheduler->scheduler_ticks - scheduler->enqueued_tick[chosen_idx];
     scheduler->wait_ticks_total[chosen_idx] += scheduler->last_wait_latency[chosen_idx];
@@ -595,6 +633,9 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
       continue;
     }
     scheduler->credits[idx] -= 1;
+    if (scheduler->credits[idx] == 0u && scheduler->runnable_credit_count > 0u) {
+      scheduler->runnable_credit_count -= 1u;
+    }
     scheduler->last_wait_latency[idx] = scheduler->scheduler_ticks - scheduler->enqueued_tick[idx];
     scheduler->wait_ticks_total[idx] += scheduler->last_wait_latency[idx];
     scheduler->dispatch_counts[idx] += 1;
@@ -651,7 +692,9 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
     scheduler->wait_ticks_total[i] = 0;
     scheduler->last_wait_latency[i] = 0;
     scheduler->enqueued_tick[i] = scheduler->scheduler_ticks;
+    scheduler->credits[i] = normalize_priority(scheduler->priorities[i]);
   }
+  scheduler->runnable_credit_count = (uint16_t)scheduler->count;
   for (i = 0; i < 5u; ++i) {
     scheduler->reason_switch_counts[i] = 0;
   }
