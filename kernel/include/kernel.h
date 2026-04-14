@@ -62,6 +62,13 @@ typedef struct {
   uint32_t reason_switch_window_count;
   uint32_t quantum_ticks;
   uint32_t quantum_remaining;
+  uint8_t quantum_autotune_enabled;
+  uint32_t quantum_autotune_interval_ticks;
+  uint32_t quantum_autotune_min_ticks;
+  uint32_t quantum_autotune_max_ticks;
+  uint64_t quantum_autotune_last_tick;
+  uint64_t quantum_autotune_last_switch_total;
+  uint64_t quantum_autotune_adjustments;
   uint8_t dispatch_strategy;
   uint8_t turbo_wait_weight;
   uint8_t turbo_priority_weight;
@@ -337,6 +344,14 @@ int aegis_scheduler_dispatch_count_for(const aegis_scheduler_t *scheduler, uint3
                                        uint32_t *dispatch_count);
 void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler);
 void aegis_scheduler_set_quantum(aegis_scheduler_t *scheduler, uint32_t quantum_ticks);
+void aegis_scheduler_enable_quantum_autotune(aegis_scheduler_t *scheduler,
+                                             uint8_t enabled,
+                                             uint32_t interval_ticks,
+                                             uint32_t min_ticks,
+                                             uint32_t max_ticks);
+int aegis_scheduler_quantum_autotune_state_json(const aegis_scheduler_t *scheduler,
+                                                char *out,
+                                                size_t out_size);
 void aegis_scheduler_enable_turbo(aegis_scheduler_t *scheduler, uint8_t enabled);
 void aegis_scheduler_set_turbo_weights(aegis_scheduler_t *scheduler,
                                        uint8_t wait_weight,

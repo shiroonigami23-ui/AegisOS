@@ -65,6 +65,7 @@ This repository contains:
 - Service restart budget supervisor with health-probe and metrics-export JSON endpoints for ops dashboards.
 - Kernel checkpoint journal persistence + replay path for crash-recovery boot restore.
 - Scheduler hot-path optimization via live priority/runnable-credit counters for faster dispatch bookkeeping.
+- Adaptive scheduler quantum autotuner for improved latency vs switch-overhead balance under load.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 

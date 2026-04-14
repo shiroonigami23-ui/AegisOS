@@ -314,6 +314,45 @@ static int test_scheduler_turbo_autotuner_adjusts_weights(void) {
   return 0;
 }
 
+static int test_scheduler_quantum_autotuner_adjusts_quantum(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0u;
+  uint8_t switched = 0u;
+  char json[256];
+  int i;
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_enable_quantum_autotune(&scheduler, 1u, 8u, 1u, 4u);
+  aegis_scheduler_set_quantum(&scheduler, 4u);
+  if (aegis_scheduler_add_with_priority(&scheduler, 4101u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 4102u, AEGIS_PRIORITY_NORMAL) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 4103u, AEGIS_PRIORITY_LOW) != 0) {
+    fprintf(stderr, "quantum autotuner setup add failed\n");
+    return 1;
+  }
+  for (i = 0; i < 96; ++i) {
+    if (aegis_scheduler_on_tick(&scheduler, &pid, &switched) != 0) {
+      fprintf(stderr, "quantum autotuner tick failed\n");
+      return 1;
+    }
+  }
+  if (scheduler.quantum_autotune_adjustments == 0u) {
+    fprintf(stderr, "quantum autotuner expected at least one adjustment\n");
+    return 1;
+  }
+  if (scheduler.quantum_ticks < 1u || scheduler.quantum_ticks > 4u) {
+    fprintf(stderr, "quantum autotuner quantum out of range: %u\n", scheduler.quantum_ticks);
+    return 1;
+  }
+  if (aegis_scheduler_quantum_autotune_state_json(&scheduler, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"quantum_autotune_adjustments\":") == 0 ||
+      strstr(json, "\"quantum_autotune_interval_ticks\":8") == 0) {
+    fprintf(stderr, "quantum autotuner state json mismatch: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_scheduler_aging_boost_fairness(void) {
   aegis_scheduler_t scheduler;
   uint32_t pid = 0;
@@ -1474,6 +1513,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_turbo_autotuner_adjusts_weights() != 0) {
+    return 1;
+  }
+  if (test_scheduler_quantum_autotuner_adjusts_quantum() != 0) {
     return 1;
   }
   if (test_scheduler_aging_boost_fairness() != 0) {
