@@ -67,6 +67,7 @@ This repository contains:
 - Scheduler hot-path optimization via live priority/runnable-credit counters for faster dispatch bookkeeping.
 - Adaptive scheduler quantum autotuner for improved latency vs switch-overhead balance under load.
 - Scheduler admission/ready bitmaps + turbo candidate cache reuse for lower dispatch computation overhead.
+- IPC channel and memory zone lookup-cache fast paths to reduce hot-ID linear scan overhead.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 

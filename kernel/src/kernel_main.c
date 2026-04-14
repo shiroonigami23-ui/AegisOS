@@ -2238,10 +2238,23 @@ static int ipc_channel_find_index(const aegis_ipc_channel_table_t *table,
   if (table == 0 || index_out == 0 || channel_id == 0u) {
     return 0;
   }
+  if (table->lookup_cache_valid != 0u &&
+      table->lookup_cache_channel_id == channel_id &&
+      table->lookup_cache_index < AEGIS_IPC_CHANNEL_CAPACITY &&
+      table->channels[table->lookup_cache_index].active != 0u &&
+      table->channels[table->lookup_cache_index].channel_id == channel_id) {
+    *index_out = table->lookup_cache_index;
+    ((aegis_ipc_channel_table_t *)table)->lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_ipc_channel_table_t *)table)->lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_IPC_CHANNEL_CAPACITY; ++i) {
     if (table->channels[i].active != 0u &&
         table->channels[i].channel_id == channel_id) {
       *index_out = i;
+      ((aegis_ipc_channel_table_t *)table)->lookup_cache_valid = 1u;
+      ((aegis_ipc_channel_table_t *)table)->lookup_cache_channel_id = channel_id;
+      ((aegis_ipc_channel_table_t *)table)->lookup_cache_index = (uint16_t)i;
       return 1;
     }
   }
@@ -2265,6 +2278,11 @@ void aegis_ipc_channel_table_init(aegis_ipc_channel_table_t *table) {
   table->total_accepted_messages = 0u;
   table->total_dropped_messages = 0u;
   table->total_backpressure_events = 0u;
+  table->lookup_cache_channel_id = 0u;
+  table->lookup_cache_index = 0u;
+  table->lookup_cache_valid = 0u;
+  table->lookup_cache_hits = 0u;
+  table->lookup_cache_misses = 0u;
 }
 
 int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
@@ -2280,6 +2298,9 @@ int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
     if (table->channels[existing].inflight_bytes > quota_bytes) {
       table->channels[existing].inflight_bytes = quota_bytes;
     }
+    table->lookup_cache_valid = 1u;
+    table->lookup_cache_channel_id = channel_id;
+    table->lookup_cache_index = (uint16_t)existing;
     return 0;
   }
   for (i = 0; i < AEGIS_IPC_CHANNEL_CAPACITY; ++i) {
@@ -2293,6 +2314,9 @@ int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
     table->channels[i].dropped_messages = 0u;
     table->channels[i].backpressure_events = 0u;
     table->channels[i].active = 1u;
+    table->lookup_cache_valid = 1u;
+    table->lookup_cache_channel_id = channel_id;
+    table->lookup_cache_index = (uint16_t)i;
     return 0;
   }
   return -1;
@@ -2358,10 +2382,13 @@ int aegis_ipc_channel_snapshot_json(const aegis_ipc_channel_table_t *table,
                      out_size,
                      "{\"schema_version\":1,\"total_accepted_messages\":%llu,"
                      "\"total_dropped_messages\":%llu,\"total_backpressure_events\":%llu,"
+                     "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
                      "\"channels\":[",
                      (unsigned long long)table->total_accepted_messages,
                      (unsigned long long)table->total_dropped_messages,
-                     (unsigned long long)table->total_backpressure_events);
+                     (unsigned long long)table->total_backpressure_events,
+                     (unsigned long long)table->lookup_cache_hits,
+                     (unsigned long long)table->lookup_cache_misses);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -2404,9 +2431,22 @@ static int memory_zone_find_index(const aegis_memory_zone_table_t *table,
   if (table == 0 || zone_id == 0u || index_out == 0) {
     return 0;
   }
+  if (table->lookup_cache_valid != 0u &&
+      table->lookup_cache_zone_id == zone_id &&
+      table->lookup_cache_index < AEGIS_MEMORY_ZONE_CAPACITY &&
+      table->zones[table->lookup_cache_index].active != 0u &&
+      table->zones[table->lookup_cache_index].zone_id == zone_id) {
+    *index_out = table->lookup_cache_index;
+    ((aegis_memory_zone_table_t *)table)->lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_memory_zone_table_t *)table)->lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_MEMORY_ZONE_CAPACITY; ++i) {
     if (table->zones[i].active != 0u && table->zones[i].zone_id == zone_id) {
       *index_out = i;
+      ((aegis_memory_zone_table_t *)table)->lookup_cache_valid = 1u;
+      ((aegis_memory_zone_table_t *)table)->lookup_cache_zone_id = zone_id;
+      ((aegis_memory_zone_table_t *)table)->lookup_cache_index = (uint16_t)i;
       return 1;
     }
   }
@@ -2422,6 +2462,11 @@ void aegis_memory_zone_table_init(aegis_memory_zone_table_t *table) {
   table->total_used_bytes = 0u;
   table->denied_charges = 0u;
   table->reclaim_events = 0u;
+  table->lookup_cache_zone_id = 0u;
+  table->lookup_cache_index = 0u;
+  table->lookup_cache_valid = 0u;
+  table->lookup_cache_hits = 0u;
+  table->lookup_cache_misses = 0u;
   for (i = 0; i < AEGIS_MEMORY_ZONE_CAPACITY; ++i) {
     table->zones[i].zone_id = 0u;
     table->zones[i].zone_kind = 0u;
@@ -2460,6 +2505,9 @@ int aegis_memory_zone_configure(aegis_memory_zone_table_t *table,
     if (table->zones[idx].used_bytes > budget_bytes) {
       table->zones[idx].used_bytes = budget_bytes;
     }
+    table->lookup_cache_valid = 1u;
+    table->lookup_cache_zone_id = zone_id;
+    table->lookup_cache_index = (uint16_t)idx;
     return 0;
   }
   for (i = 0; i < AEGIS_MEMORY_ZONE_CAPACITY; ++i) {
@@ -2477,6 +2525,9 @@ int aegis_memory_zone_configure(aegis_memory_zone_table_t *table,
     table->zones[i].reclaim_hook_enabled = 0u;
     table->zones[i].active = 1u;
     table->total_budget_bytes += budget_bytes;
+    table->lookup_cache_valid = 1u;
+    table->lookup_cache_zone_id = zone_id;
+    table->lookup_cache_index = (uint16_t)i;
     return 0;
   }
   return -1;
@@ -2587,11 +2638,14 @@ int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
   written = snprintf(out,
                      out_size,
                      "{\"schema_version\":1,\"total_budget_bytes\":%llu,\"total_used_bytes\":%llu,"
-                     "\"denied_charges\":%llu,\"reclaim_events\":%llu,\"zones\":[",
+                     "\"denied_charges\":%llu,\"reclaim_events\":%llu,"
+                     "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,\"zones\":[",
                      (unsigned long long)table->total_budget_bytes,
                      (unsigned long long)table->total_used_bytes,
                      (unsigned long long)table->denied_charges,
-                     (unsigned long long)table->reclaim_events);
+                     (unsigned long long)table->reclaim_events,
+                     (unsigned long long)table->lookup_cache_hits,
+                     (unsigned long long)table->lookup_cache_misses);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }

@@ -215,6 +215,11 @@ typedef struct {
   uint64_t total_accepted_messages;
   uint64_t total_dropped_messages;
   uint64_t total_backpressure_events;
+  uint32_t lookup_cache_channel_id;
+  uint16_t lookup_cache_index;
+  uint8_t lookup_cache_valid;
+  uint64_t lookup_cache_hits;
+  uint64_t lookup_cache_misses;
 } aegis_ipc_channel_table_t;
 
 typedef enum {
@@ -243,6 +248,11 @@ typedef struct {
   uint64_t total_used_bytes;
   uint64_t denied_charges;
   uint64_t reclaim_events;
+  uint32_t lookup_cache_zone_id;
+  uint16_t lookup_cache_index;
+  uint8_t lookup_cache_valid;
+  uint64_t lookup_cache_hits;
+  uint64_t lookup_cache_misses;
 } aegis_memory_zone_table_t;
 
 typedef enum {

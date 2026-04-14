@@ -730,6 +730,10 @@ static int test_ipc_channel_quota_and_backpressure(void) {
     fprintf(stderr, "ipc reserve send should recover after drain\n");
     return 1;
   }
+  if (aegis_ipc_channel_drain(&table, 42u, 10u) != 0) {
+    fprintf(stderr, "ipc drain hot-channel cache path failed\n");
+    return 1;
+  }
   if (aegis_ipc_channel_reserve_send(&table, 999u, 10u, &accepted) >= 0) {
     fprintf(stderr, "ipc reserve send should fail for unknown channel\n");
     return 1;
@@ -739,8 +743,10 @@ static int test_ipc_channel_quota_and_backpressure(void) {
       strstr(json, "\"total_accepted_messages\":2") == 0 ||
       strstr(json, "\"total_dropped_messages\":1") == 0 ||
       strstr(json, "\"total_backpressure_events\":1") == 0 ||
+      strstr(json, "\"lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"channel_id\":42") == 0 ||
-      strstr(json, "\"inflight_bytes\":160") == 0) {
+      strstr(json, "\"inflight_bytes\":150") == 0) {
     fprintf(stderr, "ipc snapshot mismatch: %s\n", json);
     return 1;
   }
@@ -786,10 +792,16 @@ static int test_memory_zone_accounting_and_reclaim_hooks(void) {
     fprintf(stderr, "memory zone release failed\n");
     return 1;
   }
+  if (aegis_memory_zone_release(&table, 1u, 50u) != 0) {
+    fprintf(stderr, "memory zone hot-zone cache path release failed\n");
+    return 1;
+  }
   if (aegis_memory_zone_snapshot_json(&table, json, sizeof(json)) <= 0 ||
       strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"denied_charges\":2") == 0 ||
       strstr(json, "\"reclaim_events\":2") == 0 ||
+      strstr(json, "\"lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"zone_id\":1") == 0 ||
       strstr(json, "\"reclaim_successes\":1") == 0) {
     fprintf(stderr, "memory zone snapshot mismatch: %s\n", json);
