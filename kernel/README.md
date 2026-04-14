@@ -42,3 +42,6 @@ Kernel direction, interfaces, and implementation notes live here.
 - `aegis_syscall_gate_matrix_t`: syscall capability enforcement matrix.
   - includes decision-cache fast path for hot process/syscall pairs.
   - preserves deny-reason counters while reducing repeated linear scans.
+- `aegis_ipc_channel_table_t` and `aegis_memory_zone_table_t`:
+  - include lookup-cache fast paths for hot channel/zone IDs.
+  - expose lookup-cache hit/miss telemetry in JSON snapshots.
