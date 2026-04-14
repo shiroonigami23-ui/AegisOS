@@ -14,6 +14,7 @@ Kernel direction, interfaces, and implementation notes live here.
 - `aegis_scheduler_t`: weighted round-robin scheduler with priority-aware dispatch.
   - includes optional `turbo` dispatch strategy that scores queue entries by priority + wait time for lower tail latency.
   - turbo mode retains fairness pressure by debiasing over-dispatched processes and preserving credit-based limits.
+  - turbo mode includes adaptive weight autotuning to rebalance `priority` vs `wait` based on live latency telemetry.
   - low-priority aging boosts add temporary credits after long waits to reduce starvation risk.
   - includes dispatch metrics: total dispatches, high-watermark queue depth, and per-process counts.
   - includes timer-tick preemption simulation hooks with configurable quantum.
