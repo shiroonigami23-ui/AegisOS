@@ -13,6 +13,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - includes payload-fit guard helper for max-frame enforcement.
 - `aegis_scheduler_t`: weighted round-robin scheduler with priority-aware dispatch.
   - optimized hot-path dispatch bookkeeping with live `priority_counts` and `runnable_credit_count` counters to reduce full-queue scans.
+  - includes adaptive quantum autotuner to rebalance tail-latency and context-switch pressure automatically.
   - includes optional `turbo` dispatch strategy that scores queue entries by priority + wait time for lower tail latency.
   - turbo mode retains fairness pressure by debiasing over-dispatched processes and preserving credit-based limits.
   - turbo mode includes adaptive weight autotuning to rebalance `priority` vs `wait` based on live latency telemetry.

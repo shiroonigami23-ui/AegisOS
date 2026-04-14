@@ -411,6 +411,16 @@ static int scheduler_pick_turbo_index(const aegis_scheduler_t *scheduler, size_t
   return 1;
 }
 
+static uint64_t scheduler_total_switches(const aegis_scheduler_t *scheduler) {
+  if (scheduler == 0) {
+    return 0u;
+  }
+  return scheduler->reason_switch_counts[AEGIS_SWITCH_PROCESS_START] +
+         scheduler->reason_switch_counts[AEGIS_SWITCH_QUANTUM_EXPIRED] +
+         scheduler->reason_switch_counts[AEGIS_SWITCH_PROCESS_EXIT] +
+         scheduler->reason_switch_counts[AEGIS_SWITCH_MANUAL_YIELD];
+}
+
 void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   size_t i;
   if (scheduler == 0) {
@@ -425,6 +435,13 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->pending_switch_reason = AEGIS_SWITCH_PROCESS_START;
   scheduler->quantum_ticks = 3;
   scheduler->quantum_remaining = 0;
+  scheduler->quantum_autotune_enabled = 1u;
+  scheduler->quantum_autotune_interval_ticks = 64u;
+  scheduler->quantum_autotune_min_ticks = 1u;
+  scheduler->quantum_autotune_max_ticks = 6u;
+  scheduler->quantum_autotune_last_tick = 0u;
+  scheduler->quantum_autotune_last_switch_total = 0u;
+  scheduler->quantum_autotune_adjustments = 0u;
   scheduler->dispatch_strategy = AEGIS_SCHED_STRATEGY_ROUND_ROBIN;
   scheduler->turbo_wait_weight = 2u;
   scheduler->turbo_priority_weight = 4u;
@@ -459,6 +476,9 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   }
   scheduler->turbo_autotune_last_tick = 0u;
   scheduler->turbo_last_pid = 0u;
+  scheduler->quantum_autotune_last_tick = 0u;
+  scheduler->quantum_autotune_last_switch_total = 0u;
+  scheduler->quantum_autotune_adjustments = 0u;
 }
 
 static int find_index(const aegis_scheduler_t *scheduler, uint32_t process_id, size_t *index) {
@@ -707,16 +727,50 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
     scheduler->reason_switch_window[i] = AEGIS_SWITCH_NONE;
   }
   scheduler->turbo_autotune_last_tick = scheduler->scheduler_ticks;
+  scheduler->quantum_autotune_last_tick = scheduler->scheduler_ticks;
+  scheduler->quantum_autotune_last_switch_total = 0u;
+  scheduler->quantum_autotune_adjustments = 0u;
 }
 
 void aegis_scheduler_set_quantum(aegis_scheduler_t *scheduler, uint32_t quantum_ticks) {
   if (scheduler == 0 || quantum_ticks == 0) {
     return;
   }
+  if (scheduler->quantum_autotune_min_ticks > 0u &&
+      quantum_ticks < scheduler->quantum_autotune_min_ticks) {
+    quantum_ticks = scheduler->quantum_autotune_min_ticks;
+  }
+  if (scheduler->quantum_autotune_max_ticks > 0u &&
+      quantum_ticks > scheduler->quantum_autotune_max_ticks) {
+    quantum_ticks = scheduler->quantum_autotune_max_ticks;
+  }
   scheduler->quantum_ticks = quantum_ticks;
   if (scheduler->quantum_remaining > quantum_ticks) {
     scheduler->quantum_remaining = quantum_ticks;
   }
+}
+
+void aegis_scheduler_enable_quantum_autotune(aegis_scheduler_t *scheduler,
+                                             uint8_t enabled,
+                                             uint32_t interval_ticks,
+                                             uint32_t min_ticks,
+                                             uint32_t max_ticks) {
+  if (scheduler == 0) {
+    return;
+  }
+  scheduler->quantum_autotune_enabled = enabled != 0u ? 1u : 0u;
+  if (interval_ticks > 0u) {
+    scheduler->quantum_autotune_interval_ticks = interval_ticks;
+  }
+  if (min_ticks == 0u) {
+    min_ticks = 1u;
+  }
+  if (max_ticks == 0u || max_ticks < min_ticks) {
+    max_ticks = min_ticks;
+  }
+  scheduler->quantum_autotune_min_ticks = min_ticks;
+  scheduler->quantum_autotune_max_ticks = max_ticks;
+  aegis_scheduler_set_quantum(scheduler, scheduler->quantum_ticks);
 }
 
 void aegis_scheduler_enable_turbo(aegis_scheduler_t *scheduler, uint8_t enabled) {
@@ -793,6 +847,44 @@ static void aegis_scheduler_turbo_autotune_step(aegis_scheduler_t *scheduler) {
   }
 }
 
+static void aegis_scheduler_quantum_autotune_step(aegis_scheduler_t *scheduler) {
+  uint64_t switch_total;
+  uint64_t switch_delta;
+  uint64_t elapsed_ticks;
+  uint64_t switch_pressure_bps;
+  aegis_scheduler_wait_report_t report;
+  if (scheduler == 0 || scheduler->quantum_autotune_enabled == 0u || scheduler->count == 0u) {
+    return;
+  }
+  if (scheduler->quantum_autotune_interval_ticks == 0u) {
+    scheduler->quantum_autotune_interval_ticks = 64u;
+  }
+  if (scheduler->scheduler_ticks - scheduler->quantum_autotune_last_tick <
+      scheduler->quantum_autotune_interval_ticks) {
+    return;
+  }
+  elapsed_ticks = scheduler->scheduler_ticks - scheduler->quantum_autotune_last_tick;
+  if (elapsed_ticks == 0u || aegis_scheduler_wait_report(scheduler, &report) != 0) {
+    return;
+  }
+  switch_total = scheduler_total_switches(scheduler);
+  switch_delta = switch_total - scheduler->quantum_autotune_last_switch_total;
+  switch_pressure_bps = (switch_delta * 10000u) / elapsed_ticks;
+  if (report.p95_wait_ticks > 8u && scheduler->quantum_ticks > scheduler->quantum_autotune_min_ticks) {
+    scheduler->quantum_ticks -= 1u;
+    if (scheduler->quantum_remaining > scheduler->quantum_ticks) {
+      scheduler->quantum_remaining = scheduler->quantum_ticks;
+    }
+    scheduler->quantum_autotune_adjustments += 1u;
+  } else if (report.p95_wait_ticks <= 2u && switch_pressure_bps > 7000u &&
+             scheduler->quantum_ticks < scheduler->quantum_autotune_max_ticks) {
+    scheduler->quantum_ticks += 1u;
+    scheduler->quantum_autotune_adjustments += 1u;
+  }
+  scheduler->quantum_autotune_last_tick = scheduler->scheduler_ticks;
+  scheduler->quantum_autotune_last_switch_total = switch_total;
+}
+
 int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *out, size_t out_size) {
   int written;
   if (scheduler == 0 || out == 0 || out_size == 0u) {
@@ -811,6 +903,30 @@ int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *o
                      (unsigned int)scheduler->turbo_autotune_interval_ticks,
                      (unsigned long long)scheduler->turbo_autotune_adjustments,
                      scheduler->turbo_last_pid);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
+}
+
+int aegis_scheduler_quantum_autotune_state_json(const aegis_scheduler_t *scheduler,
+                                                char *out,
+                                                size_t out_size) {
+  int written;
+  if (scheduler == 0 || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  written = snprintf(out,
+                     out_size,
+                     "{\"schema_version\":1,\"quantum_ticks\":%u,\"quantum_autotune_enabled\":%u,"
+                     "\"quantum_autotune_interval_ticks\":%u,\"quantum_autotune_min_ticks\":%u,"
+                     "\"quantum_autotune_max_ticks\":%u,\"quantum_autotune_adjustments\":%llu}",
+                     (unsigned int)scheduler->quantum_ticks,
+                     (unsigned int)scheduler->quantum_autotune_enabled,
+                     (unsigned int)scheduler->quantum_autotune_interval_ticks,
+                     (unsigned int)scheduler->quantum_autotune_min_ticks,
+                     (unsigned int)scheduler->quantum_autotune_max_ticks,
+                     (unsigned long long)scheduler->quantum_autotune_adjustments);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -863,6 +979,7 @@ int aegis_scheduler_on_tick_ex(aegis_scheduler_t *scheduler, uint32_t *running_p
     }
   }
   aegis_scheduler_turbo_autotune_step(scheduler);
+  aegis_scheduler_quantum_autotune_step(scheduler);
   *running_pid = scheduler->current_pid;
   return 0;
 }
