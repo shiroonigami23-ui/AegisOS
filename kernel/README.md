@@ -30,3 +30,8 @@ Kernel direction, interfaces, and implementation notes live here.
   - includes tick-based wait-time and last-latency counters per process.
   - includes aggregate wait report (`mean`, `p95`, `max`) for tuning and diagnostics.
   - includes wait-report snapshot endpoint with capture tick and queue metadata.
+- `aegis_process_checkpoint_table_t`: process checkpoint capture/restore for recovery workflows.
+  - supports process runtime registration and per-reason checkpoint capture.
+  - supports checkpoint restore with epoch verification and failure counters.
+  - exposes snapshot JSON endpoint with entry-level checkpoint metadata.
+  - supports disk-backed journal save and boot-time replay for crash recovery.

@@ -490,6 +490,11 @@ int aegis_process_checkpoint_query(const aegis_process_checkpoint_table_t *table
 int aegis_process_checkpoint_snapshot_json(const aegis_process_checkpoint_table_t *table,
                                           char *out,
                                           size_t out_size);
+int aegis_process_checkpoint_journal_save(const aegis_process_checkpoint_table_t *table,
+                                          const char *journal_path);
+int aegis_process_checkpoint_journal_replay(aegis_process_checkpoint_table_t *table,
+                                            const char *journal_path,
+                                            uint8_t apply_runtime_states);
 void aegis_secure_time_attestor_init(aegis_secure_time_attestor_t *attestor,
                                      uint32_t boot_id,
                                      uint64_t baseline_wallclock_epoch,
