@@ -328,6 +328,81 @@ static int priority_bucket_index(uint8_t priority) {
   return (int)priority;
 }
 
+static uint8_t priority_bucket_bit(uint8_t priority) {
+  int bucket = priority_bucket_index(priority);
+  if (bucket < 0) {
+    return 0u;
+  }
+  return (uint8_t)(1u << (uint8_t)bucket);
+}
+
+static void scheduler_set_priority_present(aegis_scheduler_t *scheduler, uint8_t priority, uint8_t present) {
+  uint8_t bit;
+  if (scheduler == 0) {
+    return;
+  }
+  bit = priority_bucket_bit(priority);
+  if (bit == 0u) {
+    return;
+  }
+  if (present != 0u) {
+    scheduler->priority_present_bitmap |= bit;
+  } else {
+    scheduler->priority_present_bitmap = (uint8_t)(scheduler->priority_present_bitmap & (uint8_t)(~bit));
+  }
+}
+
+static void scheduler_set_runnable_present(aegis_scheduler_t *scheduler, uint8_t priority, uint8_t present) {
+  uint8_t bit;
+  if (scheduler == 0) {
+    return;
+  }
+  bit = priority_bucket_bit(priority);
+  if (bit == 0u) {
+    return;
+  }
+  if (present != 0u) {
+    scheduler->runnable_priority_bitmap |= bit;
+  } else {
+    scheduler->runnable_priority_bitmap =
+        (uint8_t)(scheduler->runnable_priority_bitmap & (uint8_t)(~bit));
+  }
+}
+
+static void scheduler_runnable_credit_inc(aegis_scheduler_t *scheduler, uint8_t priority) {
+  int bucket;
+  if (scheduler == 0) {
+    return;
+  }
+  bucket = priority_bucket_index(priority);
+  if (bucket < 0) {
+    return;
+  }
+  scheduler->runnable_priority_counts[(size_t)bucket] += 1u;
+  scheduler->runnable_credit_count += 1u;
+  scheduler_set_runnable_present(scheduler, priority, 1u);
+}
+
+static void scheduler_runnable_credit_dec(aegis_scheduler_t *scheduler, uint8_t priority) {
+  int bucket;
+  if (scheduler == 0) {
+    return;
+  }
+  bucket = priority_bucket_index(priority);
+  if (bucket < 0) {
+    return;
+  }
+  if (scheduler->runnable_priority_counts[(size_t)bucket] > 0u) {
+    scheduler->runnable_priority_counts[(size_t)bucket] -= 1u;
+  }
+  if (scheduler->runnable_credit_count > 0u) {
+    scheduler->runnable_credit_count -= 1u;
+  }
+  if (scheduler->runnable_priority_counts[(size_t)bucket] == 0u) {
+    scheduler_set_runnable_present(scheduler, priority, 0u);
+  }
+}
+
 static uint8_t scheduler_priority_member_count(const aegis_scheduler_t *scheduler, uint8_t priority) {
   int bucket;
   if (scheduler == 0) {
@@ -342,7 +417,12 @@ static uint8_t scheduler_priority_member_count(const aegis_scheduler_t *schedule
 
 static void refill_credits(aegis_scheduler_t *scheduler) {
   size_t i;
+  size_t b;
   scheduler->runnable_credit_count = 0u;
+  scheduler->runnable_priority_bitmap = 0u;
+  for (b = 0u; b < 4u; ++b) {
+    scheduler->runnable_priority_counts[b] = 0u;
+  }
   for (i = 0; i < scheduler->count; ++i) {
     uint8_t base = normalize_priority(scheduler->priorities[i]);
     /* Aging boost helps long-waiting low-priority tasks avoid starvation. */
@@ -356,7 +436,7 @@ static void refill_credits(aegis_scheduler_t *scheduler) {
     }
     scheduler->credits[i] = base;
     if (base > 0u) {
-      scheduler->runnable_credit_count += 1u;
+      scheduler_runnable_credit_inc(scheduler, scheduler->priorities[i]);
     }
   }
 }
@@ -384,6 +464,18 @@ static int scheduler_pick_turbo_index(const aegis_scheduler_t *scheduler, size_t
   if (scheduler == 0 || index_out == 0 || scheduler->count == 0u) {
     return 0;
   }
+  if (scheduler->turbo_candidate_cache_valid != 0u &&
+      scheduler->turbo_candidate_cache_index < scheduler->count &&
+      scheduler->turbo_candidate_cache_budget > 0u) {
+    size_t cached_idx = scheduler->turbo_candidate_cache_index;
+    if (scheduler->credits[cached_idx] > 0u) {
+      *index_out = cached_idx;
+      ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_budget -= 1u;
+      ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_hits += 1u;
+      return 1;
+    }
+  }
+  ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_misses += 1u;
   for (i = 0; i < scheduler->count; ++i) {
     uint64_t waited_ticks = scheduler->scheduler_ticks - scheduler->enqueued_tick[i];
     int score;
@@ -407,6 +499,10 @@ static int scheduler_pick_turbo_index(const aegis_scheduler_t *scheduler, size_t
   if (!found) {
     return 0;
   }
+  ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_valid = 1u;
+  ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_index = (uint32_t)best_index;
+  ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_budget =
+      scheduler->turbo_candidate_cache_max_reuse;
   *index_out = best_index;
   return 1;
 }
@@ -449,9 +545,17 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->turbo_autotune_interval_ticks = 32u;
   scheduler->turbo_autotune_last_tick = 0u;
   scheduler->turbo_autotune_adjustments = 0u;
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
+  scheduler->turbo_candidate_cache_max_reuse = 1u;
+  scheduler->turbo_candidate_cache_index = 0u;
+  scheduler->turbo_candidate_cache_hits = 0u;
+  scheduler->turbo_candidate_cache_misses = 0u;
   scheduler->turbo_last_pid = 0u;
   scheduler->admission_profile_id = AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM;
   scheduler->runnable_credit_count = 0u;
+  scheduler->priority_present_bitmap = 0u;
+  scheduler->runnable_priority_bitmap = 0u;
   scheduler->reason_switch_window_head = 0;
   scheduler->reason_switch_window_count = 0;
   for (i = 0; i < AEGIS_SCHEDULER_CAPACITY; ++i) {
@@ -466,6 +570,7 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   for (i = 0; i < 4u; ++i) {
     scheduler->admission_limits[i] = 0u;
     scheduler->priority_counts[i] = 0u;
+    scheduler->runnable_priority_counts[i] = 0u;
     scheduler->admission_drops[i] = 0u;
   }
   for (i = 0; i < 5u; ++i) {
@@ -476,6 +581,10 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   }
   scheduler->turbo_autotune_last_tick = 0u;
   scheduler->turbo_last_pid = 0u;
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
+  scheduler->turbo_candidate_cache_hits = 0u;
+  scheduler->turbo_candidate_cache_misses = 0u;
   scheduler->quantum_autotune_last_tick = 0u;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -533,9 +642,12 @@ int aegis_scheduler_add_with_priority(aegis_scheduler_t *scheduler, uint32_t pro
   scheduler->wait_ticks_total[scheduler->count] = 0;
   scheduler->last_wait_latency[scheduler->count] = 0;
   scheduler->priority_counts[(size_t)bucket] += 1u;
+  scheduler_set_priority_present(scheduler, normalized_priority, 1u);
   if (scheduler->credits[scheduler->count] > 0u) {
-    scheduler->runnable_credit_count += 1u;
+    scheduler_runnable_credit_inc(scheduler, normalized_priority);
   }
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
   scheduler->count += 1;
   if (scheduler->count > scheduler->high_watermark) {
     scheduler->high_watermark = scheduler->count;
@@ -560,10 +672,15 @@ int aegis_scheduler_remove(aegis_scheduler_t *scheduler, uint32_t process_id) {
   removed_credit = scheduler->credits[idx];
   if (removed_bucket >= 0 && scheduler->priority_counts[(size_t)removed_bucket] > 0u) {
     scheduler->priority_counts[(size_t)removed_bucket] -= 1u;
+    if (scheduler->priority_counts[(size_t)removed_bucket] == 0u) {
+      scheduler_set_priority_present(scheduler, removed_priority, 0u);
+    }
   }
-  if (removed_credit > 0u && scheduler->runnable_credit_count > 0u) {
-    scheduler->runnable_credit_count -= 1u;
+  if (removed_credit > 0u) {
+    scheduler_runnable_credit_dec(scheduler, removed_priority);
   }
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
   if (scheduler->current_pid == process_id) {
     scheduler->current_pid = 0;
     scheduler->quantum_remaining = 0;
@@ -606,18 +723,24 @@ int aegis_scheduler_set_priority(aegis_scheduler_t *scheduler, uint32_t process_
   new_bucket = priority_bucket_index(new_priority);
   if (old_bucket >= 0 && scheduler->priority_counts[(size_t)old_bucket] > 0u) {
     scheduler->priority_counts[(size_t)old_bucket] -= 1u;
+    if (scheduler->priority_counts[(size_t)old_bucket] == 0u) {
+      scheduler_set_priority_present(scheduler, old_priority, 0u);
+    }
   }
   if (new_bucket >= 0) {
     scheduler->priority_counts[(size_t)new_bucket] += 1u;
+    scheduler_set_priority_present(scheduler, new_priority, 1u);
   }
   scheduler->priorities[idx] = new_priority;
-  if (scheduler->credits[idx] > 0u && scheduler->runnable_credit_count > 0u) {
-    scheduler->runnable_credit_count -= 1u;
+  if (scheduler->credits[idx] > 0u) {
+    scheduler_runnable_credit_dec(scheduler, old_priority);
   }
   scheduler->credits[idx] = scheduler->priorities[idx];
   if (scheduler->credits[idx] > 0u) {
-    scheduler->runnable_credit_count += 1u;
+    scheduler_runnable_credit_inc(scheduler, new_priority);
   }
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
   return 0;
 }
 
@@ -633,8 +756,8 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   if (scheduler->dispatch_strategy == AEGIS_SCHED_STRATEGY_TURBO &&
       scheduler_pick_turbo_index(scheduler, &chosen_idx)) {
     scheduler->credits[chosen_idx] -= 1;
-    if (scheduler->credits[chosen_idx] == 0u && scheduler->runnable_credit_count > 0u) {
-      scheduler->runnable_credit_count -= 1u;
+    if (scheduler->credits[chosen_idx] == 0u) {
+      scheduler_runnable_credit_dec(scheduler, scheduler->priorities[chosen_idx]);
     }
     scheduler->last_wait_latency[chosen_idx] =
         scheduler->scheduler_ticks - scheduler->enqueued_tick[chosen_idx];
@@ -653,8 +776,8 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
       continue;
     }
     scheduler->credits[idx] -= 1;
-    if (scheduler->credits[idx] == 0u && scheduler->runnable_credit_count > 0u) {
-      scheduler->runnable_credit_count -= 1u;
+    if (scheduler->credits[idx] == 0u) {
+      scheduler_runnable_credit_dec(scheduler, scheduler->priorities[idx]);
     }
     scheduler->last_wait_latency[idx] = scheduler->scheduler_ticks - scheduler->enqueued_tick[idx];
     scheduler->wait_ticks_total[idx] += scheduler->last_wait_latency[idx];
@@ -702,6 +825,7 @@ int aegis_scheduler_dispatch_count_for(const aegis_scheduler_t *scheduler, uint3
 
 void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
   size_t i;
+  size_t b;
   if (scheduler == 0) {
     return;
   }
@@ -714,7 +838,16 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
     scheduler->enqueued_tick[i] = scheduler->scheduler_ticks;
     scheduler->credits[i] = normalize_priority(scheduler->priorities[i]);
   }
-  scheduler->runnable_credit_count = (uint16_t)scheduler->count;
+  scheduler->runnable_credit_count = 0u;
+  scheduler->runnable_priority_bitmap = 0u;
+  for (b = 0u; b < 4u; ++b) {
+    scheduler->runnable_priority_counts[b] = 0u;
+  }
+  for (i = 0; i < scheduler->count; ++i) {
+    if (scheduler->credits[i] > 0u) {
+      scheduler_runnable_credit_inc(scheduler, scheduler->priorities[i]);
+    }
+  }
   for (i = 0; i < 5u; ++i) {
     scheduler->reason_switch_counts[i] = 0;
   }
@@ -727,6 +860,10 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
     scheduler->reason_switch_window[i] = AEGIS_SWITCH_NONE;
   }
   scheduler->turbo_autotune_last_tick = scheduler->scheduler_ticks;
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
+  scheduler->turbo_candidate_cache_hits = 0u;
+  scheduler->turbo_candidate_cache_misses = 0u;
   scheduler->quantum_autotune_last_tick = scheduler->scheduler_ticks;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -779,6 +916,8 @@ void aegis_scheduler_enable_turbo(aegis_scheduler_t *scheduler, uint8_t enabled)
   }
   scheduler->dispatch_strategy =
       enabled != 0u ? AEGIS_SCHED_STRATEGY_TURBO : AEGIS_SCHED_STRATEGY_ROUND_ROBIN;
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
 }
 
 void aegis_scheduler_set_turbo_weights(aegis_scheduler_t *scheduler,
@@ -789,6 +928,8 @@ void aegis_scheduler_set_turbo_weights(aegis_scheduler_t *scheduler,
   }
   scheduler->turbo_wait_weight = wait_weight;
   scheduler->turbo_priority_weight = priority_weight;
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
 }
 
 void aegis_scheduler_enable_turbo_autotune(aegis_scheduler_t *scheduler,
@@ -801,6 +942,8 @@ void aegis_scheduler_enable_turbo_autotune(aegis_scheduler_t *scheduler,
   if (interval_ticks > 0u) {
     scheduler->turbo_autotune_interval_ticks = interval_ticks;
   }
+  scheduler->turbo_candidate_cache_valid = 0u;
+  scheduler->turbo_candidate_cache_budget = 0u;
 }
 
 static void aegis_scheduler_turbo_autotune_step(aegis_scheduler_t *scheduler) {
@@ -895,14 +1038,18 @@ int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *o
                      "{\"schema_version\":1,\"dispatch_strategy\":%u,\"turbo_wait_weight\":%u,"
                      "\"turbo_priority_weight\":%u,\"turbo_autotune_enabled\":%u,"
                      "\"turbo_autotune_interval_ticks\":%u,\"turbo_autotune_adjustments\":%llu,"
-                     "\"turbo_last_pid\":%u}",
+                     "\"turbo_last_pid\":%u,\"turbo_candidate_cache_hits\":%llu,"
+                     "\"turbo_candidate_cache_misses\":%llu,\"turbo_candidate_cache_reuse_budget\":%u}",
                      (unsigned int)scheduler->dispatch_strategy,
                      (unsigned int)scheduler->turbo_wait_weight,
                      (unsigned int)scheduler->turbo_priority_weight,
                      (unsigned int)scheduler->turbo_autotune_enabled,
                      (unsigned int)scheduler->turbo_autotune_interval_ticks,
                      (unsigned long long)scheduler->turbo_autotune_adjustments,
-                     scheduler->turbo_last_pid);
+                     scheduler->turbo_last_pid,
+                     (unsigned long long)scheduler->turbo_candidate_cache_hits,
+                     (unsigned long long)scheduler->turbo_candidate_cache_misses,
+                     (unsigned int)scheduler->turbo_candidate_cache_budget);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -1368,11 +1515,14 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
   written = snprintf(out,
                      out_size,
                      "{\"schema_version\":1,\"profile_id\":%u,\"queue_depth\":%llu,"
+                     "\"priority_present_bitmap\":%u,\"runnable_priority_bitmap\":%u,"
                      "\"limits\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
                      "\"counts\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
                      "\"drops\":{\"high\":%llu,\"normal\":%llu,\"low\":%llu}}",
                      (unsigned int)scheduler->admission_profile_id,
                      (unsigned long long)scheduler->count,
+                     (unsigned int)scheduler->priority_present_bitmap,
+                     (unsigned int)scheduler->runnable_priority_bitmap,
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_HIGH],
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_NORMAL],
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_LOW],

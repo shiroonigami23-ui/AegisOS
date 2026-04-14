@@ -44,6 +44,9 @@ typedef struct {
   uint8_t credits[64];
   uint8_t admission_limits[4];
   uint8_t priority_counts[4];
+  uint8_t runnable_priority_counts[4];
+  uint8_t priority_present_bitmap;
+  uint8_t runnable_priority_bitmap;
   uint64_t admission_drops[4];
   uint16_t runnable_credit_count;
   uint8_t admission_profile_id;
@@ -76,6 +79,12 @@ typedef struct {
   uint32_t turbo_autotune_interval_ticks;
   uint64_t turbo_autotune_last_tick;
   uint64_t turbo_autotune_adjustments;
+  uint8_t turbo_candidate_cache_valid;
+  uint8_t turbo_candidate_cache_budget;
+  uint8_t turbo_candidate_cache_max_reuse;
+  uint32_t turbo_candidate_cache_index;
+  uint64_t turbo_candidate_cache_hits;
+  uint64_t turbo_candidate_cache_misses;
   uint32_t turbo_last_pid;
   size_t count;
   size_t head;

@@ -246,7 +246,7 @@ static int test_scheduler_turbo_mode_latency_optimization(void) {
   aegis_scheduler_t turbo;
   uint32_t rr_pid = 0u;
   uint32_t turbo_pid = 0u;
-  char turbo_json[256];
+  char turbo_json[512];
   aegis_scheduler_init(&rr);
   if (aegis_scheduler_add_with_priority(&rr, 3001u, AEGIS_PRIORITY_LOW) != 0 ||
       aegis_scheduler_add_with_priority(&rr, 3002u, AEGIS_PRIORITY_NORMAL) != 0 ||
@@ -283,7 +283,7 @@ static int test_scheduler_turbo_autotuner_adjusts_weights(void) {
   aegis_scheduler_t scheduler;
   uint32_t pid = 0u;
   uint8_t switched = 0u;
-  char turbo_json[256];
+  char turbo_json[512];
   int i;
   aegis_scheduler_init(&scheduler);
   aegis_scheduler_enable_turbo(&scheduler, 1u);
@@ -520,8 +520,45 @@ static int test_scheduler_priority_count_tracking_after_reprioritize(void) {
     return 1;
   }
   if (aegis_scheduler_admission_snapshot_json(&scheduler, json, sizeof(json)) <= 0 ||
-      strstr(json, "\"counts\":{\"high\":2,\"normal\":0,\"low\":1}") == 0) {
+      strstr(json, "\"counts\":{\"high\":2,\"normal\":0,\"low\":1}") == 0 ||
+      strstr(json, "\"priority_present_bitmap\":10") == 0 ||
+      strstr(json, "\"runnable_priority_bitmap\":10") == 0) {
     fprintf(stderr, "priority count tracking snapshot mismatch: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_scheduler_turbo_candidate_cache_reuse(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0u;
+  char turbo_json[512];
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_enable_turbo(&scheduler, 1u);
+  if (aegis_scheduler_add_with_priority(&scheduler, 9901u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 9902u, AEGIS_PRIORITY_NORMAL) != 0) {
+    fprintf(stderr, "turbo cache setup add failed\n");
+    return 1;
+  }
+  scheduler.scheduler_ticks = 50u;
+  scheduler.enqueued_tick[0] = 45u;
+  scheduler.enqueued_tick[1] = 49u;
+  if (aegis_scheduler_next(&scheduler, &pid) != 0 || pid != 9901u) {
+    fprintf(stderr, "turbo cache first pick mismatch\n");
+    return 1;
+  }
+  if (aegis_scheduler_next(&scheduler, &pid) != 0) {
+    fprintf(stderr, "turbo cache second pick failed\n");
+    return 1;
+  }
+  if (scheduler.turbo_candidate_cache_hits == 0u) {
+    fprintf(stderr, "turbo candidate cache expected at least one hit\n");
+    return 1;
+  }
+  if (aegis_scheduler_turbo_state_json(&scheduler, turbo_json, sizeof(turbo_json)) <= 0 ||
+      strstr(turbo_json, "\"turbo_candidate_cache_hits\":") == 0 ||
+      strstr(turbo_json, "\"turbo_candidate_cache_misses\":") == 0) {
+    fprintf(stderr, "turbo cache state json mismatch: %s\n", turbo_json);
     return 1;
   }
   return 0;
@@ -1531,6 +1568,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_priority_count_tracking_after_reprioritize() != 0) {
+    return 1;
+  }
+  if (test_scheduler_turbo_candidate_cache_reuse() != 0) {
     return 1;
   }
   if (test_namespace_isolation_simulator() != 0) {
