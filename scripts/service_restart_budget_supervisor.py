@@ -21,6 +21,10 @@ class ServiceRuntimeState:
   consecutive_failures: int = 0
   cooldown_until: int = 0
   escalated: bool = False
+  last_exit_code: int = 0
+  last_exit_timestamp: int = 0
+  last_action: str = "init"
+  freeze_count: int = 0
 
 
 @dataclass
@@ -38,6 +42,7 @@ class ServiceRestartBudgetSupervisor:
   states: Dict[str, ServiceRuntimeState] = field(default_factory=dict)
   incidents: List[RestartIncident] = field(default_factory=list)
   decision_count: int = 0
+  freeze_decision_count: int = 0
 
   @staticmethod
   def _require_int(value: object, field_name: str, minimum: int = 0) -> int:
@@ -113,11 +118,14 @@ class ServiceRestartBudgetSupervisor:
       raise ValueError("unknown service")
     self.decision_count += 1
     self._prune_restart_window(policy, state, timestamp_epoch)
+    state.last_exit_code = exit_code
+    state.last_exit_timestamp = timestamp_epoch
 
     if exit_code == 0:
       state.consecutive_failures = 0
       state.escalated = False
       state.cooldown_until = timestamp_epoch
+      state.last_action = "no_restart_needed"
       return {
           "service": service,
           "action": "no_restart_needed",
@@ -128,6 +136,8 @@ class ServiceRestartBudgetSupervisor:
 
     if len(state.restart_timestamps) >= policy.max_restarts:
       state.escalated = True
+      self.freeze_decision_count += 1
+      state.freeze_count += 1
       incident = RestartIncident(
           service=service,
           timestamp_epoch=timestamp_epoch,
@@ -141,6 +151,7 @@ class ServiceRestartBudgetSupervisor:
       )
       self.incidents.append(incident)
       state.cooldown_until = timestamp_epoch + policy.max_backoff_seconds
+      state.last_action = "freeze"
       return {
           "service": service,
           "action": "freeze",
@@ -156,6 +167,7 @@ class ServiceRestartBudgetSupervisor:
       state.escalated = True
     delay = self._compute_backoff(policy, state, timestamp_epoch)
     state.cooldown_until = timestamp_epoch + delay
+    state.last_action = "restart_after_backoff"
     return {
         "service": service,
         "action": "restart_after_backoff",
@@ -167,10 +179,99 @@ class ServiceRestartBudgetSupervisor:
         "escalated": 1 if state.escalated else 0,
     }
 
+  def _service_health(self, service: str, now_epoch: int) -> Dict[str, object]:
+    if service not in self.policies:
+      raise ValueError("unknown service")
+    policy = self.policies[service]
+    state = self.states[service]
+    self._prune_restart_window(policy, state, now_epoch)
+    restart_pressure = 0.0
+    if policy.max_restarts > 0:
+      restart_pressure = min(1.0, len(state.restart_timestamps) / policy.max_restarts)
+    cooldown_remaining = max(0, state.cooldown_until - now_epoch)
+    status = "healthy"
+    if state.last_action == "freeze":
+      status = "frozen"
+    elif state.escalated or restart_pressure >= 0.75 or cooldown_remaining > 0:
+      status = "degraded"
+    reason = "within_budget"
+    if status == "frozen":
+      reason = "restart_budget_exhausted"
+    elif state.escalated:
+      reason = "escalation_threshold_hit"
+    elif cooldown_remaining > 0:
+      reason = "backoff_cooldown_active"
+    elif restart_pressure >= 0.75:
+      reason = "restart_budget_pressure"
+    return {
+        "service": service,
+        "status": status,
+        "reason": reason,
+        "restart_pressure": round(restart_pressure, 4),
+        "cooldown_remaining_seconds": cooldown_remaining,
+        "window_failures": len(state.restart_timestamps),
+        "consecutive_failures": state.consecutive_failures,
+        "escalated": 1 if state.escalated else 0,
+        "freeze_count": state.freeze_count,
+        "last_exit_code": state.last_exit_code,
+        "last_exit_timestamp": state.last_exit_timestamp,
+        "last_action": state.last_action,
+    }
+
+  def health_probe_json(self, now_epoch: int) -> str:
+    probes = [self._service_health(service, now_epoch) for service in sorted(self.policies.keys())]
+    unhealthy = sum(1 for p in probes if p["status"] in {"degraded", "frozen"})
+    payload = {
+        "schema_version": 1,
+        "timestamp_epoch": now_epoch,
+        "service_count": len(probes),
+        "unhealthy_count": unhealthy,
+        "healthy_count": len(probes) - unhealthy,
+        "global_status": "healthy" if unhealthy == 0 else "degraded",
+        "services": probes,
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+  def metrics_export_json(self, now_epoch: int) -> str:
+    probes = [self._service_health(service, now_epoch) for service in sorted(self.policies.keys())]
+    degraded = sum(1 for p in probes if p["status"] == "degraded")
+    frozen = sum(1 for p in probes if p["status"] == "frozen")
+    max_restart_pressure = max((float(p["restart_pressure"]) for p in probes), default=0.0)
+    availability_score = 1.0
+    if probes:
+      availability_score = max(0.0, 1.0 - ((degraded * 0.5 + frozen) / len(probes)))
+    payload = {
+        "schema_version": 1,
+        "timestamp_epoch": now_epoch,
+        "counters": {
+            "decision_count": self.decision_count,
+            "incident_count": len(self.incidents),
+            "freeze_decision_count": self.freeze_decision_count,
+            "degraded_service_count": degraded,
+            "frozen_service_count": frozen,
+        },
+        "gauges": {
+            "service_count": len(probes),
+            "max_restart_pressure": round(max_restart_pressure, 4),
+            "availability_score": round(availability_score, 4),
+        },
+        "services": [
+            {
+                "service": p["service"],
+                "status": p["status"],
+                "restart_pressure": p["restart_pressure"],
+                "cooldown_remaining_seconds": p["cooldown_remaining_seconds"],
+            }
+            for p in probes
+        ],
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
   def summary_json(self) -> str:
     payload = {
         "schema_version": 1,
         "decision_count": self.decision_count,
+        "freeze_decision_count": self.freeze_decision_count,
         "service_count": len(self.policies),
         "incident_count": len(self.incidents),
         "services": {
@@ -185,6 +286,10 @@ class ServiceRestartBudgetSupervisor:
                 "consecutive_failures": self.states[name].consecutive_failures,
                 "window_failures": len(self.states[name].restart_timestamps),
                 "escalated": 1 if self.states[name].escalated else 0,
+                "freeze_count": self.states[name].freeze_count,
+                "last_action": self.states[name].last_action,
+                "last_exit_code": self.states[name].last_exit_code,
+                "last_exit_timestamp": self.states[name].last_exit_timestamp,
             }
             for name, policy in self.policies.items()
         },

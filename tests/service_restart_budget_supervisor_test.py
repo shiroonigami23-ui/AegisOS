@@ -86,7 +86,37 @@ class ServiceRestartBudgetSupervisorTest(unittest.TestCase):
         self.assertEqual(payload["schema_version"], 1)
         self.assertGreaterEqual(payload["decision_count"], 3)
         self.assertEqual(payload["incident_count"], 1)
+        self.assertEqual(payload["freeze_decision_count"], 1)
         self.assertIn("network-agent", payload["services"])
+        self.assertEqual(payload["services"]["network-agent"]["last_action"], "freeze")
+
+    def test_health_probe_json_exposes_service_status(self):
+        self.supervisor.record_exit("ui-shell", exit_code=1, timestamp_epoch=1000)
+        self.supervisor.record_exit("network-agent", exit_code=1, timestamp_epoch=1000)
+        self.supervisor.record_exit("network-agent", exit_code=1, timestamp_epoch=1001)
+        self.supervisor.record_exit("network-agent", exit_code=1, timestamp_epoch=1002)
+        probe = json.loads(self.supervisor.health_probe_json(now_epoch=1003))
+        self.assertEqual(probe["schema_version"], 1)
+        self.assertEqual(probe["service_count"], 2)
+        self.assertGreaterEqual(probe["unhealthy_count"], 1)
+        services = {entry["service"]: entry for entry in probe["services"]}
+        self.assertIn(services["network-agent"]["status"], {"degraded", "frozen"})
+        self.assertIn("restart_pressure", services["ui-shell"])
+
+    def test_metrics_export_json_contains_ops_counters(self):
+        self.supervisor.record_exit("ui-shell", exit_code=1, timestamp_epoch=1200)
+        self.supervisor.record_exit("ui-shell", exit_code=1, timestamp_epoch=1202)
+        self.supervisor.record_exit("network-agent", exit_code=1, timestamp_epoch=1200)
+        self.supervisor.record_exit("network-agent", exit_code=1, timestamp_epoch=1201)
+        self.supervisor.record_exit("network-agent", exit_code=1, timestamp_epoch=1202)
+        metrics = json.loads(self.supervisor.metrics_export_json(now_epoch=1203))
+        self.assertEqual(metrics["schema_version"], 1)
+        self.assertIn("counters", metrics)
+        self.assertIn("gauges", metrics)
+        self.assertGreaterEqual(metrics["counters"]["decision_count"], 5)
+        self.assertGreaterEqual(metrics["counters"]["freeze_decision_count"], 1)
+        self.assertGreaterEqual(metrics["gauges"]["service_count"], 2)
+        self.assertGreaterEqual(metrics["gauges"]["max_restart_pressure"], 0.0)
 
     def test_manifest_validation_rejects_bad_shapes(self):
         with self.assertRaises(ValueError):
