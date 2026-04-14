@@ -271,8 +271,44 @@ static int test_scheduler_turbo_mode_latency_optimization(void) {
   if (aegis_scheduler_turbo_state_json(&turbo, turbo_json, sizeof(turbo_json)) <= 0 ||
       strstr(turbo_json, "\"schema_version\":1") == 0 ||
       strstr(turbo_json, "\"dispatch_strategy\":1") == 0 ||
+      strstr(turbo_json, "\"turbo_autotune_enabled\":1") == 0 ||
       strstr(turbo_json, "\"turbo_last_pid\":3003") == 0) {
     fprintf(stderr, "turbo state json mismatch: %s\n", turbo_json);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_scheduler_turbo_autotuner_adjusts_weights(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0u;
+  uint8_t switched = 0u;
+  char turbo_json[256];
+  int i;
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_enable_turbo(&scheduler, 1u);
+  aegis_scheduler_enable_turbo_autotune(&scheduler, 1u, 4u);
+  aegis_scheduler_set_turbo_weights(&scheduler, 2u, 4u);
+  if (aegis_scheduler_add_with_priority(&scheduler, 4001u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 4002u, AEGIS_PRIORITY_LOW) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 4003u, AEGIS_PRIORITY_LOW) != 0) {
+    fprintf(stderr, "turbo autotuner setup add failed\n");
+    return 1;
+  }
+  for (i = 0; i < 20; ++i) {
+    if (aegis_scheduler_on_tick(&scheduler, &pid, &switched) != 0) {
+      fprintf(stderr, "turbo autotuner tick failed\n");
+      return 1;
+    }
+  }
+  if (scheduler.turbo_autotune_adjustments == 0u) {
+    fprintf(stderr, "turbo autotuner expected at least one weight adjustment\n");
+    return 1;
+  }
+  if (aegis_scheduler_turbo_state_json(&scheduler, turbo_json, sizeof(turbo_json)) <= 0 ||
+      strstr(turbo_json, "\"turbo_autotune_adjustments\":") == 0 ||
+      strstr(turbo_json, "\"turbo_autotune_interval_ticks\":4") == 0) {
+    fprintf(stderr, "turbo autotuner state json mismatch: %s\n", turbo_json);
     return 1;
   }
   return 0;
@@ -1342,6 +1378,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_turbo_mode_latency_optimization() != 0) {
+    return 1;
+  }
+  if (test_scheduler_turbo_autotuner_adjusts_weights() != 0) {
     return 1;
   }
   if (test_scheduler_aging_boost_fairness() != 0) {

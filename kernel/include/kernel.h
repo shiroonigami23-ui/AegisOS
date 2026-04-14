@@ -63,6 +63,10 @@ typedef struct {
   uint8_t dispatch_strategy;
   uint8_t turbo_wait_weight;
   uint8_t turbo_priority_weight;
+  uint8_t turbo_autotune_enabled;
+  uint32_t turbo_autotune_interval_ticks;
+  uint64_t turbo_autotune_last_tick;
+  uint64_t turbo_autotune_adjustments;
   uint32_t turbo_last_pid;
   size_t count;
   size_t head;
@@ -332,6 +336,12 @@ int aegis_scheduler_dispatch_count_for(const aegis_scheduler_t *scheduler, uint3
 void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler);
 void aegis_scheduler_set_quantum(aegis_scheduler_t *scheduler, uint32_t quantum_ticks);
 void aegis_scheduler_enable_turbo(aegis_scheduler_t *scheduler, uint8_t enabled);
+void aegis_scheduler_set_turbo_weights(aegis_scheduler_t *scheduler,
+                                       uint8_t wait_weight,
+                                       uint8_t priority_weight);
+void aegis_scheduler_enable_turbo_autotune(aegis_scheduler_t *scheduler,
+                                           uint8_t enabled,
+                                           uint32_t interval_ticks);
 int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *out, size_t out_size);
 int aegis_scheduler_on_tick(aegis_scheduler_t *scheduler, uint32_t *running_pid,
                             uint8_t *context_switch);
