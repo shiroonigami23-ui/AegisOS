@@ -595,6 +595,11 @@ static int test_namespace_isolation_simulator(void) {
     fprintf(stderr, "local->global translation failed\n");
     return 1;
   }
+  if (aegis_namespace_translate_local_to_global(&table, ns_a, local_a, &global) != 0 ||
+      global != 6001u) {
+    fprintf(stderr, "local->global translation cache hit path failed\n");
+    return 1;
+  }
   if (aegis_namespace_translate_global_to_local(&table, ns_b, 6002u, &local_roundtrip) != 0 ||
       local_roundtrip != local_b) {
     fprintf(stderr, "global->local translation failed\n");
@@ -611,6 +616,8 @@ static int test_namespace_isolation_simulator(void) {
   if (aegis_namespace_snapshot_json(&table, json, sizeof(json)) <= 0 ||
       strstr(json, "\"namespace_count\":3") == 0 ||
       strstr(json, "\"process_count\":2") == 0 ||
+      strstr(json, "\"lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"process_id\":6001") == 0 ||
       strstr(json, "\"process_id\":6002") == 0) {
     fprintf(stderr, "namespace snapshot missing expected fields: %s\n", json);

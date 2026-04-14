@@ -33,6 +33,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - includes JSON serializers for metrics snapshots and wait-report snapshots.
   - includes tick-based wait-time and last-latency counters per process.
   - includes aggregate wait report (`mean`, `p95`, `max`) for tuning and diagnostics.
+  - wait-report percentile path now uses selection-based computation to reduce metrics overhead.
   - includes wait-report snapshot endpoint with capture tick and queue metadata.
 - `aegis_process_checkpoint_table_t`: process checkpoint capture/restore for recovery workflows.
   - supports process runtime registration and per-reason checkpoint capture.
@@ -45,3 +46,6 @@ Kernel direction, interfaces, and implementation notes live here.
 - `aegis_ipc_channel_table_t` and `aegis_memory_zone_table_t`:
   - include lookup-cache fast paths for hot channel/zone IDs.
   - expose lookup-cache hit/miss telemetry in JSON snapshots.
+- `aegis_namespace_table_t`:
+  - includes lookup-cache fast paths for local/global pid translation.
+  - exposes lookup-cache hit/miss telemetry in namespace snapshot JSON.

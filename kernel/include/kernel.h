@@ -345,6 +345,13 @@ typedef struct {
   uint32_t next_namespace_id;
   size_t namespace_count;
   size_t process_count;
+  uint32_t lookup_cache_namespace_id;
+  uint32_t lookup_cache_process_id;
+  uint32_t lookup_cache_local_pid;
+  uint16_t lookup_cache_index;
+  uint8_t lookup_cache_valid;
+  uint64_t lookup_cache_hits;
+  uint64_t lookup_cache_misses;
 } aegis_namespace_table_t;
 
 int aegis_kernel_boot_check(void);

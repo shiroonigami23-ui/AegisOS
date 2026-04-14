@@ -68,6 +68,7 @@ This repository contains:
 - Adaptive scheduler quantum autotuner for improved latency vs switch-overhead balance under load.
 - Scheduler admission/ready bitmaps + turbo candidate cache reuse for lower dispatch computation overhead.
 - IPC channel and memory zone lookup-cache fast paths to reduce hot-ID linear scan overhead.
+- Namespace translation lookup-cache and scheduler percentile-selection fast path for lower runtime metrics overhead.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 
