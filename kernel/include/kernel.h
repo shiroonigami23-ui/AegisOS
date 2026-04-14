@@ -43,7 +43,9 @@ typedef struct {
   uint8_t priorities[64];
   uint8_t credits[64];
   uint8_t admission_limits[4];
+  uint8_t priority_counts[4];
   uint64_t admission_drops[4];
+  uint16_t runnable_credit_count;
   uint8_t admission_profile_id;
   uint32_t dispatch_counts[64];
   uint64_t enqueued_tick[64];

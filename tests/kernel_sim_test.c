@@ -466,6 +466,28 @@ static int test_scheduler_admission_profile_name_resolver(void) {
   return 0;
 }
 
+static int test_scheduler_priority_count_tracking_after_reprioritize(void) {
+  aegis_scheduler_t scheduler;
+  char json[512];
+  aegis_scheduler_init(&scheduler);
+  if (aegis_scheduler_add_with_priority(&scheduler, 9701u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 9702u, AEGIS_PRIORITY_NORMAL) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 9703u, AEGIS_PRIORITY_LOW) != 0) {
+    fprintf(stderr, "priority count tracking add failed\n");
+    return 1;
+  }
+  if (aegis_scheduler_set_priority(&scheduler, 9702u, AEGIS_PRIORITY_HIGH) != 0) {
+    fprintf(stderr, "priority count tracking reprioritize failed\n");
+    return 1;
+  }
+  if (aegis_scheduler_admission_snapshot_json(&scheduler, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"counts\":{\"high\":2,\"normal\":0,\"low\":1}") == 0) {
+    fprintf(stderr, "priority count tracking snapshot mismatch: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_namespace_isolation_simulator(void) {
   aegis_namespace_table_t table;
   uint32_t ns_a = 0u;
@@ -1464,6 +1486,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_admission_profile_name_resolver() != 0) {
+    return 1;
+  }
+  if (test_scheduler_priority_count_tracking_after_reprioritize() != 0) {
     return 1;
   }
   if (test_namespace_isolation_simulator() != 0) {

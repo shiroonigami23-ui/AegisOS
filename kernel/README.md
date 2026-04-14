@@ -12,6 +12,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - supports fixed-size encode/decode and schema/payload validation checks.
   - includes payload-fit guard helper for max-frame enforcement.
 - `aegis_scheduler_t`: weighted round-robin scheduler with priority-aware dispatch.
+  - optimized hot-path dispatch bookkeeping with live `priority_counts` and `runnable_credit_count` counters to reduce full-queue scans.
   - includes optional `turbo` dispatch strategy that scores queue entries by priority + wait time for lower tail latency.
   - turbo mode retains fairness pressure by debiasing over-dispatched processes and preserving credit-based limits.
   - turbo mode includes adaptive weight autotuning to rebalance `priority` vs `wait` based on live latency telemetry.
