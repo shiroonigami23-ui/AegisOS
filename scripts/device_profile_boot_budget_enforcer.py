@@ -9,6 +9,7 @@ from typing import Dict, List
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "packages" / "profiles" / "boot-budget-policy.json"
 PROFILES_DIR = ROOT / "packages" / "profiles"
+THERMAL_STATES = {"nominal", "elevated", "throttled"}
 
 
 def _load_profile_package_count(profile_name: str) -> int:
@@ -63,14 +64,86 @@ def _percentile(sorted_values: List[float], pct: float) -> float:
   return sorted_values[lo] + (sorted_values[hi] - sorted_values[lo]) * (idx - lo)
 
 
+def _resolve_mode(battery_percent: float, thermal_state: str) -> str:
+  if thermal_state == "throttled":
+    return "thermal_throttled"
+  if battery_percent <= 20.0:
+    return "low_battery"
+  if thermal_state == "elevated":
+    return "thermal_elevated"
+  return "balanced"
+
+
+def _recommend_actions(mode: str, profile_name: str, boot_type: str) -> List[Dict[str, object]]:
+  actions: List[Dict[str, object]] = []
+  if mode == "thermal_throttled":
+    actions.extend([
+        {
+            "action": "defer_noncritical_services",
+            "estimated_savings_s": 1.2,
+            "priority": "high",
+        },
+        {
+            "action": "reduce_parallel_startup_fanout",
+            "estimated_savings_s": 0.7,
+            "priority": "high",
+        },
+        {
+            "action": "enable_service_checkpoint_resume",
+            "estimated_savings_s": 0.4,
+            "priority": "medium",
+        },
+    ])
+  elif mode in {"low_battery", "thermal_elevated"}:
+    actions.extend([
+        {
+            "action": "switch_to_low_power_boot_profile",
+            "estimated_savings_s": 0.9,
+            "priority": "high",
+        },
+        {
+            "action": "delay_background_indexers",
+            "estimated_savings_s": 0.5,
+            "priority": "medium",
+        },
+    ])
+    if boot_type == "cold":
+      actions.append({
+          "action": "use_cached_driver_probe_results",
+          "estimated_savings_s": 0.3,
+          "priority": "medium",
+      })
+  if profile_name == "developer":
+    actions.append({
+        "action": "defer_optional_dev_tooling_units",
+        "estimated_savings_s": 0.6,
+        "priority": "medium",
+    })
+  return actions
+
+
+def _mode_budget_adjustment(mode: str) -> float:
+  if mode == "thermal_throttled":
+    return -1.2
+  if mode in {"low_battery", "thermal_elevated"}:
+    return -0.6
+  return 0.0
+
+
 def evaluate_boot_samples(profile_name: str,
                           boot_type: str,
                           samples_seconds: List[float],
+                          battery_percent: float = 100.0,
+                          thermal_state: str = "nominal",
                           policy: Dict[str, object] | None = None) -> Dict[str, object]:
   if policy is None:
     policy = load_budget_policy()
   if boot_type not in {"cold", "warm"}:
     raise ValueError("boot_type must be 'cold' or 'warm'")
+  if not isinstance(battery_percent, (int, float)) or battery_percent < 0 or battery_percent > 100:
+    raise ValueError("battery_percent must be in [0, 100]")
+  if thermal_state not in THERMAL_STATES:
+    raise ValueError(f"thermal_state must be one of {sorted(THERMAL_STATES)}")
   profiles = policy["profiles"]
   if profile_name not in profiles:
     raise ValueError(f"unknown profile: {profile_name}")
@@ -84,8 +157,10 @@ def evaluate_boot_samples(profile_name: str,
   budget_key = "cold_boot_budget_s" if boot_type == "cold" else "warm_boot_budget_s"
   budget = float(profiles[profile_name][budget_key])
   pkg_count = _load_profile_package_count(profile_name)
-  # Small dynamic slack to avoid false positives for heavier package compositions.
-  adjusted_budget = budget + max(0.0, (pkg_count - 5) * 0.15)
+  mode = _resolve_mode(float(battery_percent), thermal_state)
+  # Dynamic slack for heavier package compositions, plus mode pressure for thermal/battery constraints.
+  adjusted_budget = budget + max(0.0, (pkg_count - 5) * 0.15) + _mode_budget_adjustment(mode)
+  adjusted_budget = max(1.0, adjusted_budget)
   sorted_samples = sorted(samples)
   mean = sum(samples) / len(samples)
   p95 = _percentile(sorted_samples, 0.95)
@@ -99,10 +174,15 @@ def evaluate_boot_samples(profile_name: str,
       severity = "critical"
     else:
       severity = "warning"
+  recommendations = _recommend_actions(mode, profile_name, boot_type) if status == "fail" else []
+  estimated_recovery = round(sum(float(item["estimated_savings_s"]) for item in recommendations), 3)
   return {
       "schema_version": 1,
       "profile": profile_name,
       "boot_type": boot_type,
+      "power_mode": mode,
+      "battery_percent": round(float(battery_percent), 2),
+      "thermal_state": thermal_state,
       "sample_count": len(samples),
       "package_count": pkg_count,
       "base_budget_seconds": budget,
@@ -114,6 +194,8 @@ def evaluate_boot_samples(profile_name: str,
       "pass_rate": round(pass_rate, 4),
       "status": status,
       "severity": severity,
+      "optimizer_recommendations": recommendations,
+      "estimated_recovery_seconds": estimated_recovery,
       "recommendation": (
           "trim startup services and parallelize critical path"
           if status == "fail"
@@ -141,6 +223,8 @@ def evaluate_batch(batch_payload: Dict[str, object],
         profile_name=str(run.get("profile", "")),
         boot_type=str(run.get("boot_type", "")),
         samples_seconds=list(run.get("samples_seconds", [])),
+        battery_percent=float(run.get("battery_percent", 100.0)),
+        thermal_state=str(run.get("thermal_state", "nominal")),
         policy=policy,
     )
     reports.append(report)
@@ -170,6 +254,13 @@ def parse_args() -> argparse.Namespace:
   parser.add_argument("--boot-type", choices=["cold", "warm"], help="Boot type")
   parser.add_argument("--samples", help="Comma-separated sample seconds, e.g. 8.2,9.1,7.9")
   parser.add_argument("--batch-json", help="Path to batch input JSON")
+  parser.add_argument("--battery-percent", type=float, default=100.0, help="Battery percent [0-100]")
+  parser.add_argument(
+      "--thermal-state",
+      choices=sorted(THERMAL_STATES),
+      default="nominal",
+      help="Thermal state hint for optimizer",
+  )
   return parser.parse_args()
 
 
@@ -186,6 +277,8 @@ def main() -> int:
         profile_name=args.profile,
         boot_type=args.boot_type,
         samples_seconds=_parse_samples_arg(args.samples),
+        battery_percent=args.battery_percent,
+        thermal_state=args.thermal_state,
         policy=policy,
     )
   print(json.dumps(report, separators=(",", ":")))

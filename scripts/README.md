@@ -16,7 +16,7 @@ Helper scripts for local development and automation live here.
 - `low_resource_profile_advisor.py`: recommends package profile by CPU/RAM class with rationale, tuning advice, and profile-manifest package preview JSON output.
 - `compat_runtime_allowlist.py`: compatibility runtime syscall allowlist scaffold with per-runtime counters and violation log export.
 - `telemetry_redaction_engine.py`: redacts sensitive fields from logs/metrics/traces and emits redaction summary telemetry.
-- `device_profile_boot_budget_enforcer.py`: enforces per-profile cold/warm boot budgets and emits pass/fail severity reports.
+- `device_profile_boot_budget_enforcer.py`: enforces per-profile cold/warm boot budgets and emits pass/fail severity reports with low-battery/thermal mode optimizer recommendations.
 - `installer_bootstrap_state_machine.py`: installer bootstrap state machine with recovery paths and attestation hook gating.
 - `package_repo_delta_apply_simulator.py`: simulates delta apply with digest validation and full-package fallback path.
 - `security_key_rotation_schedule_enforcer.py`: evaluates key age against rotation policy and emits warning/critical reports.

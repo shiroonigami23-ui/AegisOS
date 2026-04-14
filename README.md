@@ -61,7 +61,7 @@ This repository contains:
 - Compatibility runtime syscall allowlist scaffold with violation log export.
 - Delta update manifest schema validation (payload digest, base version, and fallback digest).
 - Telemetry privacy redaction engine for logs, metrics, and trace exports.
-- Device-profile boot budget enforcer with severity reporting for CI gates.
+- Device-profile boot budget enforcer with low-battery/thermal optimizer recommendations for CI gates.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 
