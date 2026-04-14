@@ -241,6 +241,43 @@ static int test_scheduler_priority_weighting(void) {
   return 0;
 }
 
+static int test_scheduler_turbo_mode_latency_optimization(void) {
+  aegis_scheduler_t rr;
+  aegis_scheduler_t turbo;
+  uint32_t rr_pid = 0u;
+  uint32_t turbo_pid = 0u;
+  char turbo_json[256];
+  aegis_scheduler_init(&rr);
+  if (aegis_scheduler_add_with_priority(&rr, 3001u, AEGIS_PRIORITY_LOW) != 0 ||
+      aegis_scheduler_add_with_priority(&rr, 3002u, AEGIS_PRIORITY_NORMAL) != 0 ||
+      aegis_scheduler_add_with_priority(&rr, 3003u, AEGIS_PRIORITY_HIGH) != 0) {
+    fprintf(stderr, "turbo mode setup add failed\n");
+    return 1;
+  }
+  rr.scheduler_ticks = 100u;
+  rr.enqueued_tick[0] = 99u;
+  rr.enqueued_tick[1] = 96u;
+  rr.enqueued_tick[2] = 90u;
+  turbo = rr;
+  aegis_scheduler_enable_turbo(&turbo, 1u);
+  if (aegis_scheduler_next(&rr, &rr_pid) != 0 || rr_pid != 3001u) {
+    fprintf(stderr, "round-robin baseline expected to dispatch pid 3001 first\n");
+    return 1;
+  }
+  if (aegis_scheduler_next(&turbo, &turbo_pid) != 0 || turbo_pid != 3003u) {
+    fprintf(stderr, "turbo mode expected to prioritize high-wait/high-priority pid 3003\n");
+    return 1;
+  }
+  if (aegis_scheduler_turbo_state_json(&turbo, turbo_json, sizeof(turbo_json)) <= 0 ||
+      strstr(turbo_json, "\"schema_version\":1") == 0 ||
+      strstr(turbo_json, "\"dispatch_strategy\":1") == 0 ||
+      strstr(turbo_json, "\"turbo_last_pid\":3003") == 0) {
+    fprintf(stderr, "turbo state json mismatch: %s\n", turbo_json);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_scheduler_aging_boost_fairness(void) {
   aegis_scheduler_t scheduler;
   uint32_t pid = 0;
@@ -1302,6 +1339,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_priority_weighting() != 0) {
+    return 1;
+  }
+  if (test_scheduler_turbo_mode_latency_optimization() != 0) {
     return 1;
   }
   if (test_scheduler_aging_boost_fairness() != 0) {

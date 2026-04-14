@@ -60,6 +60,10 @@ typedef struct {
   uint32_t reason_switch_window_count;
   uint32_t quantum_ticks;
   uint32_t quantum_remaining;
+  uint8_t dispatch_strategy;
+  uint8_t turbo_wait_weight;
+  uint8_t turbo_priority_weight;
+  uint32_t turbo_last_pid;
   size_t count;
   size_t head;
 } aegis_scheduler_t;
@@ -114,6 +118,11 @@ typedef enum {
   AEGIS_SWITCH_PROCESS_EXIT = 3,
   AEGIS_SWITCH_MANUAL_YIELD = 4
 } aegis_scheduler_switch_reason_t;
+
+typedef enum {
+  AEGIS_SCHED_STRATEGY_ROUND_ROBIN = 0,
+  AEGIS_SCHED_STRATEGY_TURBO = 1
+} aegis_scheduler_dispatch_strategy_t;
 
 typedef enum {
   AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM = 0,
@@ -322,6 +331,8 @@ int aegis_scheduler_dispatch_count_for(const aegis_scheduler_t *scheduler, uint3
                                        uint32_t *dispatch_count);
 void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler);
 void aegis_scheduler_set_quantum(aegis_scheduler_t *scheduler, uint32_t quantum_ticks);
+void aegis_scheduler_enable_turbo(aegis_scheduler_t *scheduler, uint8_t enabled);
+int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *out, size_t out_size);
 int aegis_scheduler_on_tick(aegis_scheduler_t *scheduler, uint32_t *running_pid,
                             uint8_t *context_switch);
 int aegis_scheduler_on_tick_ex(aegis_scheduler_t *scheduler, uint32_t *running_pid,
