@@ -669,13 +669,23 @@ static int test_syscall_capability_gate_matrix(void) {
     fprintf(stderr, "expected syscall deny for missing rule\n");
     return 1;
   }
+  if (aegis_syscall_gate_check(&matrix, 7001u, 100u, 1u, &allowed) != 1 || allowed != 1u) {
+    fprintf(stderr, "expected cached syscall 100 allow for process 7001\n");
+    return 1;
+  }
+  if (aegis_syscall_gate_check(&matrix, 7002u, 200u, 1u, &allowed) != 0 || allowed != 0u) {
+    fprintf(stderr, "expected cached syscall 200 deny missing capability\n");
+    return 1;
+  }
   if (aegis_syscall_gate_snapshot_json(&matrix, json, sizeof(json)) <= 0 ||
       strstr(json, "\"schema_version\":1") == 0 ||
-      strstr(json, "\"allow_count\":1") == 0 ||
+      strstr(json, "\"allow_count\":2") == 0 ||
       strstr(json, "\"deny_missing_rule_count\":1") == 0 ||
       strstr(json, "\"deny_missing_process_count\":1") == 0 ||
-      strstr(json, "\"deny_missing_capability_count\":1") == 0 ||
+      strstr(json, "\"deny_missing_capability_count\":2") == 0 ||
       strstr(json, "\"deny_policy_gate_count\":1") == 0 ||
+      strstr(json, "\"decision_cache_hits\":1") == 0 ||
+      strstr(json, "\"decision_cache_misses\":6") == 0 ||
       strstr(json, "\"syscall_id\":100") == 0 ||
       strstr(json, "\"process_id\":7001") == 0) {
     fprintf(stderr, "syscall gate snapshot mismatch: %s\n", json);

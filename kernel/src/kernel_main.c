@@ -1938,6 +1938,42 @@ static int syscall_rule_find_index(const aegis_syscall_gate_matrix_t *matrix,
   return 0;
 }
 
+static uint8_t syscall_gate_decision_reason(const aegis_syscall_gate_matrix_t *matrix,
+                                            uint32_t process_id,
+                                            uint16_t syscall_id,
+                                            uint8_t policy_gate_allowed) {
+  size_t rule_index = 0u;
+  size_t proc_index = 0u;
+  uint32_t required_caps = 0u;
+  if (!syscall_rule_find_index(matrix, syscall_id, &rule_index)) {
+    return 1u;
+  }
+  if (!syscall_process_find_index(matrix, process_id, &proc_index)) {
+    return 2u;
+  }
+  if (matrix->rules[rule_index].policy_gate_required != 0u && policy_gate_allowed == 0u) {
+    return 4u;
+  }
+  required_caps = matrix->rules[rule_index].required_capability;
+  if (required_caps != 0u &&
+      (matrix->process_caps[proc_index].granted_capabilities & required_caps) != required_caps) {
+    return 3u;
+  }
+  return 0u;
+}
+
+static size_t syscall_gate_cache_index(uint32_t process_id, uint16_t syscall_id, uint8_t policy_gate_allowed) {
+  uint32_t mix = process_id ^ ((uint32_t)syscall_id << 8) ^ ((uint32_t)policy_gate_allowed << 1);
+  return (size_t)(mix % AEGIS_SYSCALL_DECISION_CACHE_CAPACITY);
+}
+
+static void syscall_gate_cache_invalidate(aegis_syscall_gate_matrix_t *matrix) {
+  if (matrix == 0) {
+    return;
+  }
+  matrix->decision_cache_generation += 1u;
+}
+
 void aegis_syscall_gate_matrix_init(aegis_syscall_gate_matrix_t *matrix) {
   size_t i;
   if (matrix == 0) {
@@ -1955,11 +1991,23 @@ void aegis_syscall_gate_matrix_init(aegis_syscall_gate_matrix_t *matrix) {
     matrix->rules[i].policy_gate_required = 0u;
     matrix->rules[i].active = 0u;
   }
+  for (i = 0; i < AEGIS_SYSCALL_DECISION_CACHE_CAPACITY; ++i) {
+    matrix->decision_cache[i].process_id = 0u;
+    matrix->decision_cache[i].syscall_id = 0u;
+    matrix->decision_cache[i].policy_gate_allowed = 0u;
+    matrix->decision_cache[i].allowed = 0u;
+    matrix->decision_cache[i].deny_reason = 0u;
+    matrix->decision_cache[i].generation = 0u;
+    matrix->decision_cache[i].active = 0u;
+  }
   matrix->allow_count = 0u;
   matrix->deny_missing_rule_count = 0u;
   matrix->deny_missing_process_count = 0u;
   matrix->deny_missing_capability_count = 0u;
   matrix->deny_policy_gate_count = 0u;
+  matrix->decision_cache_hits = 0u;
+  matrix->decision_cache_misses = 0u;
+  matrix->decision_cache_generation = 1u;
 }
 
 int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
@@ -1972,6 +2020,7 @@ int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
   }
   if (syscall_process_find_index(matrix, process_id, &existing)) {
     matrix->process_caps[existing].granted_capabilities = granted_capabilities;
+    syscall_gate_cache_invalidate(matrix);
     return 0;
   }
   for (i = 0; i < AEGIS_SYSCALL_GATE_CAPACITY; ++i) {
@@ -1981,6 +2030,7 @@ int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
     matrix->process_caps[i].process_id = process_id;
     matrix->process_caps[i].granted_capabilities = granted_capabilities;
     matrix->process_caps[i].active = 1u;
+    syscall_gate_cache_invalidate(matrix);
     return 0;
   }
   return -1;
@@ -1997,6 +2047,7 @@ int aegis_syscall_gate_remove_process(aegis_syscall_gate_matrix_t *matrix, uint3
   matrix->process_caps[existing].active = 0u;
   matrix->process_caps[existing].process_id = 0u;
   matrix->process_caps[existing].granted_capabilities = 0u;
+  syscall_gate_cache_invalidate(matrix);
   return 0;
 }
 
@@ -2017,6 +2068,7 @@ int aegis_syscall_gate_set_rule(aegis_syscall_gate_matrix_t *matrix,
     matrix->rules[existing].syscall_class = syscall_class;
     matrix->rules[existing].required_capability = required_capability;
     matrix->rules[existing].policy_gate_required = policy_gate_required != 0u ? 1u : 0u;
+    syscall_gate_cache_invalidate(matrix);
     return 0;
   }
   for (i = 0; i < AEGIS_SYSCALL_RULE_CAPACITY; ++i) {
@@ -2028,6 +2080,7 @@ int aegis_syscall_gate_set_rule(aegis_syscall_gate_matrix_t *matrix,
     matrix->rules[i].required_capability = required_capability;
     matrix->rules[i].policy_gate_required = policy_gate_required != 0u ? 1u : 0u;
     matrix->rules[i].active = 1u;
+    syscall_gate_cache_invalidate(matrix);
     return 0;
   }
   return -1;
@@ -2038,29 +2091,60 @@ int aegis_syscall_gate_check(aegis_syscall_gate_matrix_t *matrix,
                              uint16_t syscall_id,
                              uint8_t policy_gate_allowed,
                              uint8_t *allowed_out) {
-  size_t rule_index = 0u;
-  size_t proc_index = 0u;
-  uint32_t required_caps;
+  size_t cache_idx = 0u;
+  aegis_syscall_decision_cache_entry_t *cache_entry = 0;
+  uint8_t reason = 0u;
   if (matrix == 0 || process_id == 0u || syscall_id == 0u || allowed_out == 0) {
     return -1;
   }
   *allowed_out = 0u;
-  if (!syscall_rule_find_index(matrix, syscall_id, &rule_index)) {
+  cache_idx = syscall_gate_cache_index(process_id, syscall_id, policy_gate_allowed != 0u ? 1u : 0u);
+  cache_entry = &matrix->decision_cache[cache_idx];
+  if (cache_entry->active != 0u &&
+      cache_entry->generation == matrix->decision_cache_generation &&
+      cache_entry->process_id == process_id &&
+      cache_entry->syscall_id == syscall_id &&
+      cache_entry->policy_gate_allowed == (policy_gate_allowed != 0u ? 1u : 0u)) {
+    matrix->decision_cache_hits += 1u;
+    if (cache_entry->allowed != 0u) {
+      matrix->allow_count += 1u;
+      *allowed_out = 1u;
+      return 1;
+    }
+    if (cache_entry->deny_reason == 1u) {
+      matrix->deny_missing_rule_count += 1u;
+    } else if (cache_entry->deny_reason == 2u) {
+      matrix->deny_missing_process_count += 1u;
+    } else if (cache_entry->deny_reason == 3u) {
+      matrix->deny_missing_capability_count += 1u;
+    } else if (cache_entry->deny_reason == 4u) {
+      matrix->deny_policy_gate_count += 1u;
+    }
+    return 0;
+  }
+  matrix->decision_cache_misses += 1u;
+  reason = syscall_gate_decision_reason(matrix, process_id, syscall_id, policy_gate_allowed);
+  cache_entry->process_id = process_id;
+  cache_entry->syscall_id = syscall_id;
+  cache_entry->policy_gate_allowed = policy_gate_allowed != 0u ? 1u : 0u;
+  cache_entry->allowed = reason == 0u ? 1u : 0u;
+  cache_entry->deny_reason = reason;
+  cache_entry->generation = matrix->decision_cache_generation;
+  cache_entry->active = 1u;
+  if (reason == 1u) {
     matrix->deny_missing_rule_count += 1u;
     return 0;
   }
-  if (!syscall_process_find_index(matrix, process_id, &proc_index)) {
+  if (reason == 2u) {
     matrix->deny_missing_process_count += 1u;
     return 0;
   }
-  if (matrix->rules[rule_index].policy_gate_required != 0u && policy_gate_allowed == 0u) {
-    matrix->deny_policy_gate_count += 1u;
+  if (reason == 3u) {
+    matrix->deny_missing_capability_count += 1u;
     return 0;
   }
-  required_caps = matrix->rules[rule_index].required_capability;
-  if (required_caps != 0u &&
-      (matrix->process_caps[proc_index].granted_capabilities & required_caps) != required_caps) {
-    matrix->deny_missing_capability_count += 1u;
+  if (reason == 4u) {
+    matrix->deny_policy_gate_count += 1u;
     return 0;
   }
   matrix->allow_count += 1u;
@@ -2084,12 +2168,15 @@ int aegis_syscall_gate_snapshot_json(const aegis_syscall_gate_matrix_t *matrix,
                      "{\"schema_version\":1,\"allow_count\":%llu,"
                      "\"deny_missing_rule_count\":%llu,\"deny_missing_process_count\":%llu,"
                      "\"deny_missing_capability_count\":%llu,\"deny_policy_gate_count\":%llu,"
+                     "\"decision_cache_hits\":%llu,\"decision_cache_misses\":%llu,"
                      "\"rules\":[",
                      (unsigned long long)matrix->allow_count,
                      (unsigned long long)matrix->deny_missing_rule_count,
                      (unsigned long long)matrix->deny_missing_process_count,
                      (unsigned long long)matrix->deny_missing_capability_count,
-                     (unsigned long long)matrix->deny_policy_gate_count);
+                     (unsigned long long)matrix->deny_policy_gate_count,
+                     (unsigned long long)matrix->decision_cache_hits,
+                     (unsigned long long)matrix->decision_cache_misses);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }

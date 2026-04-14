@@ -39,3 +39,6 @@ Kernel direction, interfaces, and implementation notes live here.
   - supports checkpoint restore with epoch verification and failure counters.
   - exposes snapshot JSON endpoint with entry-level checkpoint metadata.
   - supports disk-backed journal save and boot-time replay for crash recovery.
+- `aegis_syscall_gate_matrix_t`: syscall capability enforcement matrix.
+  - includes decision-cache fast path for hot process/syscall pairs.
+  - preserves deny-reason counters while reducing repeated linear scans.

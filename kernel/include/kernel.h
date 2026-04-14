@@ -12,6 +12,7 @@
 #define AEGIS_NAMESPACE_PROCESS_CAPACITY 256u
 #define AEGIS_SYSCALL_GATE_CAPACITY 128u
 #define AEGIS_SYSCALL_RULE_CAPACITY 64u
+#define AEGIS_SYSCALL_DECISION_CACHE_CAPACITY 64u
 #define AEGIS_IPC_CHANNEL_CAPACITY 64u
 #define AEGIS_MEMORY_ZONE_CAPACITY 16u
 #define AEGIS_PROCESS_CHECKPOINT_CAPACITY 128u
@@ -176,13 +177,27 @@ typedef struct {
 } aegis_syscall_rule_t;
 
 typedef struct {
+  uint32_t process_id;
+  uint16_t syscall_id;
+  uint8_t policy_gate_allowed;
+  uint8_t allowed;
+  uint8_t deny_reason;
+  uint32_t generation;
+  uint8_t active;
+} aegis_syscall_decision_cache_entry_t;
+
+typedef struct {
   aegis_syscall_process_caps_t process_caps[AEGIS_SYSCALL_GATE_CAPACITY];
   aegis_syscall_rule_t rules[AEGIS_SYSCALL_RULE_CAPACITY];
+  aegis_syscall_decision_cache_entry_t decision_cache[AEGIS_SYSCALL_DECISION_CACHE_CAPACITY];
   uint64_t allow_count;
   uint64_t deny_missing_rule_count;
   uint64_t deny_missing_process_count;
   uint64_t deny_missing_capability_count;
   uint64_t deny_policy_gate_count;
+  uint64_t decision_cache_hits;
+  uint64_t decision_cache_misses;
+  uint32_t decision_cache_generation;
 } aegis_syscall_gate_matrix_t;
 
 typedef struct {

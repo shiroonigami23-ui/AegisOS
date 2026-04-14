@@ -54,7 +54,7 @@ This repository contains:
 - Scheduler admission control primitives with per-priority limits, drop counters, and JSON snapshots.
 - Namespace isolation simulator with local/global PID translation and visibility checks.
 - Atomic update rollback-index monotonic guard store with tamper-checked persistence.
-- Syscall capability gate matrix scaffold with enforcement counters and JSON snapshot.
+- Syscall capability gate matrix with decision-cache fast path, enforcement counters, and JSON snapshot.
 - IPC channel quota/backpressure simulator with inflight accounting and drop metrics.
 - Memory zone accounting with reclaim hooks and low-memory deny telemetry.
 - Update release channel pinning policy with downgrade rejection guardrails.
