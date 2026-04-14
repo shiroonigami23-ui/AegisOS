@@ -63,6 +63,7 @@ This repository contains:
 - Telemetry privacy redaction engine for logs, metrics, and trace exports.
 - Device-profile boot budget enforcer with low-battery/thermal optimizer recommendations for CI gates.
 - Service restart budget supervisor with health-probe and metrics-export JSON endpoints for ops dashboards.
+- Kernel checkpoint journal persistence + replay path for crash-recovery boot restore.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 

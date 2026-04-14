@@ -1296,6 +1296,77 @@ static int test_process_checkpoint_restore_scaffold(void) {
   return 0;
 }
 
+static int test_process_checkpoint_journal_persistence_and_replay(void) {
+  aegis_process_checkpoint_table_t source;
+  aegis_process_checkpoint_table_t replayed;
+  aegis_process_runtime_state_t runtime;
+  aegis_process_runtime_state_t restored;
+  aegis_process_checkpoint_entry_t entry;
+  uint64_t epoch = 0u;
+  const char *journal_path = "checkpoint_journal_test.log";
+  char json[4096];
+  memset(&runtime, 0, sizeof(runtime));
+  memset(&restored, 0, sizeof(restored));
+  memset(&entry, 0, sizeof(entry));
+  aegis_process_checkpoint_table_init(&source);
+  runtime.process_id = 12001u;
+  runtime.namespace_id = 44u;
+  runtime.thread_count = 6u;
+  runtime.vm_bytes = 96u * 1024u * 1024u;
+  runtime.capability_mask = 0x3Fu;
+  runtime.policy_revision = 19u;
+  runtime.scheduler_tick = 888u;
+  runtime.active = 1u;
+  if (aegis_process_checkpoint_register_runtime(&source, &runtime) != 0) {
+    fprintf(stderr, "checkpoint journal register runtime failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_capture(&source,
+                                       12001u,
+                                       AEGIS_CHECKPOINT_REASON_AUTOMATED_RECOVERY,
+                                       901u,
+                                       "crash-recovery",
+                                       &epoch) != 0 ||
+      epoch == 0u) {
+    fprintf(stderr, "checkpoint journal capture failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_journal_save(&source, journal_path) != 0) {
+    fprintf(stderr, "checkpoint journal save failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_journal_replay(&replayed, journal_path, 1u) != 0) {
+    fprintf(stderr, "checkpoint journal replay failed\n");
+    remove(journal_path);
+    return 1;
+  }
+  if (aegis_process_checkpoint_query(&replayed, 12001u, &entry) != 0 ||
+      entry.checkpoint_epoch != epoch ||
+      entry.state.vm_bytes != runtime.vm_bytes ||
+      strcmp(entry.tag, "crash-recovery") != 0) {
+    fprintf(stderr, "checkpoint journal replayed entry mismatch\n");
+    remove(journal_path);
+    return 1;
+  }
+  if (aegis_process_checkpoint_restore(&replayed, 12001u, epoch, &restored) != 0 ||
+      restored.process_id != runtime.process_id ||
+      restored.scheduler_tick != runtime.scheduler_tick) {
+    fprintf(stderr, "checkpoint journal replayed restore mismatch\n");
+    remove(journal_path);
+    return 1;
+  }
+  if (aegis_process_checkpoint_snapshot_json(&replayed, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"capture_count\":1") == 0 ||
+      strstr(json, "\"restore_count\":1") == 0 ||
+      strstr(json, "\"tag\":\"crash-recovery\"") == 0) {
+    fprintf(stderr, "checkpoint journal replay snapshot mismatch: %s\n", json);
+    remove(journal_path);
+    return 1;
+  }
+  remove(journal_path);
+  return 0;
+}
+
 static int test_secure_time_source_attestation(void) {
   aegis_secure_time_attestor_t attestor;
   aegis_secure_time_attestation_result_t result;
@@ -1438,6 +1509,9 @@ int main(void) {
     return 1;
   }
   if (test_process_checkpoint_restore_scaffold() != 0) {
+    return 1;
+  }
+  if (test_process_checkpoint_journal_persistence_and_replay() != 0) {
     return 1;
   }
   if (test_secure_time_source_attestation() != 0) {
