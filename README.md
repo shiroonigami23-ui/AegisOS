@@ -1,6 +1,6 @@
 # AegisOS
 
-Secure like iOS, lightweight and customizable like Linux, compatible like Windows, polished like macOS, and hardware-flexible like Android.
+Secure like iOS, lightweight and customizable like Linux, compatible like Windows, polished like macOS, and hardware-flexible like Android with adbanced and fastest kernel algorithm that supports att hardware lvl
 
 [![CI](https://github.com/shiroonigami23-ui/AegisOS/actions/workflows/ci.yml/badge.svg)](https://github.com/shiroonigami23-ui/AegisOS/actions/workflows/ci.yml)
 [![Docs](https://github.com/shiroonigami23-ui/AegisOS/actions/workflows/docs.yml/badge.svg)](https://github.com/shiroonigami23-ui/AegisOS/actions/workflows/docs.yml)
