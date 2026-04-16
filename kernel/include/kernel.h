@@ -96,6 +96,10 @@ typedef struct {
   uint8_t pid_lookup_cache_valid;
   uint64_t pid_lookup_cache_hits;
   uint64_t pid_lookup_cache_misses;
+  uint64_t bulk_apply_calls;
+  uint64_t bulk_ops_total;
+  uint64_t bulk_ops_succeeded;
+  uint64_t bulk_ops_failed;
   uint32_t turbo_last_pid;
   size_t count;
   size_t head;
@@ -158,11 +162,29 @@ typedef enum {
 } aegis_scheduler_dispatch_strategy_t;
 
 typedef enum {
+  AEGIS_SCHED_BULK_OP_ADD = 1,
+  AEGIS_SCHED_BULK_OP_REMOVE = 2,
+  AEGIS_SCHED_BULK_OP_SET_PRIORITY = 3
+} aegis_scheduler_bulk_op_code_t;
+
+typedef enum {
   AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM = 0,
   AEGIS_SCHED_ADMISSION_PROFILE_MINIMAL = 1,
   AEGIS_SCHED_ADMISSION_PROFILE_DESKTOP = 2,
   AEGIS_SCHED_ADMISSION_PROFILE_SERVER = 3
 } aegis_scheduler_admission_profile_t;
+
+typedef struct {
+  uint8_t operation;
+  uint32_t process_id;
+  uint8_t priority;
+} aegis_scheduler_bulk_op_t;
+
+typedef struct {
+  uint8_t operation;
+  uint32_t process_id;
+  int32_t status;
+} aegis_scheduler_bulk_result_t;
 
 typedef enum {
   AEGIS_SYSCALL_CLASS_FS = 1,
@@ -397,6 +419,12 @@ int aegis_scheduler_add_with_priority(aegis_scheduler_t *scheduler, uint32_t pro
                                       uint8_t priority);
 int aegis_scheduler_remove(aegis_scheduler_t *scheduler, uint32_t process_id);
 int aegis_scheduler_set_priority(aegis_scheduler_t *scheduler, uint32_t process_id, uint8_t priority);
+int aegis_scheduler_apply_batch(aegis_scheduler_t *scheduler,
+                                const aegis_scheduler_bulk_op_t *ops,
+                                size_t op_count,
+                                aegis_scheduler_bulk_result_t *results,
+                                size_t results_capacity,
+                                size_t *applied_count_out);
 int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id);
 size_t aegis_scheduler_count(const aegis_scheduler_t *scheduler);
 uint64_t aegis_scheduler_total_dispatches(const aegis_scheduler_t *scheduler);

@@ -464,6 +464,10 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
   if (strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"pid_lookup_cache_hits\":") == 0 ||
       strstr(json, "\"pid_lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"bulk_apply_calls\":") == 0 ||
+      strstr(json, "\"bulk_ops_total\":") == 0 ||
+      strstr(json, "\"bulk_ops_succeeded\":") == 0 ||
+      strstr(json, "\"bulk_ops_failed\":") == 0 ||
       strstr(json, "\"limits\":{\"high\":1,\"normal\":2,\"low\":1}") == 0 ||
       strstr(json, "\"counts\":{\"high\":1,\"normal\":2,\"low\":0}") == 0 ||
       strstr(json, "\"drops\":{\"high\":1,\"normal\":1,\"low\":0}") == 0) {
@@ -525,6 +529,61 @@ static int test_scheduler_admission_profile_name_resolver(void) {
   }
   if (aegis_scheduler_apply_admission_profile_name(&scheduler, "unknown") == 0) {
     fprintf(stderr, "unknown profile name should fail\n");
+    return 1;
+  }
+  return 0;
+}
+
+static int test_scheduler_bulk_apply_api_and_metrics(void) {
+  aegis_scheduler_t scheduler;
+  aegis_scheduler_bulk_op_t ops[6];
+  aegis_scheduler_bulk_result_t results[6];
+  char json[512];
+  size_t applied = 0u;
+  memset(ops, 0, sizeof(ops));
+  memset(results, 0, sizeof(results));
+  aegis_scheduler_init(&scheduler);
+  ops[0].operation = AEGIS_SCHED_BULK_OP_ADD;
+  ops[0].process_id = 3001u;
+  ops[0].priority = AEGIS_PRIORITY_NORMAL;
+  ops[1].operation = AEGIS_SCHED_BULK_OP_ADD;
+  ops[1].process_id = 3002u;
+  ops[1].priority = AEGIS_PRIORITY_HIGH;
+  ops[2].operation = AEGIS_SCHED_BULK_OP_SET_PRIORITY;
+  ops[2].process_id = 3001u;
+  ops[2].priority = AEGIS_PRIORITY_LOW;
+  ops[3].operation = AEGIS_SCHED_BULK_OP_REMOVE;
+  ops[3].process_id = 3002u;
+  ops[4].operation = 99u;
+  ops[4].process_id = 9999u;
+  ops[5].operation = AEGIS_SCHED_BULK_OP_REMOVE;
+  ops[5].process_id = 7777u;
+  if (aegis_scheduler_apply_batch(&scheduler, ops, 6u, results, 6u, &applied) != 0) {
+    fprintf(stderr, "scheduler bulk apply call failed\n");
+    return 1;
+  }
+  if (applied != 4u || scheduler.count != 1u || scheduler.process_ids[0] != 3001u) {
+    fprintf(stderr, "scheduler bulk apply state mismatch\n");
+    return 1;
+  }
+  if (scheduler.bulk_apply_calls != 1u ||
+      scheduler.bulk_ops_total != 6u ||
+      scheduler.bulk_ops_succeeded != 4u ||
+      scheduler.bulk_ops_failed != 2u) {
+    fprintf(stderr, "scheduler bulk apply counters mismatch\n");
+    return 1;
+  }
+  if (results[0].status != 0 || results[1].status != 0 || results[2].status != 0 ||
+      results[3].status != 0 || results[4].status == 0 || results[5].status == 0) {
+    fprintf(stderr, "scheduler bulk apply per-op result mismatch\n");
+    return 1;
+  }
+  if (aegis_scheduler_admission_snapshot_json(&scheduler, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"bulk_apply_calls\":1") == 0 ||
+      strstr(json, "\"bulk_ops_total\":6") == 0 ||
+      strstr(json, "\"bulk_ops_succeeded\":4") == 0 ||
+      strstr(json, "\"bulk_ops_failed\":2") == 0) {
+    fprintf(stderr, "scheduler bulk metrics snapshot mismatch: %s\n", json);
     return 1;
   }
   return 0;
@@ -1623,6 +1682,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_admission_profile_name_resolver() != 0) {
+    return 1;
+  }
+  if (test_scheduler_bulk_apply_api_and_metrics() != 0) {
     return 1;
   }
   if (test_scheduler_priority_count_tracking_after_reprioritize() != 0) {

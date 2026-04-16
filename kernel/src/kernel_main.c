@@ -627,6 +627,10 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->pid_lookup_cache_valid = 0u;
   scheduler->pid_lookup_cache_hits = 0u;
   scheduler->pid_lookup_cache_misses = 0u;
+  scheduler->bulk_apply_calls = 0u;
+  scheduler->bulk_ops_total = 0u;
+  scheduler->bulk_ops_succeeded = 0u;
+  scheduler->bulk_ops_failed = 0u;
   scheduler->turbo_last_pid = 0u;
   scheduler->admission_profile_id = AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM;
   scheduler->runnable_credit_count = 0u;
@@ -666,6 +670,10 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->pid_lookup_cache_valid = 0u;
   scheduler->pid_lookup_cache_hits = 0u;
   scheduler->pid_lookup_cache_misses = 0u;
+  scheduler->bulk_apply_calls = 0u;
+  scheduler->bulk_ops_total = 0u;
+  scheduler->bulk_ops_succeeded = 0u;
+  scheduler->bulk_ops_failed = 0u;
   scheduler->quantum_autotune_last_tick = 0u;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -846,6 +854,49 @@ int aegis_scheduler_set_priority(aegis_scheduler_t *scheduler, uint32_t process_
   return 0;
 }
 
+int aegis_scheduler_apply_batch(aegis_scheduler_t *scheduler,
+                                const aegis_scheduler_bulk_op_t *ops,
+                                size_t op_count,
+                                aegis_scheduler_bulk_result_t *results,
+                                size_t results_capacity,
+                                size_t *applied_count_out) {
+  size_t i;
+  size_t applied = 0u;
+  if (scheduler == 0 || ops == 0u || op_count == 0u) {
+    return -1;
+  }
+  scheduler->bulk_apply_calls += 1u;
+  for (i = 0u; i < op_count; ++i) {
+    int status = -1;
+    const aegis_scheduler_bulk_op_t *op = &ops[i];
+    if (op->operation == AEGIS_SCHED_BULK_OP_ADD) {
+      status = aegis_scheduler_add_with_priority(scheduler, op->process_id, op->priority);
+    } else if (op->operation == AEGIS_SCHED_BULK_OP_REMOVE) {
+      status = aegis_scheduler_remove(scheduler, op->process_id);
+    } else if (op->operation == AEGIS_SCHED_BULK_OP_SET_PRIORITY) {
+      status = aegis_scheduler_set_priority(scheduler, op->process_id, op->priority);
+    } else {
+      status = -1;
+    }
+    scheduler->bulk_ops_total += 1u;
+    if (status == 0) {
+      scheduler->bulk_ops_succeeded += 1u;
+      applied += 1u;
+    } else {
+      scheduler->bulk_ops_failed += 1u;
+    }
+    if (results != 0u && i < results_capacity) {
+      results[i].operation = op->operation;
+      results[i].process_id = op->process_id;
+      results[i].status = status;
+    }
+  }
+  if (applied_count_out != 0u) {
+    *applied_count_out = applied;
+  }
+  return 0;
+}
+
 int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   size_t attempts;
   size_t chosen_idx = 0u;
@@ -969,6 +1020,10 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
   scheduler->pid_lookup_cache_valid = 0u;
   scheduler->pid_lookup_cache_hits = 0u;
   scheduler->pid_lookup_cache_misses = 0u;
+  scheduler->bulk_apply_calls = 0u;
+  scheduler->bulk_ops_total = 0u;
+  scheduler->bulk_ops_succeeded = 0u;
+  scheduler->bulk_ops_failed = 0u;
   scheduler->quantum_autotune_last_tick = scheduler->scheduler_ticks;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -1632,6 +1687,8 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      "{\"schema_version\":1,\"profile_id\":%u,\"queue_depth\":%llu,"
                      "\"priority_present_bitmap\":%u,\"runnable_priority_bitmap\":%u,"
                      "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_misses\":%llu,"
+                     "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
+                     "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,"
                      "\"limits\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
                      "\"counts\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
                      "\"drops\":{\"high\":%llu,\"normal\":%llu,\"low\":%llu}}",
@@ -1641,6 +1698,10 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned int)scheduler->runnable_priority_bitmap,
                      (unsigned long long)scheduler->pid_lookup_cache_hits,
                      (unsigned long long)scheduler->pid_lookup_cache_misses,
+                     (unsigned long long)scheduler->bulk_apply_calls,
+                     (unsigned long long)scheduler->bulk_ops_total,
+                     (unsigned long long)scheduler->bulk_ops_succeeded,
+                     (unsigned long long)scheduler->bulk_ops_failed,
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_HIGH],
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_NORMAL],
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_LOW],
