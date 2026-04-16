@@ -223,6 +223,11 @@ static int test_scheduler_round_robin(void) {
     fprintf(stderr, "dispatch scan telemetry expected non-zero activity\n");
     return 1;
   }
+  if (scheduler.ready_bitmap_popcount_calls == 0u ||
+      scheduler.ready_bitmap_single_class_hits == 0u) {
+    fprintf(stderr, "ready bitmap popcount fastpath expected activity\n");
+    return 1;
+  }
   return 0;
 }
 
@@ -474,6 +479,8 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
       strstr(json, "\"dispatch_scan_calls\":") == 0 ||
       strstr(json, "\"dispatch_scan_steps_total\":") == 0 ||
       strstr(json, "\"dispatch_scan_max_steps\":") == 0 ||
+      strstr(json, "\"ready_bitmap_popcount_calls\":") == 0 ||
+      strstr(json, "\"ready_bitmap_single_class_hits\":") == 0 ||
       strstr(json, "\"bulk_apply_calls\":") == 0 ||
       strstr(json, "\"bulk_ops_total\":") == 0 ||
       strstr(json, "\"bulk_ops_succeeded\":") == 0 ||
@@ -1698,6 +1705,8 @@ static int test_scheduler_fairness_snapshot_json_endpoint(void) {
       strstr(json, "\"dispatch_scan_calls\":") == 0 ||
       strstr(json, "\"dispatch_scan_steps_total\":") == 0 ||
       strstr(json, "\"dispatch_scan_max_steps\":") == 0 ||
+      strstr(json, "\"ready_bitmap_popcount_calls\":") == 0 ||
+      strstr(json, "\"ready_bitmap_single_class_hits\":") == 0 ||
       strstr(json, "\"bulk_apply_calls\":") == 0 ||
       strstr(json, "\"process_id\":9801") == 0 ||
       strstr(json, "\"dispatch_share_bps\":") == 0 ||

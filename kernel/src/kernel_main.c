@@ -389,6 +389,52 @@ static uint8_t priority_bucket_bit(uint8_t priority) {
   return (uint8_t)(1u << (uint8_t)bucket);
 }
 
+static uint8_t scheduler_popcount_u8(uint8_t value) {
+  uint8_t count = 0u;
+  while (value != 0u) {
+    value = (uint8_t)(value & (uint8_t)(value - 1u));
+    count += 1u;
+  }
+  return count;
+}
+
+static int scheduler_single_runnable_priority(const aegis_scheduler_t *scheduler,
+                                              uint8_t *priority_out) {
+  uint8_t bitmap;
+  uint8_t bit;
+  uint8_t pop;
+  if (scheduler == 0 || priority_out == 0) {
+    return 0;
+  }
+  bitmap = scheduler->runnable_priority_bitmap;
+  if (bitmap == 0u) {
+    return 0;
+  }
+  ((aegis_scheduler_t *)scheduler)->ready_bitmap_popcount_calls += 1u;
+  pop = scheduler_popcount_u8(bitmap);
+  if (pop != 1u) {
+    return 0;
+  }
+  ((aegis_scheduler_t *)scheduler)->ready_bitmap_single_class_hits += 1u;
+  bit = (uint8_t)(bitmap & (uint8_t)(~bitmap + 1u));
+  if (bit == 0u) {
+    return 0;
+  }
+  if (bit == (uint8_t)(1u << AEGIS_PRIORITY_LOW)) {
+    *priority_out = AEGIS_PRIORITY_LOW;
+    return 1;
+  }
+  if (bit == (uint8_t)(1u << AEGIS_PRIORITY_NORMAL)) {
+    *priority_out = AEGIS_PRIORITY_NORMAL;
+    return 1;
+  }
+  if (bit == (uint8_t)(1u << AEGIS_PRIORITY_HIGH)) {
+    *priority_out = AEGIS_PRIORITY_HIGH;
+    return 1;
+  }
+  return 0;
+}
+
 static void scheduler_set_priority_present(aegis_scheduler_t *scheduler, uint8_t priority, uint8_t present) {
   uint8_t bit;
   if (scheduler == 0) {
@@ -688,6 +734,8 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->dispatch_scan_calls = 0u;
   scheduler->dispatch_scan_steps_total = 0u;
   scheduler->dispatch_scan_max_steps = 0u;
+  scheduler->ready_bitmap_popcount_calls = 0u;
+  scheduler->ready_bitmap_single_class_hits = 0u;
   scheduler->turbo_last_pid = 0u;
   scheduler->admission_profile_id = AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM;
   scheduler->runnable_credit_count = 0u;
@@ -742,6 +790,8 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->dispatch_scan_calls = 0u;
   scheduler->dispatch_scan_steps_total = 0u;
   scheduler->dispatch_scan_max_steps = 0u;
+  scheduler->ready_bitmap_popcount_calls = 0u;
+  scheduler->ready_bitmap_single_class_hits = 0u;
   scheduler->quantum_autotune_last_tick = 0u;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -977,6 +1027,7 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   size_t attempts;
   size_t chosen_idx = 0u;
   size_t scan_steps = 0u;
+  uint8_t single_priority = 0u;
   if (scheduler == 0 || process_id == 0 || scheduler->count == 0) {
     return -1;
   }
@@ -1007,6 +1058,36 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
     scheduler->enqueued_tick[chosen_idx] = scheduler->scheduler_ticks;
     scheduler->turbo_last_pid = *process_id;
     return 0;
+  }
+  if (scheduler_single_runnable_priority(scheduler, &single_priority)) {
+    for (attempts = 0; attempts < scheduler->count; ++attempts) {
+      size_t idx = (scheduler->head + attempts) % scheduler->count;
+      uint64_t wait_delta = 0u;
+      scan_steps += 1u;
+      if (scheduler->credits[idx] == 0u || scheduler->priorities[idx] != single_priority) {
+        continue;
+      }
+      scheduler_record_dispatch_scan(scheduler, scan_steps);
+      scheduler->credits[idx] -= 1;
+      if (scheduler->credits[idx] == 0u) {
+        scheduler_runnable_credit_dec(scheduler, scheduler->priorities[idx]);
+      }
+      if (scheduler->scheduler_ticks >= scheduler->enqueued_tick[idx]) {
+        wait_delta = scheduler->scheduler_ticks - scheduler->enqueued_tick[idx];
+      } else {
+        wait_delta = 0u;
+        scheduler->wait_latency_clamp_events += 1u;
+      }
+      scheduler->last_wait_latency[idx] = wait_delta;
+      scheduler->wait_ticks_total[idx] += scheduler->last_wait_latency[idx];
+      scheduler->dispatch_counts[idx] += 1;
+      scheduler->total_dispatches += 1;
+      *process_id = scheduler->process_ids[idx];
+      scheduler->head = (idx + 1) % scheduler->count;
+      scheduler->enqueued_tick[idx] = scheduler->scheduler_ticks;
+      scheduler->turbo_last_pid = *process_id;
+      return 0;
+    }
   }
   for (attempts = 0; attempts < scheduler->count; ++attempts) {
     size_t idx = (scheduler->head + attempts) % scheduler->count;
@@ -1128,6 +1209,8 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
   scheduler->dispatch_scan_calls = 0u;
   scheduler->dispatch_scan_steps_total = 0u;
   scheduler->dispatch_scan_max_steps = 0u;
+  scheduler->ready_bitmap_popcount_calls = 0u;
+  scheduler->ready_bitmap_single_class_hits = 0u;
   scheduler->quantum_autotune_last_tick = scheduler->scheduler_ticks;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -1694,6 +1777,8 @@ int aegis_scheduler_fairness_snapshot_json(const aegis_scheduler_t *scheduler,
                      "\"pid_lookup_cache_misses\":%llu,"
                      "\"dispatch_scan_calls\":%llu,\"dispatch_scan_steps_total\":%llu,"
                      "\"dispatch_scan_max_steps\":%llu,"
+                     "\"ready_bitmap_popcount_calls\":%llu,"
+                     "\"ready_bitmap_single_class_hits\":%llu,"
                      "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,\"processes\":[",
                      (unsigned long long)scheduler->count,
@@ -1704,6 +1789,8 @@ int aegis_scheduler_fairness_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned long long)scheduler->dispatch_scan_calls,
                      (unsigned long long)scheduler->dispatch_scan_steps_total,
                      (unsigned long long)scheduler->dispatch_scan_max_steps,
+                     (unsigned long long)scheduler->ready_bitmap_popcount_calls,
+                     (unsigned long long)scheduler->ready_bitmap_single_class_hits,
                      (unsigned long long)scheduler->bulk_apply_calls,
                      (unsigned long long)scheduler->bulk_ops_total,
                      (unsigned long long)scheduler->bulk_ops_succeeded,
@@ -1810,6 +1897,8 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      "\"pid_lookup_cache_misses\":%llu,"
                      "\"dispatch_scan_calls\":%llu,\"dispatch_scan_steps_total\":%llu,"
                      "\"dispatch_scan_max_steps\":%llu,"
+                     "\"ready_bitmap_popcount_calls\":%llu,"
+                     "\"ready_bitmap_single_class_hits\":%llu,"
                      "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,"
                      "\"bulk_ops_unknown\":%llu,\"bulk_results_dropped\":%llu,"
@@ -1828,6 +1917,8 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned long long)scheduler->dispatch_scan_calls,
                      (unsigned long long)scheduler->dispatch_scan_steps_total,
                      (unsigned long long)scheduler->dispatch_scan_max_steps,
+                     (unsigned long long)scheduler->ready_bitmap_popcount_calls,
+                     (unsigned long long)scheduler->ready_bitmap_single_class_hits,
                      (unsigned long long)scheduler->bulk_apply_calls,
                      (unsigned long long)scheduler->bulk_ops_total,
                      (unsigned long long)scheduler->bulk_ops_succeeded,

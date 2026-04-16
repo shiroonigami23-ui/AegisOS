@@ -111,6 +111,8 @@ typedef struct {
   uint64_t dispatch_scan_calls;
   uint64_t dispatch_scan_steps_total;
   uint64_t dispatch_scan_max_steps;
+  uint64_t ready_bitmap_popcount_calls;
+  uint64_t ready_bitmap_single_class_hits;
   uint32_t turbo_last_pid;
   size_t count;
   size_t head;
