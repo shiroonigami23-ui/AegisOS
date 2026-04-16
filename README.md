@@ -84,6 +84,7 @@ This repository contains:
 - Scheduler PID lookup upgraded to dual-entry cache (primary + victim) to reduce repeated linear scans.
 - Scheduler dispatch scan-depth telemetry to quantify round-robin/turbo hot-path scan cost.
 - Scheduler ready-bitmap popcount fastpath for single-class runnable dispatch cycles.
+- Namespace requester/target inspect-pair cache fastpath with hit/miss telemetry.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 

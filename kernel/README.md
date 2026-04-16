@@ -67,6 +67,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - include memory unknown-zone, release-underflow clamp, and reclaim-shortfall counters.
 - `aegis_namespace_table_t`:
   - includes lookup-cache fast paths for local/global pid translation.
+  - includes requester/target inspect-pair cache fastpath for repeated visibility checks.
   - exposes lookup-cache hit/miss telemetry in namespace snapshot JSON.
   - tracks attach/detach/translate/inspect failure counters for error-path observability.
   - tracks namespace cache invalidation count to expose mutation churn.

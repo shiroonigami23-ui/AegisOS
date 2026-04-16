@@ -441,6 +441,12 @@ typedef struct {
   uint64_t translate_global_failures;
   uint64_t inspect_failures;
   uint64_t cache_invalidations;
+  uint32_t inspect_cache_requester_process_id;
+  uint32_t inspect_cache_target_process_id;
+  uint8_t inspect_cache_allowed;
+  uint8_t inspect_cache_valid;
+  uint64_t inspect_cache_hits;
+  uint64_t inspect_cache_misses;
 } aegis_namespace_table_t;
 
 int aegis_kernel_boot_check(void);
