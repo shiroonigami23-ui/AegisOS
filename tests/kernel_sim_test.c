@@ -829,6 +829,10 @@ static int test_namespace_isolation_simulator(void) {
     fprintf(stderr, "same-process inspect should be allowed\n");
     return 1;
   }
+  if (aegis_namespace_can_inspect(&table, 6001u, 6001u, &allowed) != 0 || allowed != 1u) {
+    fprintf(stderr, "same-process inspect cache-hit should be allowed\n");
+    return 1;
+  }
   if (aegis_namespace_attach_process(&table, 6003u, 9999u, &local_tmp) == 0) {
     fprintf(stderr, "attach should fail for unknown namespace\n");
     return 1;
@@ -860,6 +864,9 @@ static int test_namespace_isolation_simulator(void) {
       strstr(json, "\"translate_global_failures\":") == 0 ||
       strstr(json, "\"inspect_failures\":") == 0 ||
       strstr(json, "\"cache_invalidations\":") == 0 ||
+      strstr(json, "\"inspect_cache_hits\":") == 0 ||
+      strstr(json, "\"inspect_cache_misses\":") == 0 ||
+      strstr(json, "\"inspect_cache_hits\":0") != 0 ||
       strstr(json, "\"attach_failures\":0") != 0 ||
       strstr(json, "\"translate_local_failures\":0") != 0 ||
       strstr(json, "\"translate_global_failures\":0") != 0 ||

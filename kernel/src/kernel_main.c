@@ -2098,6 +2098,12 @@ void aegis_namespace_table_init(aegis_namespace_table_t *table) {
   table->translate_global_failures = 0u;
   table->inspect_failures = 0u;
   table->cache_invalidations = 0u;
+  table->inspect_cache_requester_process_id = 0u;
+  table->inspect_cache_target_process_id = 0u;
+  table->inspect_cache_allowed = 0u;
+  table->inspect_cache_valid = 0u;
+  table->inspect_cache_hits = 0u;
+  table->inspect_cache_misses = 0u;
   for (i = 0; i < AEGIS_NAMESPACE_CAPACITY; ++i) {
     table->namespaces[i].namespace_id = 0u;
     table->namespaces[i].parent_namespace_id = 0u;
@@ -2145,6 +2151,7 @@ int aegis_namespace_create(aegis_namespace_table_t *table,
     table->next_namespace_id += 1u;
     table->namespace_count += 1u;
     table->lookup_cache_valid = 0u;
+    table->inspect_cache_valid = 0u;
     table->cache_invalidations += 1u;
     return 0;
   }
@@ -2188,6 +2195,7 @@ int aegis_namespace_destroy(aegis_namespace_table_t *table, uint32_t namespace_i
     table->namespace_count -= 1u;
   }
   table->lookup_cache_valid = 0u;
+  table->inspect_cache_valid = 0u;
   table->cache_invalidations += 1u;
   return 0;
 }
@@ -2232,6 +2240,7 @@ int aegis_namespace_attach_process(aegis_namespace_table_t *table,
     table->lookup_cache_process_id = process_id;
     table->lookup_cache_local_pid = local_pid;
     table->lookup_cache_index = (uint16_t)i;
+    table->inspect_cache_valid = 0u;
     return 0;
   }
   table->attach_failures += 1u;
@@ -2266,6 +2275,7 @@ int aegis_namespace_detach_process(aegis_namespace_table_t *table, uint32_t proc
     table->process_count -= 1u;
   }
   table->lookup_cache_valid = 0u;
+  table->inspect_cache_valid = 0u;
   table->cache_invalidations += 1u;
   return 0;
 }
@@ -2313,6 +2323,14 @@ int aegis_namespace_can_inspect(const aegis_namespace_table_t *table,
     return -1;
   }
   *allowed_out = 0u;
+  if (table->inspect_cache_valid != 0u &&
+      table->inspect_cache_requester_process_id == requester_process_id &&
+      table->inspect_cache_target_process_id == target_process_id) {
+    *allowed_out = table->inspect_cache_allowed;
+    ((aegis_namespace_table_t *)table)->inspect_cache_hits += 1u;
+    return 0;
+  }
+  ((aegis_namespace_table_t *)table)->inspect_cache_misses += 1u;
   if (!namespace_process_find_by_global(table, requester_process_id, &req_index) ||
       !namespace_process_find_by_global(table, target_process_id, &tgt_index)) {
     ((aegis_namespace_table_t *)table)->inspect_failures += 1u;
@@ -2321,6 +2339,10 @@ int aegis_namespace_can_inspect(const aegis_namespace_table_t *table,
   if (table->processes[req_index].namespace_id == table->processes[tgt_index].namespace_id) {
     *allowed_out = 1u;
   }
+  ((aegis_namespace_table_t *)table)->inspect_cache_requester_process_id = requester_process_id;
+  ((aegis_namespace_table_t *)table)->inspect_cache_target_process_id = target_process_id;
+  ((aegis_namespace_table_t *)table)->inspect_cache_allowed = *allowed_out;
+  ((aegis_namespace_table_t *)table)->inspect_cache_valid = 1u;
   return 0;
 }
 
@@ -2342,6 +2364,7 @@ int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
                      "\"attach_failures\":%llu,\"detach_failures\":%llu,"
                      "\"translate_local_failures\":%llu,\"translate_global_failures\":%llu,"
                      "\"inspect_failures\":%llu,\"cache_invalidations\":%llu,"
+                     "\"inspect_cache_hits\":%llu,\"inspect_cache_misses\":%llu,"
                      "\"namespaces\":[",
                      (unsigned long long)table->namespace_count,
                      (unsigned long long)table->process_count,
@@ -2352,7 +2375,9 @@ int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
                      (unsigned long long)table->translate_local_failures,
                      (unsigned long long)table->translate_global_failures,
                      (unsigned long long)table->inspect_failures,
-                     (unsigned long long)table->cache_invalidations);
+                     (unsigned long long)table->cache_invalidations,
+                     (unsigned long long)table->inspect_cache_hits,
+                     (unsigned long long)table->inspect_cache_misses);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
