@@ -276,6 +276,9 @@ typedef struct {
   uint64_t lookup_cache_misses;
   uint64_t unknown_channel_requests;
   uint64_t drain_underflow_clamps;
+  uint64_t drop_reason_quota;
+  uint64_t drop_reason_unknown_channel;
+  uint64_t drop_reason_policy_gate;
 } aegis_ipc_channel_table_t;
 
 typedef enum {

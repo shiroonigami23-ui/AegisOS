@@ -79,6 +79,7 @@ This repository contains:
 - Namespace translation lookup-cache and scheduler percentile-selection fast path for lower runtime metrics overhead.
 - Namespace attach/detach/translate/inspect failure counters plus cache-invalidation telemetry in namespace snapshots.
 - IPC unknown-channel request and drain-underflow clamp telemetry in channel snapshots.
+- IPC drop-reason breakdown counters (`quota`, `unknown_channel`, `policy_gate`) in channel snapshots.
 - Memory unknown-zone request, release-underflow clamp, and reclaim-shortfall telemetry in zone snapshots.
 - Scheduler PID lookup upgraded to dual-entry cache (primary + victim) to reduce repeated linear scans.
 - Scheduler dispatch scan-depth telemetry to quantify round-robin/turbo hot-path scan cost.

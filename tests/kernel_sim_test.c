@@ -1021,6 +1021,9 @@ static int test_ipc_channel_quota_and_backpressure(void) {
       strstr(json, "\"total_backpressure_events\":1") == 0 ||
       strstr(json, "\"unknown_channel_requests\":2") == 0 ||
       strstr(json, "\"drain_underflow_clamps\":1") == 0 ||
+      strstr(json, "\"drop_reason_quota\":1") == 0 ||
+      strstr(json, "\"drop_reason_unknown_channel\":1") == 0 ||
+      strstr(json, "\"drop_reason_policy_gate\":0") == 0 ||
       strstr(json, "\"lookup_cache_hits\":") == 0 ||
       strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"channel_id\":42") == 0 ||
