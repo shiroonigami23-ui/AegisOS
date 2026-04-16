@@ -77,6 +77,9 @@ This repository contains:
 - Checkpoint subsystem runtime/entry PID lookup-cache fast paths with expanded recovery counters.
 - Secure-time nonce lookup-cache telemetry and drift-budget clamp-event tracking for attestation observability.
 - Namespace translation lookup-cache and scheduler percentile-selection fast path for lower runtime metrics overhead.
+- Namespace attach/detach/translate/inspect failure counters plus cache-invalidation telemetry in namespace snapshots.
+- IPC unknown-channel request and drain-underflow clamp telemetry in channel snapshots.
+- Memory unknown-zone request, release-underflow clamp, and reclaim-shortfall telemetry in zone snapshots.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 

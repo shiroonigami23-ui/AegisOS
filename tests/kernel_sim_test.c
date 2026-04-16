@@ -725,6 +725,7 @@ static int test_namespace_isolation_simulator(void) {
   uint32_t ns_b = 0u;
   uint32_t local_a = 0u;
   uint32_t local_b = 0u;
+  uint32_t local_tmp = 0u;
   uint32_t global = 0u;
   uint32_t local_roundtrip = 0u;
   uint8_t allowed = 0u;
@@ -768,11 +769,41 @@ static int test_namespace_isolation_simulator(void) {
     fprintf(stderr, "same-process inspect should be allowed\n");
     return 1;
   }
+  if (aegis_namespace_attach_process(&table, 6003u, 9999u, &local_tmp) == 0) {
+    fprintf(stderr, "attach should fail for unknown namespace\n");
+    return 1;
+  }
+  if (aegis_namespace_translate_local_to_global(&table, ns_a, 9999u, &global) == 0) {
+    fprintf(stderr, "local->global should fail for unknown local pid\n");
+    return 1;
+  }
+  if (aegis_namespace_translate_global_to_local(&table, ns_b, 6001u, &local_roundtrip) == 0) {
+    fprintf(stderr, "global->local should fail for cross-namespace pid\n");
+    return 1;
+  }
+  if (aegis_namespace_can_inspect(&table, 9999u, 6002u, &allowed) != 0 || allowed != 0u) {
+    fprintf(stderr, "inspect unknown source should deny with success status\n");
+    return 1;
+  }
+  if (aegis_namespace_detach_process(&table, 9999u) == 0) {
+    fprintf(stderr, "detach should fail for unknown process\n");
+    return 1;
+  }
   if (aegis_namespace_snapshot_json(&table, json, sizeof(json)) <= 0 ||
       strstr(json, "\"namespace_count\":3") == 0 ||
       strstr(json, "\"process_count\":2") == 0 ||
       strstr(json, "\"lookup_cache_hits\":") == 0 ||
       strstr(json, "\"lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"attach_failures\":") == 0 ||
+      strstr(json, "\"detach_failures\":") == 0 ||
+      strstr(json, "\"translate_local_failures\":") == 0 ||
+      strstr(json, "\"translate_global_failures\":") == 0 ||
+      strstr(json, "\"inspect_failures\":") == 0 ||
+      strstr(json, "\"cache_invalidations\":") == 0 ||
+      strstr(json, "\"attach_failures\":0") != 0 ||
+      strstr(json, "\"translate_local_failures\":0") != 0 ||
+      strstr(json, "\"translate_global_failures\":0") != 0 ||
+      strstr(json, "\"inspect_failures\":0") != 0 ||
       strstr(json, "\"process_id\":6001") == 0 ||
       strstr(json, "\"process_id\":6002") == 0) {
     fprintf(stderr, "namespace snapshot missing expected fields: %s\n", json);
@@ -922,15 +953,25 @@ static int test_ipc_channel_quota_and_backpressure(void) {
     fprintf(stderr, "ipc reserve send should fail for unknown channel\n");
     return 1;
   }
+  if (aegis_ipc_channel_drain(&table, 999u, 1u) == 0) {
+    fprintf(stderr, "ipc drain should fail for unknown channel\n");
+    return 1;
+  }
+  if (aegis_ipc_channel_drain(&table, 42u, 500u) != 0) {
+    fprintf(stderr, "ipc drain underflow clamp path should succeed\n");
+    return 1;
+  }
   if (aegis_ipc_channel_snapshot_json(&table, json, sizeof(json)) <= 0 ||
       strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"total_accepted_messages\":2") == 0 ||
       strstr(json, "\"total_dropped_messages\":1") == 0 ||
       strstr(json, "\"total_backpressure_events\":1") == 0 ||
+      strstr(json, "\"unknown_channel_requests\":2") == 0 ||
+      strstr(json, "\"drain_underflow_clamps\":1") == 0 ||
       strstr(json, "\"lookup_cache_hits\":") == 0 ||
       strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"channel_id\":42") == 0 ||
-      strstr(json, "\"inflight_bytes\":150") == 0) {
+      strstr(json, "\"inflight_bytes\":0") == 0) {
     fprintf(stderr, "ipc snapshot mismatch: %s\n", json);
     return 1;
   }
@@ -980,10 +1021,25 @@ static int test_memory_zone_accounting_and_reclaim_hooks(void) {
     fprintf(stderr, "memory zone hot-zone cache path release failed\n");
     return 1;
   }
+  if (aegis_memory_zone_charge(&table, 999u, 10u, &accepted) >= 0) {
+    fprintf(stderr, "memory zone charge should fail for unknown zone\n");
+    return 1;
+  }
+  if (aegis_memory_zone_release(&table, 999u, 10u) == 0) {
+    fprintf(stderr, "memory zone release should fail for unknown zone\n");
+    return 1;
+  }
+  if (aegis_memory_zone_release(&table, 1u, 2000u) != 0) {
+    fprintf(stderr, "memory zone release underflow clamp path failed\n");
+    return 1;
+  }
   if (aegis_memory_zone_snapshot_json(&table, json, sizeof(json)) <= 0 ||
       strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"denied_charges\":2") == 0 ||
       strstr(json, "\"reclaim_events\":2") == 0 ||
+      strstr(json, "\"unknown_zone_requests\":2") == 0 ||
+      strstr(json, "\"release_underflow_clamps\":1") == 0 ||
+      strstr(json, "\"reclaim_shortfall_events\":1") == 0 ||
       strstr(json, "\"lookup_cache_hits\":") == 0 ||
       strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"zone_id\":1") == 0 ||
