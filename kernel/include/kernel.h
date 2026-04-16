@@ -108,6 +108,9 @@ typedef struct {
   uint64_t bulk_results_dropped;
   uint64_t turbo_reuse_budget_adaptations;
   uint64_t wait_latency_clamp_events;
+  uint64_t dispatch_scan_calls;
+  uint64_t dispatch_scan_steps_total;
+  uint64_t dispatch_scan_max_steps;
   uint32_t turbo_last_pid;
   size_t count;
   size_t head;
