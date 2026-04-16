@@ -36,6 +36,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - includes aggregate wait report (`mean`, `p95`, `max`) for tuning and diagnostics.
   - wait-report percentile path now uses selection-based computation to reduce metrics overhead.
   - includes PID lookup-cache fast path for repeated scheduler control-plane queries.
+  - PID lookup now uses dual-entry (primary + victim) cache with promotion for repeated churned PID access.
   - includes bulk scheduler operation API (`add/remove/reprioritize`) with execution telemetry counters.
   - turbo scheduler now adapts candidate cache reuse budget by queue pressure and switch patterns.
   - turbo scoring now penalizes runaway dispatch dominance to preserve fairness under heavy load.

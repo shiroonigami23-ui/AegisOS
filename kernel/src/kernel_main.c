@@ -605,6 +605,11 @@ static void scheduler_pid_lookup_cache_seed(aegis_scheduler_t *scheduler,
   if (scheduler == 0 || process_id == 0u || index >= AEGIS_SCHEDULER_CAPACITY) {
     return;
   }
+  if (scheduler->pid_lookup_cache_valid != 0u) {
+    scheduler->pid_lookup_cache_victim_process_id = scheduler->pid_lookup_cache_process_id;
+    scheduler->pid_lookup_cache_victim_index = scheduler->pid_lookup_cache_index;
+    scheduler->pid_lookup_cache_victim_valid = 1u;
+  }
   scheduler->pid_lookup_cache_process_id = process_id;
   scheduler->pid_lookup_cache_index = (uint16_t)index;
   scheduler->pid_lookup_cache_valid = 1u;
@@ -615,6 +620,7 @@ static void scheduler_pid_lookup_cache_invalidate(aegis_scheduler_t *scheduler) 
     return;
   }
   scheduler->pid_lookup_cache_valid = 0u;
+  scheduler->pid_lookup_cache_victim_valid = 0u;
 }
 
 void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
@@ -654,7 +660,11 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->pid_lookup_cache_process_id = 0u;
   scheduler->pid_lookup_cache_index = 0u;
   scheduler->pid_lookup_cache_valid = 0u;
+  scheduler->pid_lookup_cache_victim_process_id = 0u;
+  scheduler->pid_lookup_cache_victim_index = 0u;
+  scheduler->pid_lookup_cache_victim_valid = 0u;
   scheduler->pid_lookup_cache_hits = 0u;
+  scheduler->pid_lookup_cache_victim_hits = 0u;
   scheduler->pid_lookup_cache_misses = 0u;
   scheduler->bulk_apply_calls = 0u;
   scheduler->bulk_ops_total = 0u;
@@ -701,7 +711,11 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->pid_lookup_cache_process_id = 0u;
   scheduler->pid_lookup_cache_index = 0u;
   scheduler->pid_lookup_cache_valid = 0u;
+  scheduler->pid_lookup_cache_victim_process_id = 0u;
+  scheduler->pid_lookup_cache_victim_index = 0u;
+  scheduler->pid_lookup_cache_victim_valid = 0u;
   scheduler->pid_lookup_cache_hits = 0u;
+  scheduler->pid_lookup_cache_victim_hits = 0u;
   scheduler->pid_lookup_cache_misses = 0u;
   scheduler->bulk_apply_calls = 0u;
   scheduler->bulk_ops_total = 0u;
@@ -727,6 +741,16 @@ static int find_index(const aegis_scheduler_t *scheduler, uint32_t process_id, s
       scheduler->process_ids[scheduler->pid_lookup_cache_index] == process_id) {
     *index = scheduler->pid_lookup_cache_index;
     ((aegis_scheduler_t *)scheduler)->pid_lookup_cache_hits += 1u;
+    return 1;
+  }
+  if (scheduler->pid_lookup_cache_victim_valid != 0u &&
+      scheduler->pid_lookup_cache_victim_process_id == process_id &&
+      scheduler->pid_lookup_cache_victim_index < scheduler->count &&
+      scheduler->process_ids[scheduler->pid_lookup_cache_victim_index] == process_id) {
+    *index = scheduler->pid_lookup_cache_victim_index;
+    ((aegis_scheduler_t *)scheduler)->pid_lookup_cache_hits += 1u;
+    ((aegis_scheduler_t *)scheduler)->pid_lookup_cache_victim_hits += 1u;
+    scheduler_pid_lookup_cache_seed((aegis_scheduler_t *)scheduler, process_id, *index);
     return 1;
   }
   ((aegis_scheduler_t *)scheduler)->pid_lookup_cache_misses += 1u;
@@ -818,10 +842,7 @@ int aegis_scheduler_remove(aegis_scheduler_t *scheduler, uint32_t process_id) {
   }
   scheduler->turbo_candidate_cache_valid = 0u;
   scheduler->turbo_candidate_cache_budget = 0u;
-  if (scheduler->pid_lookup_cache_valid != 0u &&
-      scheduler->pid_lookup_cache_process_id == process_id) {
-    scheduler_pid_lookup_cache_invalidate(scheduler);
-  }
+  scheduler_pid_lookup_cache_invalidate(scheduler);
   if (scheduler->current_pid == process_id) {
     scheduler->current_pid = 0;
     scheduler->quantum_remaining = 0;
@@ -835,11 +856,6 @@ int aegis_scheduler_remove(aegis_scheduler_t *scheduler, uint32_t process_id) {
     scheduler->enqueued_tick[i - 1] = scheduler->enqueued_tick[i];
     scheduler->wait_ticks_total[i - 1] = scheduler->wait_ticks_total[i];
     scheduler->last_wait_latency[i - 1] = scheduler->last_wait_latency[i];
-  }
-  if (scheduler->pid_lookup_cache_valid != 0u &&
-      scheduler->pid_lookup_cache_index > idx &&
-      scheduler->pid_lookup_cache_index < scheduler->count) {
-    scheduler->pid_lookup_cache_index = (uint16_t)(scheduler->pid_lookup_cache_index - 1u);
   }
   scheduler->count -= 1;
   if (scheduler->count == 0) {
@@ -1074,7 +1090,9 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
   scheduler->turbo_candidate_cache_hits = 0u;
   scheduler->turbo_candidate_cache_misses = 0u;
   scheduler->pid_lookup_cache_valid = 0u;
+  scheduler->pid_lookup_cache_victim_valid = 0u;
   scheduler->pid_lookup_cache_hits = 0u;
+  scheduler->pid_lookup_cache_victim_hits = 0u;
   scheduler->pid_lookup_cache_misses = 0u;
   scheduler->bulk_apply_calls = 0u;
   scheduler->bulk_ops_total = 0u;
@@ -1646,12 +1664,14 @@ int aegis_scheduler_fairness_snapshot_json(const aegis_scheduler_t *scheduler,
   written = snprintf(out,
                      out_size,
                      "{\"schema_version\":1,\"queue_depth\":%llu,\"total_dispatches\":%llu,"
-                     "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_misses\":%llu,"
+                     "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_victim_hits\":%llu,"
+                     "\"pid_lookup_cache_misses\":%llu,"
                      "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,\"processes\":[",
                      (unsigned long long)scheduler->count,
                      (unsigned long long)scheduler->total_dispatches,
                      (unsigned long long)scheduler->pid_lookup_cache_hits,
+                     (unsigned long long)scheduler->pid_lookup_cache_victim_hits,
                      (unsigned long long)scheduler->pid_lookup_cache_misses,
                      (unsigned long long)scheduler->bulk_apply_calls,
                      (unsigned long long)scheduler->bulk_ops_total,
@@ -1755,7 +1775,8 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      out_size,
                      "{\"schema_version\":1,\"profile_id\":%u,\"queue_depth\":%llu,"
                      "\"priority_present_bitmap\":%u,\"runnable_priority_bitmap\":%u,"
-                     "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_misses\":%llu,"
+                     "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_victim_hits\":%llu,"
+                     "\"pid_lookup_cache_misses\":%llu,"
                      "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,"
                      "\"bulk_ops_unknown\":%llu,\"bulk_results_dropped\":%llu,"
@@ -1769,6 +1790,7 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned int)scheduler->priority_present_bitmap,
                      (unsigned int)scheduler->runnable_priority_bitmap,
                      (unsigned long long)scheduler->pid_lookup_cache_hits,
+                     (unsigned long long)scheduler->pid_lookup_cache_victim_hits,
                      (unsigned long long)scheduler->pid_lookup_cache_misses,
                      (unsigned long long)scheduler->bulk_apply_calls,
                      (unsigned long long)scheduler->bulk_ops_total,

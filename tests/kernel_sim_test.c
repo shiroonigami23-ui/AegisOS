@@ -463,6 +463,7 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
   }
   if (strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"pid_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"pid_lookup_cache_victim_hits\":") == 0 ||
       strstr(json, "\"pid_lookup_cache_misses\":") == 0 ||
       strstr(json, "\"bulk_apply_calls\":") == 0 ||
       strstr(json, "\"bulk_ops_total\":") == 0 ||
@@ -476,6 +477,49 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
       strstr(json, "\"counts\":{\"high\":1,\"normal\":2,\"low\":0}") == 0 ||
       strstr(json, "\"drops\":{\"high\":1,\"normal\":1,\"low\":0}") == 0) {
     fprintf(stderr, "admission snapshot json missing expected fields: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_scheduler_dual_entry_pid_lookup_cache(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t dispatch_count = 0u;
+  char json[512];
+  aegis_scheduler_init(&scheduler);
+  if (aegis_scheduler_add_with_priority(&scheduler, 8101u, AEGIS_PRIORITY_NORMAL) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 8102u, AEGIS_PRIORITY_NORMAL) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 8103u, AEGIS_PRIORITY_NORMAL) != 0) {
+    fprintf(stderr, "dual-entry pid cache setup failed\n");
+    return 1;
+  }
+  if (aegis_scheduler_dispatch_count_for(&scheduler, 8101u, &dispatch_count) != 0 ||
+      aegis_scheduler_dispatch_count_for(&scheduler, 8102u, &dispatch_count) != 0 ||
+      aegis_scheduler_dispatch_count_for(&scheduler, 8101u, &dispatch_count) != 0) {
+    fprintf(stderr, "dual-entry pid cache lookup sequence failed\n");
+    return 1;
+  }
+  if (scheduler.pid_lookup_cache_hits == 0u ||
+      scheduler.pid_lookup_cache_victim_hits == 0u ||
+      scheduler.pid_lookup_cache_misses == 0u) {
+    fprintf(stderr, "dual-entry pid cache counters mismatch\n");
+    return 1;
+  }
+  if (aegis_scheduler_admission_snapshot_json(&scheduler, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"pid_lookup_cache_victim_hits\":") == 0) {
+    fprintf(stderr, "dual-entry pid cache snapshot field missing: %s\n", json);
+    return 1;
+  }
+  if (aegis_scheduler_remove(&scheduler, 8102u) != 0) {
+    fprintf(stderr, "dual-entry pid cache remove failed\n");
+    return 1;
+  }
+  if (aegis_scheduler_dispatch_count_for(&scheduler, 8101u, &dispatch_count) != 0) {
+    fprintf(stderr, "dual-entry pid cache lookup after remove failed\n");
+    return 1;
+  }
+  if (scheduler.pid_lookup_cache_misses < 2u) {
+    fprintf(stderr, "dual-entry pid cache should miss after remove invalidation\n");
     return 1;
   }
   return 0;
@@ -1638,6 +1682,7 @@ static int test_scheduler_fairness_snapshot_json_endpoint(void) {
   if (strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"queue_depth\":3") == 0 ||
       strstr(json, "\"pid_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"pid_lookup_cache_victim_hits\":") == 0 ||
       strstr(json, "\"bulk_apply_calls\":") == 0 ||
       strstr(json, "\"process_id\":9801") == 0 ||
       strstr(json, "\"dispatch_share_bps\":") == 0 ||
@@ -1966,6 +2011,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_admission_limits_and_snapshot() != 0) {
+    return 1;
+  }
+  if (test_scheduler_dual_entry_pid_lookup_cache() != 0) {
     return 1;
   }
   if (test_scheduler_admission_profile_presets() != 0) {

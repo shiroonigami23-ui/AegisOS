@@ -94,7 +94,11 @@ typedef struct {
   uint32_t pid_lookup_cache_process_id;
   uint16_t pid_lookup_cache_index;
   uint8_t pid_lookup_cache_valid;
+  uint32_t pid_lookup_cache_victim_process_id;
+  uint16_t pid_lookup_cache_victim_index;
+  uint8_t pid_lookup_cache_victim_valid;
   uint64_t pid_lookup_cache_hits;
+  uint64_t pid_lookup_cache_victim_hits;
   uint64_t pid_lookup_cache_misses;
   uint64_t bulk_apply_calls;
   uint64_t bulk_ops_total;
