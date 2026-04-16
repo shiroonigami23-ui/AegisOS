@@ -412,6 +412,7 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
   aegis_scheduler_t scheduler;
   uint8_t limit = 0u;
   uint64_t drops = 0u;
+  uint32_t dispatch_count = 0u;
   char json[512];
   aegis_scheduler_init(&scheduler);
   if (aegis_scheduler_set_admission_limit(&scheduler, AEGIS_PRIORITY_HIGH, 1u) != 0 ||
@@ -447,11 +448,22 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
     fprintf(stderr, "normal-priority admission drop counter mismatch\n");
     return 1;
   }
+  if (aegis_scheduler_dispatch_count_for(&scheduler, 201u, &dispatch_count) != 0 ||
+      aegis_scheduler_dispatch_count_for(&scheduler, 201u, &dispatch_count) != 0) {
+    fprintf(stderr, "scheduler pid lookup cache warmup calls failed\n");
+    return 1;
+  }
+  if (scheduler.pid_lookup_cache_hits == 0u || scheduler.pid_lookup_cache_misses == 0u) {
+    fprintf(stderr, "scheduler pid lookup cache expected hits and misses\n");
+    return 1;
+  }
   if (aegis_scheduler_admission_snapshot_json(&scheduler, json, sizeof(json)) <= 0) {
     fprintf(stderr, "admission snapshot json failed\n");
     return 1;
   }
   if (strstr(json, "\"schema_version\":1") == 0 ||
+      strstr(json, "\"pid_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"pid_lookup_cache_misses\":") == 0 ||
       strstr(json, "\"limits\":{\"high\":1,\"normal\":2,\"low\":1}") == 0 ||
       strstr(json, "\"counts\":{\"high\":1,\"normal\":2,\"low\":0}") == 0 ||
       strstr(json, "\"drops\":{\"high\":1,\"normal\":1,\"low\":0}") == 0) {
