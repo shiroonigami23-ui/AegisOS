@@ -267,6 +267,8 @@ typedef struct {
   uint8_t lookup_cache_valid;
   uint64_t lookup_cache_hits;
   uint64_t lookup_cache_misses;
+  uint64_t unknown_channel_requests;
+  uint64_t drain_underflow_clamps;
 } aegis_ipc_channel_table_t;
 
 typedef enum {
@@ -300,6 +302,9 @@ typedef struct {
   uint8_t lookup_cache_valid;
   uint64_t lookup_cache_hits;
   uint64_t lookup_cache_misses;
+  uint64_t unknown_zone_requests;
+  uint64_t release_underflow_clamps;
+  uint64_t reclaim_shortfall_events;
 } aegis_memory_zone_table_t;
 
 typedef enum {
@@ -418,6 +423,12 @@ typedef struct {
   uint8_t lookup_cache_valid;
   uint64_t lookup_cache_hits;
   uint64_t lookup_cache_misses;
+  uint64_t attach_failures;
+  uint64_t detach_failures;
+  uint64_t translate_local_failures;
+  uint64_t translate_global_failures;
+  uint64_t inspect_failures;
+  uint64_t cache_invalidations;
 } aegis_namespace_table_t;
 
 int aegis_kernel_boot_check(void);

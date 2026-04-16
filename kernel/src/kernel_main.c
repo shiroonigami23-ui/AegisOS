@@ -1943,6 +1943,12 @@ void aegis_namespace_table_init(aegis_namespace_table_t *table) {
   table->lookup_cache_valid = 0u;
   table->lookup_cache_hits = 0u;
   table->lookup_cache_misses = 0u;
+  table->attach_failures = 0u;
+  table->detach_failures = 0u;
+  table->translate_local_failures = 0u;
+  table->translate_global_failures = 0u;
+  table->inspect_failures = 0u;
+  table->cache_invalidations = 0u;
   for (i = 0; i < AEGIS_NAMESPACE_CAPACITY; ++i) {
     table->namespaces[i].namespace_id = 0u;
     table->namespaces[i].parent_namespace_id = 0u;
@@ -1974,6 +1980,7 @@ int aegis_namespace_create(aegis_namespace_table_t *table,
   }
   if (parent_namespace_id != 0u &&
       !namespace_find_index(table, parent_namespace_id, &parent_index)) {
+    table->detach_failures += 1u;
     return -1;
   }
   for (i = 0; i < AEGIS_NAMESPACE_CAPACITY; ++i) {
@@ -1989,6 +1996,7 @@ int aegis_namespace_create(aegis_namespace_table_t *table,
     table->next_namespace_id += 1u;
     table->namespace_count += 1u;
     table->lookup_cache_valid = 0u;
+    table->cache_invalidations += 1u;
     return 0;
   }
   (void)parent_index;
@@ -1999,20 +2007,26 @@ int aegis_namespace_destroy(aegis_namespace_table_t *table, uint32_t namespace_i
   size_t ns_index = 0u;
   size_t i;
   if (table == 0 || namespace_id == 0u || namespace_id == 1u) {
+    if (table != 0) {
+      table->detach_failures += 1u;
+    }
     return -1;
   }
   if (!namespace_find_index(table, namespace_id, &ns_index)) {
+    table->detach_failures += 1u;
     return -1;
   }
   for (i = 0; i < AEGIS_NAMESPACE_PROCESS_CAPACITY; ++i) {
     if (table->processes[i].active != 0u &&
         table->processes[i].namespace_id == namespace_id) {
+      table->detach_failures += 1u;
       return -1;
     }
   }
   for (i = 0; i < AEGIS_NAMESPACE_CAPACITY; ++i) {
     if (table->namespaces[i].active != 0u &&
         table->namespaces[i].parent_namespace_id == namespace_id) {
+      table->detach_failures += 1u;
       return -1;
     }
   }
@@ -2025,6 +2039,7 @@ int aegis_namespace_destroy(aegis_namespace_table_t *table, uint32_t namespace_i
     table->namespace_count -= 1u;
   }
   table->lookup_cache_valid = 0u;
+  table->cache_invalidations += 1u;
   return 0;
 }
 
@@ -2037,12 +2052,17 @@ int aegis_namespace_attach_process(aegis_namespace_table_t *table,
   size_t i;
   uint32_t local_pid;
   if (table == 0 || process_id == 0u || local_pid_out == 0) {
+    if (table != 0) {
+      table->attach_failures += 1u;
+    }
     return -1;
   }
   if (!namespace_find_index(table, namespace_id, &ns_index)) {
+    table->attach_failures += 1u;
     return -1;
   }
   if (namespace_process_find_by_global(table, process_id, &existing)) {
+    table->attach_failures += 1u;
     return -1;
   }
   local_pid = table->namespaces[ns_index].local_pid_counter + 1u;
@@ -2065,6 +2085,7 @@ int aegis_namespace_attach_process(aegis_namespace_table_t *table,
     table->lookup_cache_index = (uint16_t)i;
     return 0;
   }
+  table->attach_failures += 1u;
   return -1;
 }
 
@@ -2072,12 +2093,17 @@ int aegis_namespace_detach_process(aegis_namespace_table_t *table, uint32_t proc
   size_t proc_index = 0u;
   size_t ns_index = 0u;
   if (table == 0 || process_id == 0u) {
+    if (table != 0) {
+      table->detach_failures += 1u;
+    }
     return -1;
   }
   if (!namespace_process_find_by_global(table, process_id, &proc_index)) {
+    table->detach_failures += 1u;
     return -1;
   }
   if (!namespace_find_index(table, table->processes[proc_index].namespace_id, &ns_index)) {
+    table->detach_failures += 1u;
     return -1;
   }
   table->processes[proc_index].active = 0u;
@@ -2091,6 +2117,7 @@ int aegis_namespace_detach_process(aegis_namespace_table_t *table, uint32_t proc
     table->process_count -= 1u;
   }
   table->lookup_cache_valid = 0u;
+  table->cache_invalidations += 1u;
   return 0;
 }
 
@@ -2106,6 +2133,7 @@ int aegis_namespace_translate_local_to_global(const aegis_namespace_table_t *tab
     *process_id_out = table->processes[i].process_id;
     return 0;
   }
+  ((aegis_namespace_table_t *)table)->translate_local_failures += 1u;
   return -1;
 }
 
@@ -2122,6 +2150,7 @@ int aegis_namespace_translate_global_to_local(const aegis_namespace_table_t *tab
     *local_pid_out = table->processes[i].local_pid;
     return 0;
   }
+  ((aegis_namespace_table_t *)table)->translate_global_failures += 1u;
   return -1;
 }
 
@@ -2137,6 +2166,7 @@ int aegis_namespace_can_inspect(const aegis_namespace_table_t *table,
   *allowed_out = 0u;
   if (!namespace_process_find_by_global(table, requester_process_id, &req_index) ||
       !namespace_process_find_by_global(table, target_process_id, &tgt_index)) {
+    ((aegis_namespace_table_t *)table)->inspect_failures += 1u;
     return 0;
   }
   if (table->processes[req_index].namespace_id == table->processes[tgt_index].namespace_id) {
@@ -2160,11 +2190,20 @@ int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
                      out_size,
                      "{\"schema_version\":1,\"namespace_count\":%llu,\"process_count\":%llu,"
                      "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
+                     "\"attach_failures\":%llu,\"detach_failures\":%llu,"
+                     "\"translate_local_failures\":%llu,\"translate_global_failures\":%llu,"
+                     "\"inspect_failures\":%llu,\"cache_invalidations\":%llu,"
                      "\"namespaces\":[",
                      (unsigned long long)table->namespace_count,
                      (unsigned long long)table->process_count,
                      (unsigned long long)table->lookup_cache_hits,
-                     (unsigned long long)table->lookup_cache_misses);
+                     (unsigned long long)table->lookup_cache_misses,
+                     (unsigned long long)table->attach_failures,
+                     (unsigned long long)table->detach_failures,
+                     (unsigned long long)table->translate_local_failures,
+                     (unsigned long long)table->translate_global_failures,
+                     (unsigned long long)table->inspect_failures,
+                     (unsigned long long)table->cache_invalidations);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -2680,6 +2719,8 @@ void aegis_ipc_channel_table_init(aegis_ipc_channel_table_t *table) {
   table->lookup_cache_valid = 0u;
   table->lookup_cache_hits = 0u;
   table->lookup_cache_misses = 0u;
+  table->unknown_channel_requests = 0u;
+  table->drain_underflow_clamps = 0u;
 }
 
 int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
@@ -2730,6 +2771,7 @@ int aegis_ipc_channel_reserve_send(aegis_ipc_channel_table_t *table,
   }
   *accepted_out = 0u;
   if (!ipc_channel_find_index(table, channel_id, &index)) {
+    table->unknown_channel_requests += 1u;
     return -1;
   }
   projected = (uint64_t)table->channels[index].inflight_bytes + (uint64_t)payload_bytes;
@@ -2755,9 +2797,13 @@ int aegis_ipc_channel_drain(aegis_ipc_channel_table_t *table,
     return -1;
   }
   if (!ipc_channel_find_index(table, channel_id, &index)) {
+    table->unknown_channel_requests += 1u;
     return -1;
   }
   if (drained_bytes >= table->channels[index].inflight_bytes) {
+    if (drained_bytes > table->channels[index].inflight_bytes) {
+      table->drain_underflow_clamps += 1u;
+    }
     table->channels[index].inflight_bytes = 0u;
     return 0;
   }
@@ -2780,12 +2826,15 @@ int aegis_ipc_channel_snapshot_json(const aegis_ipc_channel_table_t *table,
                      "{\"schema_version\":1,\"total_accepted_messages\":%llu,"
                      "\"total_dropped_messages\":%llu,\"total_backpressure_events\":%llu,"
                      "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
+                     "\"unknown_channel_requests\":%llu,\"drain_underflow_clamps\":%llu,"
                      "\"channels\":[",
                      (unsigned long long)table->total_accepted_messages,
                      (unsigned long long)table->total_dropped_messages,
                      (unsigned long long)table->total_backpressure_events,
                      (unsigned long long)table->lookup_cache_hits,
-                     (unsigned long long)table->lookup_cache_misses);
+                     (unsigned long long)table->lookup_cache_misses,
+                     (unsigned long long)table->unknown_channel_requests,
+                     (unsigned long long)table->drain_underflow_clamps);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -2864,6 +2913,9 @@ void aegis_memory_zone_table_init(aegis_memory_zone_table_t *table) {
   table->lookup_cache_valid = 0u;
   table->lookup_cache_hits = 0u;
   table->lookup_cache_misses = 0u;
+  table->unknown_zone_requests = 0u;
+  table->release_underflow_clamps = 0u;
+  table->reclaim_shortfall_events = 0u;
   for (i = 0; i < AEGIS_MEMORY_ZONE_CAPACITY; ++i) {
     table->zones[i].zone_id = 0u;
     table->zones[i].zone_kind = 0u;
@@ -2957,6 +3009,7 @@ int aegis_memory_zone_charge(aegis_memory_zone_table_t *table,
   }
   *accepted_out = 0u;
   if (!memory_zone_find_index(table, zone_id, &idx)) {
+    table->unknown_zone_requests += 1u;
     return -1;
   }
   projected = table->zones[idx].used_bytes + bytes;
@@ -2993,6 +3046,7 @@ int aegis_memory_zone_charge(aegis_memory_zone_table_t *table,
       *accepted_out = 1u;
       return 1;
     }
+    table->reclaim_shortfall_events += 1u;
   }
   table->denied_charges += 1u;
   return 0;
@@ -3007,10 +3061,12 @@ int aegis_memory_zone_release(aegis_memory_zone_table_t *table,
     return -1;
   }
   if (!memory_zone_find_index(table, zone_id, &idx)) {
+    table->unknown_zone_requests += 1u;
     return -1;
   }
   drained = bytes;
   if (drained > table->zones[idx].used_bytes) {
+    table->release_underflow_clamps += 1u;
     drained = table->zones[idx].used_bytes;
   }
   table->zones[idx].used_bytes -= drained;
@@ -3036,13 +3092,18 @@ int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
                      out_size,
                      "{\"schema_version\":1,\"total_budget_bytes\":%llu,\"total_used_bytes\":%llu,"
                      "\"denied_charges\":%llu,\"reclaim_events\":%llu,"
-                     "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,\"zones\":[",
+                     "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
+                     "\"unknown_zone_requests\":%llu,\"release_underflow_clamps\":%llu,"
+                     "\"reclaim_shortfall_events\":%llu,\"zones\":[",
                      (unsigned long long)table->total_budget_bytes,
                      (unsigned long long)table->total_used_bytes,
                      (unsigned long long)table->denied_charges,
                      (unsigned long long)table->reclaim_events,
                      (unsigned long long)table->lookup_cache_hits,
-                     (unsigned long long)table->lookup_cache_misses);
+                     (unsigned long long)table->lookup_cache_misses,
+                     (unsigned long long)table->unknown_zone_requests,
+                     (unsigned long long)table->release_underflow_clamps,
+                     (unsigned long long)table->reclaim_shortfall_events);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
