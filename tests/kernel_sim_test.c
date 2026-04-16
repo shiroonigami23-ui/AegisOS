@@ -1666,6 +1666,14 @@ static int test_process_checkpoint_restore_scaffold(void) {
       strstr(json, "\"capture_count\":1") == 0 ||
       strstr(json, "\"restore_count\":1") == 0 ||
       strstr(json, "\"restore_failures\":1") == 0 ||
+      strstr(json, "\"runtime_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"runtime_lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"checkpoint_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"checkpoint_lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"capture_overwrite_existing\":0") == 0 ||
+      strstr(json, "\"restore_epoch_mismatch_failures\":1") == 0 ||
+      strstr(json, "\"query_misses\":0") == 0 ||
+      strstr(json, "\"journal_replay_entries_applied\":0") == 0 ||
       strstr(json, "\"process_id\":11001") == 0 ||
       strstr(json, "\"tag\":\"pre-update\"") == 0) {
     fprintf(stderr, "checkpoint snapshot json mismatch: %s\n", json);
@@ -1740,12 +1748,65 @@ static int test_process_checkpoint_journal_persistence_and_replay(void) {
   if (aegis_process_checkpoint_snapshot_json(&replayed, json, sizeof(json)) <= 0 ||
       strstr(json, "\"capture_count\":1") == 0 ||
       strstr(json, "\"restore_count\":1") == 0 ||
+      strstr(json, "\"journal_replay_entries_applied\":1") == 0 ||
       strstr(json, "\"tag\":\"crash-recovery\"") == 0) {
     fprintf(stderr, "checkpoint journal replay snapshot mismatch: %s\n", json);
     remove(journal_path);
     return 1;
   }
   remove(journal_path);
+  return 0;
+}
+
+static int test_process_checkpoint_cache_and_counter_paths(void) {
+  aegis_process_checkpoint_table_t table;
+  aegis_process_runtime_state_t runtime;
+  aegis_process_checkpoint_entry_t entry;
+  uint64_t epoch = 0u;
+  char json[4096];
+  memset(&runtime, 0, sizeof(runtime));
+  memset(&entry, 0, sizeof(entry));
+  aegis_process_checkpoint_table_init(&table);
+  runtime.process_id = 13001u;
+  runtime.namespace_id = 55u;
+  runtime.thread_count = 1u;
+  runtime.vm_bytes = 4096u;
+  runtime.capability_mask = 0x1u;
+  runtime.policy_revision = 1u;
+  runtime.scheduler_tick = 12u;
+  runtime.active = 1u;
+  if (aegis_process_checkpoint_register_runtime(&table, &runtime) != 0) {
+    fprintf(stderr, "checkpoint cache/counter register runtime failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_capture(&table,
+                                       runtime.process_id,
+                                       AEGIS_CHECKPOINT_REASON_MANUAL,
+                                       13u,
+                                       "first",
+                                       &epoch) != 0) {
+    fprintf(stderr, "checkpoint cache/counter first capture failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_capture(&table,
+                                       runtime.process_id,
+                                       AEGIS_CHECKPOINT_REASON_PRE_UPDATE,
+                                       14u,
+                                       "overwrite",
+                                       &epoch) != 0) {
+    fprintf(stderr, "checkpoint cache/counter overwrite capture failed\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_query(&table, 99999u, &entry) == 0) {
+    fprintf(stderr, "checkpoint cache/counter expected query miss\n");
+    return 1;
+  }
+  if (aegis_process_checkpoint_snapshot_json(&table, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"capture_overwrite_existing\":1") == 0 ||
+      strstr(json, "\"query_misses\":1") == 0) {
+    fprintf(stderr, "checkpoint cache/counter snapshot mismatch: %s\n", json);
+    return 1;
+  }
   return 0;
 }
 
@@ -1798,7 +1859,10 @@ static int test_secure_time_source_attestation(void) {
       strstr(snapshot_json, "\"schema_version\":1") == 0 ||
       strstr(snapshot_json, "\"attestations_ok\":1") == 0 ||
       strstr(snapshot_json, "\"attestations_failed\":3") == 0 ||
-      strstr(snapshot_json, "\"nonce_replay_detected\":1") == 0) {
+      strstr(snapshot_json, "\"nonce_replay_detected\":1") == 0 ||
+      strstr(snapshot_json, "\"nonce_lookup_cache_hits\":1") == 0 ||
+      strstr(snapshot_json, "\"nonce_lookup_cache_misses\":3") == 0 ||
+      strstr(snapshot_json, "\"drift_budget_clamp_events\":0") == 0) {
     fprintf(stderr, "secure time snapshot mismatch: %s\n", snapshot_json);
     return 1;
   }
@@ -1918,6 +1982,9 @@ int main(void) {
     return 1;
   }
   if (test_process_checkpoint_journal_persistence_and_replay() != 0) {
+    return 1;
+  }
+  if (test_process_checkpoint_cache_and_counter_paths() != 0) {
     return 1;
   }
   if (test_secure_time_source_attestation() != 0) {

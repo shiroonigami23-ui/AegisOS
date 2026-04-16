@@ -339,6 +339,20 @@ typedef struct {
   uint64_t capture_count;
   uint64_t restore_count;
   uint64_t restore_failures;
+  uint32_t runtime_lookup_cache_process_id;
+  uint16_t runtime_lookup_cache_index;
+  uint8_t runtime_lookup_cache_valid;
+  uint64_t runtime_lookup_cache_hits;
+  uint64_t runtime_lookup_cache_misses;
+  uint32_t checkpoint_lookup_cache_process_id;
+  uint16_t checkpoint_lookup_cache_index;
+  uint8_t checkpoint_lookup_cache_valid;
+  uint64_t checkpoint_lookup_cache_hits;
+  uint64_t checkpoint_lookup_cache_misses;
+  uint64_t capture_overwrite_existing;
+  uint64_t restore_epoch_mismatch_failures;
+  uint64_t query_misses;
+  uint64_t journal_replay_entries_applied;
 } aegis_process_checkpoint_table_t;
 
 typedef struct {
@@ -354,6 +368,11 @@ typedef struct {
   char recent_nonces[8][AEGIS_TIME_ATTEST_NONCE_MAX + 1u];
   uint8_t recent_nonce_count;
   uint8_t recent_nonce_head;
+  char nonce_lookup_cache[AEGIS_TIME_ATTEST_NONCE_MAX + 1u];
+  uint8_t nonce_lookup_cache_valid;
+  uint64_t nonce_lookup_cache_hits;
+  uint64_t nonce_lookup_cache_misses;
+  uint64_t drift_budget_clamp_events;
   uint8_t initialized;
 } aegis_secure_time_attestor_t;
 

@@ -44,8 +44,13 @@ Kernel direction, interfaces, and implementation notes live here.
 - `aegis_process_checkpoint_table_t`: process checkpoint capture/restore for recovery workflows.
   - supports process runtime registration and per-reason checkpoint capture.
   - supports checkpoint restore with epoch verification and failure counters.
+  - includes runtime/checkpoint PID lookup-cache fast paths with hit/miss telemetry.
+  - includes overwrite/query-miss/epoch-mismatch/replay-applied counters for recovery observability.
   - exposes snapshot JSON endpoint with entry-level checkpoint metadata.
   - supports disk-backed journal save and boot-time replay for crash recovery.
+- `aegis_secure_time_attestor_t`:
+  - includes nonce lookup-cache fast path for repeated nonce-replay checks.
+  - tracks drift-budget clamp events and nonce cache hit/miss telemetry in snapshot JSON.
 - `aegis_syscall_gate_matrix_t`: syscall capability enforcement matrix.
   - includes decision-cache fast path for hot process/syscall pairs.
   - includes process/rule lookup-cache fast paths to reduce repeated linear scans.

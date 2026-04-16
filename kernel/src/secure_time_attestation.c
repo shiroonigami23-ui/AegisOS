@@ -12,8 +12,19 @@ static int nonce_seen(const aegis_secure_time_attestor_t *attestor, const char *
   if (attestor == 0 || nonce == 0 || nonce[0] == '\0') {
     return 0;
   }
+  if (attestor->nonce_lookup_cache_valid != 0u &&
+      strcmp(attestor->nonce_lookup_cache, nonce) == 0) {
+    ((aegis_secure_time_attestor_t *)attestor)->nonce_lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_secure_time_attestor_t *)attestor)->nonce_lookup_cache_misses += 1u;
   for (i = 0; i < attestor->recent_nonce_count && i < 8u; ++i) {
     if (strcmp(attestor->recent_nonces[i], nonce) == 0) {
+      snprintf(((aegis_secure_time_attestor_t *)attestor)->nonce_lookup_cache,
+               sizeof(((aegis_secure_time_attestor_t *)attestor)->nonce_lookup_cache),
+               "%s",
+               nonce);
+      ((aegis_secure_time_attestor_t *)attestor)->nonce_lookup_cache_valid = 1u;
       return 1;
     }
   }
@@ -31,6 +42,8 @@ static void nonce_record(aegis_secure_time_attestor_t *attestor, const char *non
   if (attestor->recent_nonce_count < 8u) {
     attestor->recent_nonce_count += 1u;
   }
+  snprintf(attestor->nonce_lookup_cache, sizeof(attestor->nonce_lookup_cache), "%s", nonce);
+  attestor->nonce_lookup_cache_valid = 1u;
 }
 
 void aegis_secure_time_attestor_init(aegis_secure_time_attestor_t *attestor,
@@ -93,7 +106,13 @@ int aegis_secure_time_attest(aegis_secure_time_attestor_t *attestor,
   }
 
   delta_monotonic = observed_monotonic_tick - attestor->last_monotonic_tick;
-  budget_seconds = (delta_monotonic * attestor->drift_budget_ppm) / 1000000u;
+  if (delta_monotonic != 0u &&
+      attestor->drift_budget_ppm > (UINT64_MAX / delta_monotonic)) {
+    budget_seconds = UINT64_MAX / 1000000u;
+    attestor->drift_budget_clamp_events += 1u;
+  } else {
+    budget_seconds = (delta_monotonic * attestor->drift_budget_ppm) / 1000000u;
+  }
   if (budget_seconds == 0u && delta_monotonic > 0u) {
     budget_seconds = 1u;
   }
@@ -165,7 +184,8 @@ int aegis_secure_time_attestor_snapshot_json(const aegis_secure_time_attestor_t 
                      "\"last_monotonic_tick\":%llu,\"drift_budget_ppm\":%llu,"
                      "\"attestations_ok\":%llu,\"attestations_failed\":%llu,"
                      "\"rollback_detected\":%llu,\"drift_violations\":%llu,"
-                     "\"nonce_replay_detected\":%llu}",
+                     "\"nonce_replay_detected\":%llu,\"nonce_lookup_cache_hits\":%llu,"
+                     "\"nonce_lookup_cache_misses\":%llu,\"drift_budget_clamp_events\":%llu}",
                      (unsigned int)attestor->boot_id,
                      (unsigned long long)attestor->last_wallclock_epoch,
                      (unsigned long long)attestor->last_monotonic_tick,
@@ -174,7 +194,10 @@ int aegis_secure_time_attestor_snapshot_json(const aegis_secure_time_attestor_t 
                      (unsigned long long)attestor->attestations_failed,
                      (unsigned long long)attestor->rollback_detected,
                      (unsigned long long)attestor->drift_violations,
-                     (unsigned long long)attestor->nonce_replay_detected);
+                     (unsigned long long)attestor->nonce_replay_detected,
+                     (unsigned long long)attestor->nonce_lookup_cache_hits,
+                     (unsigned long long)attestor->nonce_lookup_cache_misses,
+                     (unsigned long long)attestor->drift_budget_clamp_events);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
