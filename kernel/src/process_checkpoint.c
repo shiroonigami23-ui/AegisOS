@@ -11,10 +11,23 @@ static int runtime_index_for_pid(const aegis_process_checkpoint_table_t *table,
   if (table == 0 || index_out == 0 || process_id == 0u) {
     return 0;
   }
+  if (table->runtime_lookup_cache_valid != 0u &&
+      table->runtime_lookup_cache_process_id == process_id &&
+      table->runtime_lookup_cache_index < AEGIS_PROCESS_CHECKPOINT_CAPACITY &&
+      table->runtime_states[table->runtime_lookup_cache_index].active != 0u &&
+      table->runtime_states[table->runtime_lookup_cache_index].process_id == process_id) {
+    *index_out = table->runtime_lookup_cache_index;
+    ((aegis_process_checkpoint_table_t *)table)->runtime_lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_process_checkpoint_table_t *)table)->runtime_lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_PROCESS_CHECKPOINT_CAPACITY; ++i) {
     if (table->runtime_states[i].active != 0u &&
         table->runtime_states[i].process_id == process_id) {
       *index_out = i;
+      ((aegis_process_checkpoint_table_t *)table)->runtime_lookup_cache_valid = 1u;
+      ((aegis_process_checkpoint_table_t *)table)->runtime_lookup_cache_process_id = process_id;
+      ((aegis_process_checkpoint_table_t *)table)->runtime_lookup_cache_index = (uint16_t)i;
       return 1;
     }
   }
@@ -28,10 +41,23 @@ static int checkpoint_index_for_pid(const aegis_process_checkpoint_table_t *tabl
   if (table == 0 || index_out == 0 || process_id == 0u) {
     return 0;
   }
+  if (table->checkpoint_lookup_cache_valid != 0u &&
+      table->checkpoint_lookup_cache_process_id == process_id &&
+      table->checkpoint_lookup_cache_index < AEGIS_PROCESS_CHECKPOINT_CAPACITY &&
+      table->checkpoints[table->checkpoint_lookup_cache_index].valid != 0u &&
+      table->checkpoints[table->checkpoint_lookup_cache_index].process_id == process_id) {
+    *index_out = table->checkpoint_lookup_cache_index;
+    ((aegis_process_checkpoint_table_t *)table)->checkpoint_lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_process_checkpoint_table_t *)table)->checkpoint_lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_PROCESS_CHECKPOINT_CAPACITY; ++i) {
     if (table->checkpoints[i].valid != 0u &&
         table->checkpoints[i].process_id == process_id) {
       *index_out = i;
+      ((aegis_process_checkpoint_table_t *)table)->checkpoint_lookup_cache_valid = 1u;
+      ((aegis_process_checkpoint_table_t *)table)->checkpoint_lookup_cache_process_id = process_id;
+      ((aegis_process_checkpoint_table_t *)table)->checkpoint_lookup_cache_index = (uint16_t)i;
       return 1;
     }
   }
@@ -75,6 +101,20 @@ void aegis_process_checkpoint_table_init(aegis_process_checkpoint_table_t *table
   table->capture_count = 0u;
   table->restore_count = 0u;
   table->restore_failures = 0u;
+  table->runtime_lookup_cache_process_id = 0u;
+  table->runtime_lookup_cache_index = 0u;
+  table->runtime_lookup_cache_valid = 0u;
+  table->runtime_lookup_cache_hits = 0u;
+  table->runtime_lookup_cache_misses = 0u;
+  table->checkpoint_lookup_cache_process_id = 0u;
+  table->checkpoint_lookup_cache_index = 0u;
+  table->checkpoint_lookup_cache_valid = 0u;
+  table->checkpoint_lookup_cache_hits = 0u;
+  table->checkpoint_lookup_cache_misses = 0u;
+  table->capture_overwrite_existing = 0u;
+  table->restore_epoch_mismatch_failures = 0u;
+  table->query_misses = 0u;
+  table->journal_replay_entries_applied = 0u;
   for (i = 0; i < AEGIS_PROCESS_CHECKPOINT_CAPACITY; ++i) {
     memset(&table->runtime_states[i], 0, sizeof(table->runtime_states[i]));
     memset(&table->checkpoints[i], 0, sizeof(table->checkpoints[i]));
@@ -91,6 +131,9 @@ int aegis_process_checkpoint_register_runtime(aegis_process_checkpoint_table_t *
   if (runtime_index_for_pid(table, state->process_id, &idx)) {
     table->runtime_states[idx] = *state;
     table->runtime_states[idx].active = 1u;
+    table->runtime_lookup_cache_valid = 1u;
+    table->runtime_lookup_cache_process_id = state->process_id;
+    table->runtime_lookup_cache_index = (uint16_t)idx;
     return 0;
   }
   for (i = 0; i < AEGIS_PROCESS_CHECKPOINT_CAPACITY; ++i) {
@@ -99,6 +142,9 @@ int aegis_process_checkpoint_register_runtime(aegis_process_checkpoint_table_t *
     }
     table->runtime_states[i] = *state;
     table->runtime_states[i].active = 1u;
+    table->runtime_lookup_cache_valid = 1u;
+    table->runtime_lookup_cache_process_id = state->process_id;
+    table->runtime_lookup_cache_index = (uint16_t)i;
     return 0;
   }
   return -1;
@@ -133,6 +179,9 @@ int aegis_process_checkpoint_capture(aegis_process_checkpoint_table_t *table,
       return -1;
     }
   }
+  else {
+    table->capture_overwrite_existing += 1u;
+  }
   entry = &table->checkpoints[checkpoint_idx];
   entry->process_id = process_id;
   entry->checkpoint_epoch = table->next_epoch;
@@ -149,6 +198,9 @@ int aegis_process_checkpoint_capture(aegis_process_checkpoint_table_t *table,
   *checkpoint_epoch_out = table->next_epoch;
   table->next_epoch += 1u;
   table->capture_count += 1u;
+  table->checkpoint_lookup_cache_valid = 1u;
+  table->checkpoint_lookup_cache_process_id = process_id;
+  table->checkpoint_lookup_cache_index = (uint16_t)checkpoint_idx;
   return 0;
 }
 
@@ -168,6 +220,7 @@ int aegis_process_checkpoint_restore(aegis_process_checkpoint_table_t *table,
       table->checkpoints[checkpoint_idx].checkpoint_epoch != expected_epoch) {
     table->checkpoints[checkpoint_idx].last_restore_status = 0u;
     table->restore_failures += 1u;
+    table->restore_epoch_mismatch_failures += 1u;
     return -1;
   }
   *restored_state_out = table->checkpoints[checkpoint_idx].state;
@@ -185,6 +238,7 @@ int aegis_process_checkpoint_query(const aegis_process_checkpoint_table_t *table
     return -1;
   }
   if (!checkpoint_index_for_pid(table, process_id, &checkpoint_idx)) {
+    ((aegis_process_checkpoint_table_t *)table)->query_misses += 1u;
     return -1;
   }
   *entry_out = table->checkpoints[checkpoint_idx];
@@ -204,10 +258,25 @@ int aegis_process_checkpoint_snapshot_json(const aegis_process_checkpoint_table_
   written = snprintf(out,
                      out_size,
                      "{\"schema_version\":1,\"capture_count\":%llu,\"restore_count\":%llu,"
-                     "\"restore_failures\":%llu,\"entries\":[",
+                     "\"restore_failures\":%llu,\"runtime_lookup_cache_hits\":%llu,"
+                     "\"runtime_lookup_cache_misses\":%llu,"
+                     "\"checkpoint_lookup_cache_hits\":%llu,"
+                     "\"checkpoint_lookup_cache_misses\":%llu,"
+                     "\"capture_overwrite_existing\":%llu,"
+                     "\"restore_epoch_mismatch_failures\":%llu,"
+                     "\"query_misses\":%llu,\"journal_replay_entries_applied\":%llu,"
+                     "\"entries\":[",
                      (unsigned long long)table->capture_count,
                      (unsigned long long)table->restore_count,
-                     (unsigned long long)table->restore_failures);
+                     (unsigned long long)table->restore_failures,
+                     (unsigned long long)table->runtime_lookup_cache_hits,
+                     (unsigned long long)table->runtime_lookup_cache_misses,
+                     (unsigned long long)table->checkpoint_lookup_cache_hits,
+                     (unsigned long long)table->checkpoint_lookup_cache_misses,
+                     (unsigned long long)table->capture_overwrite_existing,
+                     (unsigned long long)table->restore_epoch_mismatch_failures,
+                     (unsigned long long)table->query_misses,
+                     (unsigned long long)table->journal_replay_entries_applied);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -424,6 +493,10 @@ int aegis_process_checkpoint_journal_replay(aegis_process_checkpoint_table_t *ta
         return -1;
       }
     }
+    table->journal_replay_entries_applied += 1u;
+    table->checkpoint_lookup_cache_valid = 1u;
+    table->checkpoint_lookup_cache_process_id = entry->process_id;
+    table->checkpoint_lookup_cache_index = (uint16_t)checkpoint_cursor;
     if (entry->checkpoint_epoch > max_epoch_seen) {
       max_epoch_seen = entry->checkpoint_epoch;
     }

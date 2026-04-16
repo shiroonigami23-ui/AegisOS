@@ -74,6 +74,8 @@ This repository contains:
 - Wait-latency safety clamps and enriched fairness/admission snapshot telemetry for tuning pipelines.
 - IPC channel and memory zone lookup-cache fast paths to reduce hot-ID linear scan overhead.
 - Syscall rule removal API with policy-churn telemetry (`removed_rule_count`) in syscall snapshots.
+- Checkpoint subsystem runtime/entry PID lookup-cache fast paths with expanded recovery counters.
+- Secure-time nonce lookup-cache telemetry and drift-budget clamp-event tracking for attestation observability.
 - Namespace translation lookup-cache and scheduler percentile-selection fast path for lower runtime metrics overhead.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
