@@ -80,6 +80,7 @@ This repository contains:
 - Namespace attach/detach/translate/inspect failure counters plus cache-invalidation telemetry in namespace snapshots.
 - IPC unknown-channel request and drain-underflow clamp telemetry in channel snapshots.
 - Memory unknown-zone request, release-underflow clamp, and reclaim-shortfall telemetry in zone snapshots.
+- Scheduler PID lookup upgraded to dual-entry cache (primary + victim) to reduce repeated linear scans.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 
