@@ -7,6 +7,7 @@ Kernel direction, interfaces, and implementation notes live here.
 - `aegis_vm_space_t`: virtual memory region mapping abstraction.
   - supports map/unmap/query with overlap/overflow guards.
   - supports exact-region permission flag updates and region split helper for pager preparation.
+  - includes query lookup-cache fast path for repeated hot-address lookups.
   - exposes JSON summary endpoint for VM map observability.
 - `aegis_ipc_envelope_t`: IPC channel envelope format helper.
   - supports fixed-size encode/decode and schema/payload validation checks.
@@ -42,6 +43,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - supports disk-backed journal save and boot-time replay for crash recovery.
 - `aegis_syscall_gate_matrix_t`: syscall capability enforcement matrix.
   - includes decision-cache fast path for hot process/syscall pairs.
+  - includes process/rule lookup-cache fast paths to reduce repeated linear scans.
   - preserves deny-reason counters while reducing repeated linear scans.
 - `aegis_ipc_channel_table_t` and `aegis_memory_zone_table_t`:
   - include lookup-cache fast paths for hot channel/zone IDs.

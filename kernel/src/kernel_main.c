@@ -167,6 +167,11 @@ void aegis_vm_space_init(aegis_vm_space_t *space) {
     space->regions[i].flags = 0u;
     space->regions[i].active = 0u;
   }
+  space->lookup_cache_query_address = 0u;
+  space->lookup_cache_query_index = 0u;
+  space->lookup_cache_valid = 0u;
+  space->lookup_cache_hits = 0u;
+  space->lookup_cache_misses = 0u;
 }
 
 int aegis_vm_map(aegis_vm_space_t *space, uint64_t base, uint64_t size, uint32_t flags) {
@@ -196,6 +201,7 @@ int aegis_vm_map(aegis_vm_space_t *space, uint64_t base, uint64_t size, uint32_t
     region->flags = flags;
     region->active = 1u;
     space->count += 1u;
+    space->lookup_cache_valid = 0u;
     return 0;
   }
   return -1;
@@ -219,6 +225,7 @@ int aegis_vm_unmap(aegis_vm_space_t *space, uint64_t base, uint64_t size) {
       if (space->count > 0u) {
         space->count -= 1u;
       }
+      space->lookup_cache_valid = 0u;
       return 0;
     }
   }
@@ -237,6 +244,7 @@ int aegis_vm_update_flags(aegis_vm_space_t *space, uint64_t base, uint64_t size,
     }
     if (region->base == base && region->size == size) {
       region->flags = flags;
+      space->lookup_cache_valid = 0u;
       return 0;
     }
   }
@@ -279,6 +287,7 @@ int aegis_vm_split_region(aegis_vm_space_t *space,
     space->regions[free_index].flags = space->regions[target_index].flags;
     space->regions[free_index].active = 1u;
     space->count += 1u;
+    space->lookup_cache_valid = 0u;
     return 0;
   }
 }
@@ -288,6 +297,15 @@ int aegis_vm_query(const aegis_vm_space_t *space, uint64_t address, aegis_vm_reg
   if (space == 0 || region == 0) {
     return -1;
   }
+  if (space->lookup_cache_valid != 0u &&
+      space->lookup_cache_query_index < AEGIS_VM_REGION_CAPACITY &&
+      space->regions[space->lookup_cache_query_index].active != 0u &&
+      space->lookup_cache_query_address == address) {
+    *region = space->regions[space->lookup_cache_query_index];
+    ((aegis_vm_space_t *)space)->lookup_cache_hits += 1u;
+    return 0;
+  }
+  ((aegis_vm_space_t *)space)->lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_VM_REGION_CAPACITY; ++i) {
     const aegis_vm_region_t *entry = &space->regions[i];
     if (entry->active == 0u) {
@@ -295,6 +313,9 @@ int aegis_vm_query(const aegis_vm_space_t *space, uint64_t address, aegis_vm_reg
     }
     if (address >= entry->base && address < (entry->base + entry->size)) {
       *region = *entry;
+      ((aegis_vm_space_t *)space)->lookup_cache_valid = 1u;
+      ((aegis_vm_space_t *)space)->lookup_cache_query_address = address;
+      ((aegis_vm_space_t *)space)->lookup_cache_query_index = (uint16_t)i;
       return 0;
     }
   }
@@ -311,8 +332,11 @@ int aegis_vm_summary_json(const aegis_vm_space_t *space, char *out, size_t out_s
   }
   written = snprintf(out,
                      out_size,
-                     "{\"schema_version\":1,\"region_count\":%llu,\"regions\":[",
-                     (unsigned long long)space->count);
+                     "{\"schema_version\":1,\"region_count\":%llu,"
+                     "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,\"regions\":[",
+                     (unsigned long long)space->count,
+                     (unsigned long long)space->lookup_cache_hits,
+                     (unsigned long long)space->lookup_cache_misses);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -2009,10 +2033,23 @@ static int syscall_process_find_index(const aegis_syscall_gate_matrix_t *matrix,
   if (matrix == 0 || index_out == 0 || process_id == 0u) {
     return 0;
   }
+  if (matrix->process_lookup_cache_valid != 0u &&
+      matrix->process_lookup_cache_process_id == process_id &&
+      matrix->process_lookup_cache_index < AEGIS_SYSCALL_GATE_CAPACITY &&
+      matrix->process_caps[matrix->process_lookup_cache_index].active != 0u &&
+      matrix->process_caps[matrix->process_lookup_cache_index].process_id == process_id) {
+    *index_out = matrix->process_lookup_cache_index;
+    ((aegis_syscall_gate_matrix_t *)matrix)->process_lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_syscall_gate_matrix_t *)matrix)->process_lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_SYSCALL_GATE_CAPACITY; ++i) {
     if (matrix->process_caps[i].active != 0u &&
         matrix->process_caps[i].process_id == process_id) {
       *index_out = i;
+      ((aegis_syscall_gate_matrix_t *)matrix)->process_lookup_cache_valid = 1u;
+      ((aegis_syscall_gate_matrix_t *)matrix)->process_lookup_cache_process_id = process_id;
+      ((aegis_syscall_gate_matrix_t *)matrix)->process_lookup_cache_index = (uint16_t)i;
       return 1;
     }
   }
@@ -2026,10 +2063,23 @@ static int syscall_rule_find_index(const aegis_syscall_gate_matrix_t *matrix,
   if (matrix == 0 || index_out == 0 || syscall_id == 0u) {
     return 0;
   }
+  if (matrix->rule_lookup_cache_valid != 0u &&
+      matrix->rule_lookup_cache_syscall_id == syscall_id &&
+      matrix->rule_lookup_cache_index < AEGIS_SYSCALL_RULE_CAPACITY &&
+      matrix->rules[matrix->rule_lookup_cache_index].active != 0u &&
+      matrix->rules[matrix->rule_lookup_cache_index].syscall_id == syscall_id) {
+    *index_out = matrix->rule_lookup_cache_index;
+    ((aegis_syscall_gate_matrix_t *)matrix)->rule_lookup_cache_hits += 1u;
+    return 1;
+  }
+  ((aegis_syscall_gate_matrix_t *)matrix)->rule_lookup_cache_misses += 1u;
   for (i = 0; i < AEGIS_SYSCALL_RULE_CAPACITY; ++i) {
     if (matrix->rules[i].active != 0u &&
         matrix->rules[i].syscall_id == syscall_id) {
       *index_out = i;
+      ((aegis_syscall_gate_matrix_t *)matrix)->rule_lookup_cache_valid = 1u;
+      ((aegis_syscall_gate_matrix_t *)matrix)->rule_lookup_cache_syscall_id = syscall_id;
+      ((aegis_syscall_gate_matrix_t *)matrix)->rule_lookup_cache_index = (uint16_t)i;
       return 1;
     }
   }
@@ -2106,6 +2156,16 @@ void aegis_syscall_gate_matrix_init(aegis_syscall_gate_matrix_t *matrix) {
   matrix->decision_cache_hits = 0u;
   matrix->decision_cache_misses = 0u;
   matrix->decision_cache_generation = 1u;
+  matrix->process_lookup_cache_process_id = 0u;
+  matrix->process_lookup_cache_index = 0u;
+  matrix->process_lookup_cache_valid = 0u;
+  matrix->process_lookup_cache_hits = 0u;
+  matrix->process_lookup_cache_misses = 0u;
+  matrix->rule_lookup_cache_syscall_id = 0u;
+  matrix->rule_lookup_cache_index = 0u;
+  matrix->rule_lookup_cache_valid = 0u;
+  matrix->rule_lookup_cache_hits = 0u;
+  matrix->rule_lookup_cache_misses = 0u;
 }
 
 int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
@@ -2118,6 +2178,9 @@ int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
   }
   if (syscall_process_find_index(matrix, process_id, &existing)) {
     matrix->process_caps[existing].granted_capabilities = granted_capabilities;
+    matrix->process_lookup_cache_valid = 1u;
+    matrix->process_lookup_cache_process_id = process_id;
+    matrix->process_lookup_cache_index = (uint16_t)existing;
     syscall_gate_cache_invalidate(matrix);
     return 0;
   }
@@ -2128,6 +2191,9 @@ int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
     matrix->process_caps[i].process_id = process_id;
     matrix->process_caps[i].granted_capabilities = granted_capabilities;
     matrix->process_caps[i].active = 1u;
+    matrix->process_lookup_cache_valid = 1u;
+    matrix->process_lookup_cache_process_id = process_id;
+    matrix->process_lookup_cache_index = (uint16_t)i;
     syscall_gate_cache_invalidate(matrix);
     return 0;
   }
@@ -2145,6 +2211,10 @@ int aegis_syscall_gate_remove_process(aegis_syscall_gate_matrix_t *matrix, uint3
   matrix->process_caps[existing].active = 0u;
   matrix->process_caps[existing].process_id = 0u;
   matrix->process_caps[existing].granted_capabilities = 0u;
+  if (matrix->process_lookup_cache_valid != 0u &&
+      matrix->process_lookup_cache_process_id == process_id) {
+    matrix->process_lookup_cache_valid = 0u;
+  }
   syscall_gate_cache_invalidate(matrix);
   return 0;
 }
@@ -2166,6 +2236,9 @@ int aegis_syscall_gate_set_rule(aegis_syscall_gate_matrix_t *matrix,
     matrix->rules[existing].syscall_class = syscall_class;
     matrix->rules[existing].required_capability = required_capability;
     matrix->rules[existing].policy_gate_required = policy_gate_required != 0u ? 1u : 0u;
+    matrix->rule_lookup_cache_valid = 1u;
+    matrix->rule_lookup_cache_syscall_id = syscall_id;
+    matrix->rule_lookup_cache_index = (uint16_t)existing;
     syscall_gate_cache_invalidate(matrix);
     return 0;
   }
@@ -2178,6 +2251,9 @@ int aegis_syscall_gate_set_rule(aegis_syscall_gate_matrix_t *matrix,
     matrix->rules[i].required_capability = required_capability;
     matrix->rules[i].policy_gate_required = policy_gate_required != 0u ? 1u : 0u;
     matrix->rules[i].active = 1u;
+    matrix->rule_lookup_cache_valid = 1u;
+    matrix->rule_lookup_cache_syscall_id = syscall_id;
+    matrix->rule_lookup_cache_index = (uint16_t)i;
     syscall_gate_cache_invalidate(matrix);
     return 0;
   }
@@ -2267,6 +2343,8 @@ int aegis_syscall_gate_snapshot_json(const aegis_syscall_gate_matrix_t *matrix,
                      "\"deny_missing_rule_count\":%llu,\"deny_missing_process_count\":%llu,"
                      "\"deny_missing_capability_count\":%llu,\"deny_policy_gate_count\":%llu,"
                      "\"decision_cache_hits\":%llu,\"decision_cache_misses\":%llu,"
+                     "\"process_lookup_cache_hits\":%llu,\"process_lookup_cache_misses\":%llu,"
+                     "\"rule_lookup_cache_hits\":%llu,\"rule_lookup_cache_misses\":%llu,"
                      "\"rules\":[",
                      (unsigned long long)matrix->allow_count,
                      (unsigned long long)matrix->deny_missing_rule_count,
@@ -2274,7 +2352,11 @@ int aegis_syscall_gate_snapshot_json(const aegis_syscall_gate_matrix_t *matrix,
                      (unsigned long long)matrix->deny_missing_capability_count,
                      (unsigned long long)matrix->deny_policy_gate_count,
                      (unsigned long long)matrix->decision_cache_hits,
-                     (unsigned long long)matrix->decision_cache_misses);
+                     (unsigned long long)matrix->decision_cache_misses,
+                     (unsigned long long)matrix->process_lookup_cache_hits,
+                     (unsigned long long)matrix->process_lookup_cache_misses,
+                     (unsigned long long)matrix->rule_lookup_cache_hits,
+                     (unsigned long long)matrix->rule_lookup_cache_misses);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }

@@ -29,6 +29,11 @@ typedef struct {
 typedef struct {
   aegis_vm_region_t regions[AEGIS_VM_REGION_CAPACITY];
   size_t count;
+  uint64_t lookup_cache_query_address;
+  uint16_t lookup_cache_query_index;
+  uint8_t lookup_cache_valid;
+  uint64_t lookup_cache_hits;
+  uint64_t lookup_cache_misses;
 } aegis_vm_space_t;
 
 typedef struct {
@@ -198,6 +203,16 @@ typedef struct {
   uint64_t decision_cache_hits;
   uint64_t decision_cache_misses;
   uint32_t decision_cache_generation;
+  uint32_t process_lookup_cache_process_id;
+  uint16_t process_lookup_cache_index;
+  uint8_t process_lookup_cache_valid;
+  uint64_t process_lookup_cache_hits;
+  uint64_t process_lookup_cache_misses;
+  uint16_t rule_lookup_cache_syscall_id;
+  uint16_t rule_lookup_cache_index;
+  uint8_t rule_lookup_cache_valid;
+  uint64_t rule_lookup_cache_hits;
+  uint64_t rule_lookup_cache_misses;
 } aegis_syscall_gate_matrix_t;
 
 typedef struct {
