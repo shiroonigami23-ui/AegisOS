@@ -100,6 +100,10 @@ typedef struct {
   uint64_t bulk_ops_total;
   uint64_t bulk_ops_succeeded;
   uint64_t bulk_ops_failed;
+  uint64_t bulk_ops_unknown;
+  uint64_t bulk_results_dropped;
+  uint64_t turbo_reuse_budget_adaptations;
+  uint64_t wait_latency_clamp_events;
   uint32_t turbo_last_pid;
   size_t count;
   size_t head;
@@ -240,6 +244,7 @@ typedef struct {
   uint8_t rule_lookup_cache_valid;
   uint64_t rule_lookup_cache_hits;
   uint64_t rule_lookup_cache_misses;
+  uint64_t removed_rule_count;
 } aegis_syscall_gate_matrix_t;
 
 typedef struct {
@@ -536,6 +541,7 @@ int aegis_syscall_gate_set_rule(aegis_syscall_gate_matrix_t *matrix,
                                 uint8_t syscall_class,
                                 uint32_t required_capability,
                                 uint8_t policy_gate_required);
+int aegis_syscall_gate_remove_rule(aegis_syscall_gate_matrix_t *matrix, uint16_t syscall_id);
 int aegis_syscall_gate_check(aegis_syscall_gate_matrix_t *matrix,
                              uint32_t process_id,
                              uint16_t syscall_id,

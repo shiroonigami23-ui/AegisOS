@@ -70,7 +70,10 @@ This repository contains:
 - Scheduler admission/ready bitmaps + turbo candidate cache reuse for lower dispatch computation overhead.
 - Scheduler PID lookup-cache fast path for lower overhead on repeated control-plane process lookups.
 - Scheduler bulk operation API (add/remove/reprioritize) with execution telemetry for high-churn workloads.
+- Adaptive turbo scheduler reuse-budget tuning and stronger anti-runaway dispatch scoring under load.
+- Wait-latency safety clamps and enriched fairness/admission snapshot telemetry for tuning pipelines.
 - IPC channel and memory zone lookup-cache fast paths to reduce hot-ID linear scan overhead.
+- Syscall rule removal API with policy-churn telemetry (`removed_rule_count`) in syscall snapshots.
 - Namespace translation lookup-cache and scheduler percentile-selection fast path for lower runtime metrics overhead.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
