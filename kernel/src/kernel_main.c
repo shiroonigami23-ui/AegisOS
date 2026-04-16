@@ -2779,6 +2779,9 @@ void aegis_ipc_channel_table_init(aegis_ipc_channel_table_t *table) {
   table->lookup_cache_misses = 0u;
   table->unknown_channel_requests = 0u;
   table->drain_underflow_clamps = 0u;
+  table->drop_reason_quota = 0u;
+  table->drop_reason_unknown_channel = 0u;
+  table->drop_reason_policy_gate = 0u;
 }
 
 int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
@@ -2830,6 +2833,7 @@ int aegis_ipc_channel_reserve_send(aegis_ipc_channel_table_t *table,
   *accepted_out = 0u;
   if (!ipc_channel_find_index(table, channel_id, &index)) {
     table->unknown_channel_requests += 1u;
+    table->drop_reason_unknown_channel += 1u;
     return -1;
   }
   projected = (uint64_t)table->channels[index].inflight_bytes + (uint64_t)payload_bytes;
@@ -2838,6 +2842,7 @@ int aegis_ipc_channel_reserve_send(aegis_ipc_channel_table_t *table,
     table->channels[index].backpressure_events += 1u;
     table->total_dropped_messages += 1u;
     table->total_backpressure_events += 1u;
+    table->drop_reason_quota += 1u;
     return 0;
   }
   table->channels[index].inflight_bytes = (uint32_t)projected;
@@ -2885,6 +2890,8 @@ int aegis_ipc_channel_snapshot_json(const aegis_ipc_channel_table_t *table,
                      "\"total_dropped_messages\":%llu,\"total_backpressure_events\":%llu,"
                      "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
                      "\"unknown_channel_requests\":%llu,\"drain_underflow_clamps\":%llu,"
+                     "\"drop_reason_quota\":%llu,\"drop_reason_unknown_channel\":%llu,"
+                     "\"drop_reason_policy_gate\":%llu,"
                      "\"channels\":[",
                      (unsigned long long)table->total_accepted_messages,
                      (unsigned long long)table->total_dropped_messages,
@@ -2892,7 +2899,10 @@ int aegis_ipc_channel_snapshot_json(const aegis_ipc_channel_table_t *table,
                      (unsigned long long)table->lookup_cache_hits,
                      (unsigned long long)table->lookup_cache_misses,
                      (unsigned long long)table->unknown_channel_requests,
-                     (unsigned long long)table->drain_underflow_clamps);
+                     (unsigned long long)table->drain_underflow_clamps,
+                     (unsigned long long)table->drop_reason_quota,
+                     (unsigned long long)table->drop_reason_unknown_channel,
+                     (unsigned long long)table->drop_reason_policy_gate);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
