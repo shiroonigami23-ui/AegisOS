@@ -599,6 +599,17 @@ static uint64_t scheduler_total_switches(const aegis_scheduler_t *scheduler) {
          scheduler->reason_switch_counts[AEGIS_SWITCH_MANUAL_YIELD];
 }
 
+static void scheduler_record_dispatch_scan(aegis_scheduler_t *scheduler, size_t steps) {
+  if (scheduler == 0) {
+    return;
+  }
+  scheduler->dispatch_scan_calls += 1u;
+  scheduler->dispatch_scan_steps_total += (uint64_t)steps;
+  if ((uint64_t)steps > scheduler->dispatch_scan_max_steps) {
+    scheduler->dispatch_scan_max_steps = (uint64_t)steps;
+  }
+}
+
 static void scheduler_pid_lookup_cache_seed(aegis_scheduler_t *scheduler,
                                             uint32_t process_id,
                                             size_t index) {
@@ -674,6 +685,9 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->bulk_results_dropped = 0u;
   scheduler->turbo_reuse_budget_adaptations = 0u;
   scheduler->wait_latency_clamp_events = 0u;
+  scheduler->dispatch_scan_calls = 0u;
+  scheduler->dispatch_scan_steps_total = 0u;
+  scheduler->dispatch_scan_max_steps = 0u;
   scheduler->turbo_last_pid = 0u;
   scheduler->admission_profile_id = AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM;
   scheduler->runnable_credit_count = 0u;
@@ -725,6 +739,9 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->bulk_results_dropped = 0u;
   scheduler->turbo_reuse_budget_adaptations = 0u;
   scheduler->wait_latency_clamp_events = 0u;
+  scheduler->dispatch_scan_calls = 0u;
+  scheduler->dispatch_scan_steps_total = 0u;
+  scheduler->dispatch_scan_max_steps = 0u;
   scheduler->quantum_autotune_last_tick = 0u;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -959,6 +976,7 @@ int aegis_scheduler_apply_batch(aegis_scheduler_t *scheduler,
 int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   size_t attempts;
   size_t chosen_idx = 0u;
+  size_t scan_steps = 0u;
   if (scheduler == 0 || process_id == 0 || scheduler->count == 0) {
     return -1;
   }
@@ -968,6 +986,8 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   if (scheduler->dispatch_strategy == AEGIS_SCHED_STRATEGY_TURBO &&
       scheduler_pick_turbo_index(scheduler, &chosen_idx)) {
     uint64_t wait_delta = 0u;
+    scan_steps = 1u;
+    scheduler_record_dispatch_scan(scheduler, scan_steps);
     scheduler->credits[chosen_idx] -= 1;
     if (scheduler->credits[chosen_idx] == 0u) {
       scheduler_runnable_credit_dec(scheduler, scheduler->priorities[chosen_idx]);
@@ -991,9 +1011,11 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   for (attempts = 0; attempts < scheduler->count; ++attempts) {
     size_t idx = (scheduler->head + attempts) % scheduler->count;
     uint64_t wait_delta = 0u;
+    scan_steps += 1u;
     if (scheduler->credits[idx] == 0) {
       continue;
     }
+    scheduler_record_dispatch_scan(scheduler, scan_steps);
     scheduler->credits[idx] -= 1;
     if (scheduler->credits[idx] == 0u) {
       scheduler_runnable_credit_dec(scheduler, scheduler->priorities[idx]);
@@ -1014,6 +1036,7 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
     scheduler->turbo_last_pid = *process_id;
     return 0;
   }
+  scheduler_record_dispatch_scan(scheduler, scan_steps);
   return -1;
 }
 
@@ -1102,6 +1125,9 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
   scheduler->bulk_results_dropped = 0u;
   scheduler->turbo_reuse_budget_adaptations = 0u;
   scheduler->wait_latency_clamp_events = 0u;
+  scheduler->dispatch_scan_calls = 0u;
+  scheduler->dispatch_scan_steps_total = 0u;
+  scheduler->dispatch_scan_max_steps = 0u;
   scheduler->quantum_autotune_last_tick = scheduler->scheduler_ticks;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -1666,6 +1692,8 @@ int aegis_scheduler_fairness_snapshot_json(const aegis_scheduler_t *scheduler,
                      "{\"schema_version\":1,\"queue_depth\":%llu,\"total_dispatches\":%llu,"
                      "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_victim_hits\":%llu,"
                      "\"pid_lookup_cache_misses\":%llu,"
+                     "\"dispatch_scan_calls\":%llu,\"dispatch_scan_steps_total\":%llu,"
+                     "\"dispatch_scan_max_steps\":%llu,"
                      "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,\"processes\":[",
                      (unsigned long long)scheduler->count,
@@ -1673,6 +1701,9 @@ int aegis_scheduler_fairness_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned long long)scheduler->pid_lookup_cache_hits,
                      (unsigned long long)scheduler->pid_lookup_cache_victim_hits,
                      (unsigned long long)scheduler->pid_lookup_cache_misses,
+                     (unsigned long long)scheduler->dispatch_scan_calls,
+                     (unsigned long long)scheduler->dispatch_scan_steps_total,
+                     (unsigned long long)scheduler->dispatch_scan_max_steps,
                      (unsigned long long)scheduler->bulk_apply_calls,
                      (unsigned long long)scheduler->bulk_ops_total,
                      (unsigned long long)scheduler->bulk_ops_succeeded,
@@ -1777,6 +1808,8 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      "\"priority_present_bitmap\":%u,\"runnable_priority_bitmap\":%u,"
                      "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_victim_hits\":%llu,"
                      "\"pid_lookup_cache_misses\":%llu,"
+                     "\"dispatch_scan_calls\":%llu,\"dispatch_scan_steps_total\":%llu,"
+                     "\"dispatch_scan_max_steps\":%llu,"
                      "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,"
                      "\"bulk_ops_unknown\":%llu,\"bulk_results_dropped\":%llu,"
@@ -1792,6 +1825,9 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned long long)scheduler->pid_lookup_cache_hits,
                      (unsigned long long)scheduler->pid_lookup_cache_victim_hits,
                      (unsigned long long)scheduler->pid_lookup_cache_misses,
+                     (unsigned long long)scheduler->dispatch_scan_calls,
+                     (unsigned long long)scheduler->dispatch_scan_steps_total,
+                     (unsigned long long)scheduler->dispatch_scan_max_steps,
                      (unsigned long long)scheduler->bulk_apply_calls,
                      (unsigned long long)scheduler->bulk_ops_total,
                      (unsigned long long)scheduler->bulk_ops_succeeded,

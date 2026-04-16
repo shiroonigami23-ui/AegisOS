@@ -81,6 +81,7 @@ This repository contains:
 - IPC unknown-channel request and drain-underflow clamp telemetry in channel snapshots.
 - Memory unknown-zone request, release-underflow clamp, and reclaim-shortfall telemetry in zone snapshots.
 - Scheduler PID lookup upgraded to dual-entry cache (primary + victim) to reduce repeated linear scans.
+- Scheduler dispatch scan-depth telemetry to quantify round-robin/turbo hot-path scan cost.
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 

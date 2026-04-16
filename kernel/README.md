@@ -22,6 +22,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - turbo mode includes adaptive weight autotuning to rebalance `priority` vs `wait` based on live latency telemetry.
   - low-priority aging boosts add temporary credits after long waits to reduce starvation risk.
   - includes dispatch metrics: total dispatches, high-watermark queue depth, and per-process counts.
+  - tracks dispatch scan-depth telemetry (`calls`, `steps_total`, `max_steps`) for hot-path tuning.
   - includes timer-tick preemption simulation hooks with configurable quantum.
   - context switches expose reason codes (`process_start`, `quantum_expired`, `process_exit`, `manual_yield`).
   - includes per-reason context-switch counters for metrics breakdowns and alerting.

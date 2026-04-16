@@ -217,6 +217,12 @@ static int test_scheduler_round_robin(void) {
     fprintf(stderr, "expected pid 1001 after wrap\n");
     return 1;
   }
+  if (scheduler.dispatch_scan_calls == 0u ||
+      scheduler.dispatch_scan_steps_total < scheduler.dispatch_scan_calls ||
+      scheduler.dispatch_scan_max_steps == 0u) {
+    fprintf(stderr, "dispatch scan telemetry expected non-zero activity\n");
+    return 1;
+  }
   return 0;
 }
 
@@ -413,7 +419,7 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
   uint8_t limit = 0u;
   uint64_t drops = 0u;
   uint32_t dispatch_count = 0u;
-  char json[512];
+  char json[1024];
   aegis_scheduler_init(&scheduler);
   if (aegis_scheduler_set_admission_limit(&scheduler, AEGIS_PRIORITY_HIGH, 1u) != 0 ||
       aegis_scheduler_set_admission_limit(&scheduler, AEGIS_PRIORITY_NORMAL, 2u) != 0 ||
@@ -465,6 +471,9 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
       strstr(json, "\"pid_lookup_cache_hits\":") == 0 ||
       strstr(json, "\"pid_lookup_cache_victim_hits\":") == 0 ||
       strstr(json, "\"pid_lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"dispatch_scan_calls\":") == 0 ||
+      strstr(json, "\"dispatch_scan_steps_total\":") == 0 ||
+      strstr(json, "\"dispatch_scan_max_steps\":") == 0 ||
       strstr(json, "\"bulk_apply_calls\":") == 0 ||
       strstr(json, "\"bulk_ops_total\":") == 0 ||
       strstr(json, "\"bulk_ops_succeeded\":") == 0 ||
@@ -485,7 +494,7 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
 static int test_scheduler_dual_entry_pid_lookup_cache(void) {
   aegis_scheduler_t scheduler;
   uint32_t dispatch_count = 0u;
-  char json[512];
+  char json[1024];
   aegis_scheduler_init(&scheduler);
   if (aegis_scheduler_add_with_priority(&scheduler, 8101u, AEGIS_PRIORITY_NORMAL) != 0 ||
       aegis_scheduler_add_with_priority(&scheduler, 8102u, AEGIS_PRIORITY_NORMAL) != 0 ||
@@ -528,7 +537,7 @@ static int test_scheduler_dual_entry_pid_lookup_cache(void) {
 static int test_scheduler_admission_profile_presets(void) {
   aegis_scheduler_t scheduler;
   uint8_t profile = 0u;
-  char json[512];
+  char json[1024];
   aegis_scheduler_init(&scheduler);
   if (aegis_scheduler_apply_admission_profile(&scheduler, AEGIS_SCHED_ADMISSION_PROFILE_MINIMAL) != 0) {
     fprintf(stderr, "failed to apply minimal admission profile\n");
@@ -586,7 +595,7 @@ static int test_scheduler_bulk_apply_api_and_metrics(void) {
   aegis_scheduler_t scheduler;
   aegis_scheduler_bulk_op_t ops[6];
   aegis_scheduler_bulk_result_t results[3];
-  char json[512];
+  char json[1024];
   size_t applied = 0u;
   memset(ops, 0, sizeof(ops));
   memset(results, 0, sizeof(results));
@@ -706,7 +715,7 @@ static int test_scheduler_bulk_apply_rejection_paths(void) {
 
 static int test_scheduler_priority_count_tracking_after_reprioritize(void) {
   aegis_scheduler_t scheduler;
-  char json[512];
+  char json[1024];
   aegis_scheduler_init(&scheduler);
   if (aegis_scheduler_add_with_priority(&scheduler, 9701u, AEGIS_PRIORITY_HIGH) != 0 ||
       aegis_scheduler_add_with_priority(&scheduler, 9702u, AEGIS_PRIORITY_NORMAL) != 0 ||
@@ -1488,7 +1497,7 @@ static int test_scheduler_reason_histogram_custom_window_query_json(void) {
   aegis_scheduler_t scheduler;
   uint32_t pid = 0;
   uint8_t switched = 0;
-  char json[512];
+  char json[1024];
   int i;
   aegis_scheduler_init(&scheduler);
   aegis_scheduler_set_quantum(&scheduler, 1u);
@@ -1683,6 +1692,9 @@ static int test_scheduler_fairness_snapshot_json_endpoint(void) {
       strstr(json, "\"queue_depth\":3") == 0 ||
       strstr(json, "\"pid_lookup_cache_hits\":") == 0 ||
       strstr(json, "\"pid_lookup_cache_victim_hits\":") == 0 ||
+      strstr(json, "\"dispatch_scan_calls\":") == 0 ||
+      strstr(json, "\"dispatch_scan_steps_total\":") == 0 ||
+      strstr(json, "\"dispatch_scan_max_steps\":") == 0 ||
       strstr(json, "\"bulk_apply_calls\":") == 0 ||
       strstr(json, "\"process_id\":9801") == 0 ||
       strstr(json, "\"dispatch_share_bps\":") == 0 ||
