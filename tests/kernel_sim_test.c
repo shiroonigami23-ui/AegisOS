@@ -36,6 +36,10 @@ static int test_vm_region_map_abstraction(void) {
     fprintf(stderr, "vm query region lookup failed\n");
     return 1;
   }
+  if (aegis_vm_query(&space, 0x1100u, &region) != 0 || region.base != 0x1000u) {
+    fprintf(stderr, "vm query cache-hit lookup failed\n");
+    return 1;
+  }
   if (aegis_vm_query(&space, 0x9000u, &region) == 0) {
     fprintf(stderr, "vm query expected miss for unmapped address\n");
     return 1;
@@ -50,6 +54,8 @@ static int test_vm_region_map_abstraction(void) {
   }
   if (strstr(summary, "\"schema_version\":1") == 0 ||
       strstr(summary, "\"region_count\":1") == 0 ||
+      strstr(summary, "\"lookup_cache_hits\":1") == 0 ||
+      strstr(summary, "\"lookup_cache_misses\":2") == 0 ||
       strstr(summary, "\"base\":16384") == 0) {
     fprintf(stderr, "vm summary json missing expected fields: %s\n", summary);
     return 1;
@@ -86,6 +92,10 @@ static int test_vm_region_split_and_permission_update(void) {
     fprintf(stderr, "vm query after flag update failed\n");
     return 1;
   }
+  if (aegis_vm_query(&space, 0x9001u, &region) != 0 || region.flags != 0x7u) {
+    fprintf(stderr, "vm query cache-hit after flag update failed\n");
+    return 1;
+  }
   if (aegis_vm_split_region(&space, 0x8000u, 0x1000u, 0x1000u) == 0) {
     fprintf(stderr, "vm split with boundary offset should fail\n");
     return 1;
@@ -98,7 +108,10 @@ static int test_vm_region_split_and_permission_update(void) {
     fprintf(stderr, "vm split summary generation failed\n");
     return 1;
   }
-  if (strstr(summary, "\"region_count\":2") == 0 || strstr(summary, "\"flags\":7") == 0) {
+  if (strstr(summary, "\"region_count\":2") == 0 ||
+      strstr(summary, "\"lookup_cache_hits\":1") == 0 ||
+      strstr(summary, "\"lookup_cache_misses\":1") == 0 ||
+      strstr(summary, "\"flags\":7") == 0) {
     fprintf(stderr, "vm split summary missing expected fields: %s\n", summary);
     return 1;
   }
@@ -693,6 +706,10 @@ static int test_syscall_capability_gate_matrix(void) {
       strstr(json, "\"deny_policy_gate_count\":1") == 0 ||
       strstr(json, "\"decision_cache_hits\":1") == 0 ||
       strstr(json, "\"decision_cache_misses\":6") == 0 ||
+      strstr(json, "\"process_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"process_lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"rule_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"rule_lookup_cache_misses\":") == 0 ||
       strstr(json, "\"syscall_id\":100") == 0 ||
       strstr(json, "\"process_id\":7001") == 0) {
     fprintf(stderr, "syscall gate snapshot mismatch: %s\n", json);
