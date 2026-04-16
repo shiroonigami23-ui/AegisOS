@@ -37,6 +37,9 @@ Kernel direction, interfaces, and implementation notes live here.
   - wait-report percentile path now uses selection-based computation to reduce metrics overhead.
   - includes PID lookup-cache fast path for repeated scheduler control-plane queries.
   - includes bulk scheduler operation API (`add/remove/reprioritize`) with execution telemetry counters.
+  - turbo scheduler now adapts candidate cache reuse budget by queue pressure and switch patterns.
+  - turbo scoring now penalizes runaway dispatch dominance to preserve fairness under heavy load.
+  - wait-latency accounting includes safety clamps for non-monotonic tick edge cases.
   - includes wait-report snapshot endpoint with capture tick and queue metadata.
 - `aegis_process_checkpoint_table_t`: process checkpoint capture/restore for recovery workflows.
   - supports process runtime registration and per-reason checkpoint capture.
@@ -46,6 +49,7 @@ Kernel direction, interfaces, and implementation notes live here.
 - `aegis_syscall_gate_matrix_t`: syscall capability enforcement matrix.
   - includes decision-cache fast path for hot process/syscall pairs.
   - includes process/rule lookup-cache fast paths to reduce repeated linear scans.
+  - supports rule removal API with snapshot telemetry (`removed_rule_count`) for policy churn tracking.
   - preserves deny-reason counters while reducing repeated linear scans.
 - `aegis_ipc_channel_table_t` and `aegis_memory_zone_table_t`:
   - include lookup-cache fast paths for hot channel/zone IDs.

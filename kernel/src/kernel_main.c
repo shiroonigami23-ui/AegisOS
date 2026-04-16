@@ -530,16 +530,25 @@ static int scheduler_pick_turbo_index(const aegis_scheduler_t *scheduler, size_t
   }
   ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_misses += 1u;
   for (i = 0; i < scheduler->count; ++i) {
-    uint64_t waited_ticks = scheduler->scheduler_ticks - scheduler->enqueued_tick[i];
+    uint64_t waited_ticks;
     int score;
     if (scheduler->credits[i] == 0u) {
       continue;
     }
+    if (scheduler->scheduler_ticks >= scheduler->enqueued_tick[i]) {
+      waited_ticks = scheduler->scheduler_ticks - scheduler->enqueued_tick[i];
+    } else {
+      waited_ticks = 0u;
+      ((aegis_scheduler_t *)scheduler)->wait_latency_clamp_events += 1u;
+    }
     score = (int)(scheduler->priorities[i] * scheduler->turbo_priority_weight);
     score += (int)(waited_ticks * scheduler->turbo_wait_weight);
-    score -= (int)(scheduler->dispatch_counts[i] / 4u);
+    score -= (int)(scheduler->dispatch_counts[i] / 2u);
+    if (scheduler->total_dispatches > (uint64_t)(scheduler->count * 8u)) {
+      score -= (int)(scheduler->dispatch_counts[i] / 2u);
+    }
     if (scheduler->process_ids[i] == scheduler->turbo_last_pid) {
-      score += 3;
+      score -= 2;
     }
     if (!found || score > best_score ||
         (score == best_score &&
@@ -551,6 +560,26 @@ static int scheduler_pick_turbo_index(const aegis_scheduler_t *scheduler, size_t
   }
   if (!found) {
     return 0;
+  }
+  {
+    uint8_t desired_budget = 1u;
+    if (scheduler->count >= 8u) {
+      desired_budget = 2u;
+    }
+    if (scheduler->count >= 24u) {
+      desired_budget = 3u;
+    }
+    if (scheduler->reason_switch_counts[AEGIS_SWITCH_QUANTUM_EXPIRED] >
+        scheduler->reason_switch_counts[AEGIS_SWITCH_PROCESS_START]) {
+      desired_budget = (uint8_t)(desired_budget + 1u);
+    }
+    if (desired_budget > 4u) {
+      desired_budget = 4u;
+    }
+    if (((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_max_reuse != desired_budget) {
+      ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_max_reuse = desired_budget;
+      ((aegis_scheduler_t *)scheduler)->turbo_reuse_budget_adaptations += 1u;
+    }
   }
   ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_valid = 1u;
   ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_index = (uint32_t)best_index;
@@ -631,6 +660,10 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->bulk_ops_total = 0u;
   scheduler->bulk_ops_succeeded = 0u;
   scheduler->bulk_ops_failed = 0u;
+  scheduler->bulk_ops_unknown = 0u;
+  scheduler->bulk_results_dropped = 0u;
+  scheduler->turbo_reuse_budget_adaptations = 0u;
+  scheduler->wait_latency_clamp_events = 0u;
   scheduler->turbo_last_pid = 0u;
   scheduler->admission_profile_id = AEGIS_SCHED_ADMISSION_PROFILE_CUSTOM;
   scheduler->runnable_credit_count = 0u;
@@ -674,6 +707,10 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->bulk_ops_total = 0u;
   scheduler->bulk_ops_succeeded = 0u;
   scheduler->bulk_ops_failed = 0u;
+  scheduler->bulk_ops_unknown = 0u;
+  scheduler->bulk_results_dropped = 0u;
+  scheduler->turbo_reuse_budget_adaptations = 0u;
+  scheduler->wait_latency_clamp_events = 0u;
   scheduler->quantum_autotune_last_tick = 0u;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -862,7 +899,10 @@ int aegis_scheduler_apply_batch(aegis_scheduler_t *scheduler,
                                 size_t *applied_count_out) {
   size_t i;
   size_t applied = 0u;
-  if (scheduler == 0 || ops == 0u || op_count == 0u) {
+  if (applied_count_out != 0u) {
+    *applied_count_out = 0u;
+  }
+  if (scheduler == 0 || ops == 0u || op_count == 0u || (results == 0u && results_capacity > 0u)) {
     return -1;
   }
   scheduler->bulk_apply_calls += 1u;
@@ -877,6 +917,7 @@ int aegis_scheduler_apply_batch(aegis_scheduler_t *scheduler,
       status = aegis_scheduler_set_priority(scheduler, op->process_id, op->priority);
     } else {
       status = -1;
+      scheduler->bulk_ops_unknown += 1u;
     }
     scheduler->bulk_ops_total += 1u;
     if (status == 0) {
@@ -889,6 +930,8 @@ int aegis_scheduler_apply_batch(aegis_scheduler_t *scheduler,
       results[i].operation = op->operation;
       results[i].process_id = op->process_id;
       results[i].status = status;
+    } else if (results != 0u && i >= results_capacity) {
+      scheduler->bulk_results_dropped += 1u;
     }
   }
   if (applied_count_out != 0u) {
@@ -908,12 +951,18 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   }
   if (scheduler->dispatch_strategy == AEGIS_SCHED_STRATEGY_TURBO &&
       scheduler_pick_turbo_index(scheduler, &chosen_idx)) {
+    uint64_t wait_delta = 0u;
     scheduler->credits[chosen_idx] -= 1;
     if (scheduler->credits[chosen_idx] == 0u) {
       scheduler_runnable_credit_dec(scheduler, scheduler->priorities[chosen_idx]);
     }
-    scheduler->last_wait_latency[chosen_idx] =
-        scheduler->scheduler_ticks - scheduler->enqueued_tick[chosen_idx];
+    if (scheduler->scheduler_ticks >= scheduler->enqueued_tick[chosen_idx]) {
+      wait_delta = scheduler->scheduler_ticks - scheduler->enqueued_tick[chosen_idx];
+    } else {
+      wait_delta = 0u;
+      scheduler->wait_latency_clamp_events += 1u;
+    }
+    scheduler->last_wait_latency[chosen_idx] = wait_delta;
     scheduler->wait_ticks_total[chosen_idx] += scheduler->last_wait_latency[chosen_idx];
     scheduler->dispatch_counts[chosen_idx] += 1;
     scheduler->total_dispatches += 1;
@@ -925,6 +974,7 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
   }
   for (attempts = 0; attempts < scheduler->count; ++attempts) {
     size_t idx = (scheduler->head + attempts) % scheduler->count;
+    uint64_t wait_delta = 0u;
     if (scheduler->credits[idx] == 0) {
       continue;
     }
@@ -932,7 +982,13 @@ int aegis_scheduler_next(aegis_scheduler_t *scheduler, uint32_t *process_id) {
     if (scheduler->credits[idx] == 0u) {
       scheduler_runnable_credit_dec(scheduler, scheduler->priorities[idx]);
     }
-    scheduler->last_wait_latency[idx] = scheduler->scheduler_ticks - scheduler->enqueued_tick[idx];
+    if (scheduler->scheduler_ticks >= scheduler->enqueued_tick[idx]) {
+      wait_delta = scheduler->scheduler_ticks - scheduler->enqueued_tick[idx];
+    } else {
+      wait_delta = 0u;
+      scheduler->wait_latency_clamp_events += 1u;
+    }
+    scheduler->last_wait_latency[idx] = wait_delta;
     scheduler->wait_ticks_total[idx] += scheduler->last_wait_latency[idx];
     scheduler->dispatch_counts[idx] += 1;
     scheduler->total_dispatches += 1;
@@ -1024,6 +1080,10 @@ void aegis_scheduler_reset_metrics(aegis_scheduler_t *scheduler) {
   scheduler->bulk_ops_total = 0u;
   scheduler->bulk_ops_succeeded = 0u;
   scheduler->bulk_ops_failed = 0u;
+  scheduler->bulk_ops_unknown = 0u;
+  scheduler->bulk_results_dropped = 0u;
+  scheduler->turbo_reuse_budget_adaptations = 0u;
+  scheduler->wait_latency_clamp_events = 0u;
   scheduler->quantum_autotune_last_tick = scheduler->scheduler_ticks;
   scheduler->quantum_autotune_last_switch_total = 0u;
   scheduler->quantum_autotune_adjustments = 0u;
@@ -1585,9 +1645,18 @@ int aegis_scheduler_fairness_snapshot_json(const aegis_scheduler_t *scheduler,
   }
   written = snprintf(out,
                      out_size,
-                     "{\"schema_version\":1,\"queue_depth\":%llu,\"total_dispatches\":%llu,\"processes\":[",
+                     "{\"schema_version\":1,\"queue_depth\":%llu,\"total_dispatches\":%llu,"
+                     "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_misses\":%llu,"
+                     "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
+                     "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,\"processes\":[",
                      (unsigned long long)scheduler->count,
-                     (unsigned long long)scheduler->total_dispatches);
+                     (unsigned long long)scheduler->total_dispatches,
+                     (unsigned long long)scheduler->pid_lookup_cache_hits,
+                     (unsigned long long)scheduler->pid_lookup_cache_misses,
+                     (unsigned long long)scheduler->bulk_apply_calls,
+                     (unsigned long long)scheduler->bulk_ops_total,
+                     (unsigned long long)scheduler->bulk_ops_succeeded,
+                     (unsigned long long)scheduler->bulk_ops_failed);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -1689,6 +1758,9 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      "\"pid_lookup_cache_hits\":%llu,\"pid_lookup_cache_misses\":%llu,"
                      "\"bulk_apply_calls\":%llu,\"bulk_ops_total\":%llu,"
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,"
+                     "\"bulk_ops_unknown\":%llu,\"bulk_results_dropped\":%llu,"
+                     "\"turbo_reuse_budget_adaptations\":%llu,"
+                     "\"wait_latency_clamp_events\":%llu,"
                      "\"limits\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
                      "\"counts\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
                      "\"drops\":{\"high\":%llu,\"normal\":%llu,\"low\":%llu}}",
@@ -1702,6 +1774,10 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned long long)scheduler->bulk_ops_total,
                      (unsigned long long)scheduler->bulk_ops_succeeded,
                      (unsigned long long)scheduler->bulk_ops_failed,
+                     (unsigned long long)scheduler->bulk_ops_unknown,
+                     (unsigned long long)scheduler->bulk_results_dropped,
+                     (unsigned long long)scheduler->turbo_reuse_budget_adaptations,
+                     (unsigned long long)scheduler->wait_latency_clamp_events,
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_HIGH],
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_NORMAL],
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_LOW],
@@ -2282,6 +2358,7 @@ void aegis_syscall_gate_matrix_init(aegis_syscall_gate_matrix_t *matrix) {
   matrix->rule_lookup_cache_valid = 0u;
   matrix->rule_lookup_cache_hits = 0u;
   matrix->rule_lookup_cache_misses = 0u;
+  matrix->removed_rule_count = 0u;
 }
 
 int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
@@ -2376,6 +2453,28 @@ int aegis_syscall_gate_set_rule(aegis_syscall_gate_matrix_t *matrix,
   return -1;
 }
 
+int aegis_syscall_gate_remove_rule(aegis_syscall_gate_matrix_t *matrix, uint16_t syscall_id) {
+  size_t existing = 0u;
+  if (matrix == 0 || syscall_id == 0u) {
+    return -1;
+  }
+  if (!syscall_rule_find_index(matrix, syscall_id, &existing)) {
+    return -1;
+  }
+  matrix->rules[existing].active = 0u;
+  matrix->rules[existing].syscall_id = 0u;
+  matrix->rules[existing].syscall_class = 0u;
+  matrix->rules[existing].required_capability = 0u;
+  matrix->rules[existing].policy_gate_required = 0u;
+  if (matrix->rule_lookup_cache_valid != 0u &&
+      matrix->rule_lookup_cache_syscall_id == syscall_id) {
+    matrix->rule_lookup_cache_valid = 0u;
+  }
+  matrix->removed_rule_count += 1u;
+  syscall_gate_cache_invalidate(matrix);
+  return 0;
+}
+
 int aegis_syscall_gate_check(aegis_syscall_gate_matrix_t *matrix,
                              uint32_t process_id,
                              uint16_t syscall_id,
@@ -2461,6 +2560,7 @@ int aegis_syscall_gate_snapshot_json(const aegis_syscall_gate_matrix_t *matrix,
                      "\"decision_cache_hits\":%llu,\"decision_cache_misses\":%llu,"
                      "\"process_lookup_cache_hits\":%llu,\"process_lookup_cache_misses\":%llu,"
                      "\"rule_lookup_cache_hits\":%llu,\"rule_lookup_cache_misses\":%llu,"
+                     "\"removed_rule_count\":%llu,"
                      "\"rules\":[",
                      (unsigned long long)matrix->allow_count,
                      (unsigned long long)matrix->deny_missing_rule_count,
@@ -2472,7 +2572,8 @@ int aegis_syscall_gate_snapshot_json(const aegis_syscall_gate_matrix_t *matrix,
                      (unsigned long long)matrix->process_lookup_cache_hits,
                      (unsigned long long)matrix->process_lookup_cache_misses,
                      (unsigned long long)matrix->rule_lookup_cache_hits,
-                     (unsigned long long)matrix->rule_lookup_cache_misses);
+                     (unsigned long long)matrix->rule_lookup_cache_misses,
+                     (unsigned long long)matrix->removed_rule_count);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }

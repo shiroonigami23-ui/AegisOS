@@ -468,6 +468,10 @@ static int test_scheduler_admission_limits_and_snapshot(void) {
       strstr(json, "\"bulk_ops_total\":") == 0 ||
       strstr(json, "\"bulk_ops_succeeded\":") == 0 ||
       strstr(json, "\"bulk_ops_failed\":") == 0 ||
+      strstr(json, "\"bulk_ops_unknown\":") == 0 ||
+      strstr(json, "\"bulk_results_dropped\":") == 0 ||
+      strstr(json, "\"turbo_reuse_budget_adaptations\":") == 0 ||
+      strstr(json, "\"wait_latency_clamp_events\":") == 0 ||
       strstr(json, "\"limits\":{\"high\":1,\"normal\":2,\"low\":1}") == 0 ||
       strstr(json, "\"counts\":{\"high\":1,\"normal\":2,\"low\":0}") == 0 ||
       strstr(json, "\"drops\":{\"high\":1,\"normal\":1,\"low\":0}") == 0) {
@@ -537,7 +541,7 @@ static int test_scheduler_admission_profile_name_resolver(void) {
 static int test_scheduler_bulk_apply_api_and_metrics(void) {
   aegis_scheduler_t scheduler;
   aegis_scheduler_bulk_op_t ops[6];
-  aegis_scheduler_bulk_result_t results[6];
+  aegis_scheduler_bulk_result_t results[3];
   char json[512];
   size_t applied = 0u;
   memset(ops, 0, sizeof(ops));
@@ -558,7 +562,7 @@ static int test_scheduler_bulk_apply_api_and_metrics(void) {
   ops[4].process_id = 9999u;
   ops[5].operation = AEGIS_SCHED_BULK_OP_REMOVE;
   ops[5].process_id = 7777u;
-  if (aegis_scheduler_apply_batch(&scheduler, ops, 6u, results, 6u, &applied) != 0) {
+  if (aegis_scheduler_apply_batch(&scheduler, ops, 6u, results, 3u, &applied) != 0) {
     fprintf(stderr, "scheduler bulk apply call failed\n");
     return 1;
   }
@@ -569,12 +573,13 @@ static int test_scheduler_bulk_apply_api_and_metrics(void) {
   if (scheduler.bulk_apply_calls != 1u ||
       scheduler.bulk_ops_total != 6u ||
       scheduler.bulk_ops_succeeded != 4u ||
-      scheduler.bulk_ops_failed != 2u) {
+      scheduler.bulk_ops_failed != 2u ||
+      scheduler.bulk_ops_unknown != 1u ||
+      scheduler.bulk_results_dropped != 3u) {
     fprintf(stderr, "scheduler bulk apply counters mismatch\n");
     return 1;
   }
-  if (results[0].status != 0 || results[1].status != 0 || results[2].status != 0 ||
-      results[3].status != 0 || results[4].status == 0 || results[5].status == 0) {
+  if (results[0].status != 0 || results[1].status != 0 || results[2].status != 0) {
     fprintf(stderr, "scheduler bulk apply per-op result mismatch\n");
     return 1;
   }
@@ -582,8 +587,74 @@ static int test_scheduler_bulk_apply_api_and_metrics(void) {
       strstr(json, "\"bulk_apply_calls\":1") == 0 ||
       strstr(json, "\"bulk_ops_total\":6") == 0 ||
       strstr(json, "\"bulk_ops_succeeded\":4") == 0 ||
-      strstr(json, "\"bulk_ops_failed\":2") == 0) {
+      strstr(json, "\"bulk_ops_failed\":2") == 0 ||
+      strstr(json, "\"bulk_ops_unknown\":1") == 0 ||
+      strstr(json, "\"bulk_results_dropped\":3") == 0) {
     fprintf(stderr, "scheduler bulk metrics snapshot mismatch: %s\n", json);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_vm_query_cache_invalidation_after_mutation(void) {
+  aegis_vm_space_t space;
+  aegis_vm_region_t region;
+  char summary[1024];
+  aegis_vm_space_init(&space);
+  if (aegis_vm_map(&space, 0x10000u, 0x2000u, 0x3u) != 0) {
+    fprintf(stderr, "vm invalidation setup map failed\n");
+    return 1;
+  }
+  if (aegis_vm_query(&space, 0x10010u, &region) != 0) {
+    fprintf(stderr, "vm invalidation setup query failed\n");
+    return 1;
+  }
+  if (aegis_vm_unmap(&space, 0x10000u, 0x2000u) != 0) {
+    fprintf(stderr, "vm invalidation unmap failed\n");
+    return 1;
+  }
+  if (aegis_vm_query(&space, 0x10010u, &region) == 0) {
+    fprintf(stderr, "vm invalidation expected miss after unmap\n");
+    return 1;
+  }
+  if (aegis_vm_map(&space, 0x10000u, 0x2000u, 0x1u) != 0 ||
+      aegis_vm_query(&space, 0x10010u, &region) != 0 ||
+      region.flags != 0x1u) {
+    fprintf(stderr, "vm invalidation remap/requery mismatch\n");
+    return 1;
+  }
+  if (aegis_vm_summary_json(&space, summary, sizeof(summary)) <= 0 ||
+      strstr(summary, "\"lookup_cache_hits\":") == 0 ||
+      strstr(summary, "\"lookup_cache_misses\":") == 0) {
+    fprintf(stderr, "vm invalidation summary missing cache telemetry: %s\n", summary);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_scheduler_bulk_apply_rejection_paths(void) {
+  aegis_scheduler_t scheduler;
+  aegis_scheduler_bulk_op_t op;
+  size_t applied = 99u;
+  memset(&op, 0, sizeof(op));
+  op.operation = AEGIS_SCHED_BULK_OP_ADD;
+  op.process_id = 4001u;
+  op.priority = AEGIS_PRIORITY_NORMAL;
+  aegis_scheduler_init(&scheduler);
+  if (aegis_scheduler_apply_batch(&scheduler, &op, 0u, 0, 0u, &applied) == 0) {
+    fprintf(stderr, "scheduler bulk empty-batch should fail\n");
+    return 1;
+  }
+  if (applied != 0u) {
+    fprintf(stderr, "scheduler bulk empty-batch should zero applied count\n");
+    return 1;
+  }
+  if (aegis_scheduler_apply_batch(&scheduler, &op, 1u, 0, 1u, &applied) == 0) {
+    fprintf(stderr, "scheduler bulk results-capacity without buffer should fail\n");
+    return 1;
+  }
+  if (aegis_scheduler_apply_batch(0, &op, 1u, 0, 0u, &applied) == 0) {
+    fprintf(stderr, "scheduler bulk null scheduler should fail\n");
     return 1;
   }
   return 0;
@@ -768,19 +839,37 @@ static int test_syscall_capability_gate_matrix(void) {
     fprintf(stderr, "expected cached syscall 200 deny missing capability\n");
     return 1;
   }
+  if (aegis_syscall_gate_set_rule(&matrix, 200u, AEGIS_SYSCALL_CLASS_NET, 0x1u, 0u) != 0) {
+    fprintf(stderr, "expected syscall rule update for 200\n");
+    return 1;
+  }
+  if (aegis_syscall_gate_check(&matrix, 7002u, 200u, 1u, &allowed) != 1 || allowed != 1u) {
+    fprintf(stderr, "expected syscall 200 allow after rule update\n");
+    return 1;
+  }
+  if (aegis_syscall_gate_remove_rule(&matrix, 300u) != 0 ||
+      aegis_syscall_gate_remove_rule(&matrix, 300u) == 0) {
+    fprintf(stderr, "expected syscall rule removal behavior for 300\n");
+    return 1;
+  }
+  if (aegis_syscall_gate_check(&matrix, 7001u, 300u, 1u, &allowed) != 0 || allowed != 0u) {
+    fprintf(stderr, "expected removed syscall 300 to deny by missing rule\n");
+    return 1;
+  }
   if (aegis_syscall_gate_snapshot_json(&matrix, json, sizeof(json)) <= 0 ||
       strstr(json, "\"schema_version\":1") == 0 ||
-      strstr(json, "\"allow_count\":2") == 0 ||
-      strstr(json, "\"deny_missing_rule_count\":1") == 0 ||
+      strstr(json, "\"allow_count\":3") == 0 ||
+      strstr(json, "\"deny_missing_rule_count\":2") == 0 ||
       strstr(json, "\"deny_missing_process_count\":1") == 0 ||
       strstr(json, "\"deny_missing_capability_count\":2") == 0 ||
       strstr(json, "\"deny_policy_gate_count\":1") == 0 ||
       strstr(json, "\"decision_cache_hits\":1") == 0 ||
-      strstr(json, "\"decision_cache_misses\":6") == 0 ||
+      strstr(json, "\"decision_cache_misses\":8") == 0 ||
       strstr(json, "\"process_lookup_cache_hits\":") == 0 ||
       strstr(json, "\"process_lookup_cache_misses\":") == 0 ||
       strstr(json, "\"rule_lookup_cache_hits\":") == 0 ||
       strstr(json, "\"rule_lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"removed_rule_count\":1") == 0 ||
       strstr(json, "\"syscall_id\":100") == 0 ||
       strstr(json, "\"process_id\":7001") == 0) {
     fprintf(stderr, "syscall gate snapshot mismatch: %s\n", json);
@@ -904,6 +993,82 @@ static int test_memory_zone_accounting_and_reclaim_hooks(void) {
   }
   if (aegis_memory_zone_snapshot_json(&table, tiny, sizeof(tiny)) >= 0) {
     fprintf(stderr, "expected tiny memory zone snapshot failure\n");
+    return 1;
+  }
+  return 0;
+}
+
+static int test_scheduler_wait_latency_clamp_and_turbo_adapt(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0u;
+  int i;
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_enable_turbo(&scheduler, 1u);
+  for (i = 0; i < 26; ++i) {
+    if (aegis_scheduler_add_with_priority(&scheduler, (uint32_t)(12000u + (uint32_t)i),
+                                          (uint8_t)((i % 3) + 1)) != 0) {
+      fprintf(stderr, "wait clamp/turbo adapt add failed\n");
+      return 1;
+    }
+  }
+  scheduler.scheduler_ticks = 10u;
+  for (i = 0; i < 26; ++i) {
+    scheduler.enqueued_tick[i] = 50u;
+  }
+  if (aegis_scheduler_next(&scheduler, &pid) != 0) {
+    fprintf(stderr, "wait clamp/turbo adapt next failed\n");
+    return 1;
+  }
+  if (scheduler.wait_latency_clamp_events == 0u) {
+    fprintf(stderr, "wait clamp counter expected > 0\n");
+    return 1;
+  }
+  if (scheduler.turbo_reuse_budget_adaptations == 0u ||
+      scheduler.turbo_candidate_cache_max_reuse < 2u) {
+    fprintf(stderr, "turbo reuse adaptive tuning expected adjustment\n");
+    return 1;
+  }
+  return 0;
+}
+
+static int test_lookup_cache_cross_module_stress(void) {
+  aegis_namespace_table_t namespaces;
+  aegis_ipc_channel_table_t ipc;
+  aegis_memory_zone_table_t mem;
+  uint32_t ns = 0u;
+  uint32_t local = 0u;
+  uint32_t global = 0u;
+  uint8_t visible = 0u;
+  uint8_t accepted = 0u;
+  int i;
+  aegis_namespace_table_init(&namespaces);
+  aegis_ipc_channel_table_init(&ipc);
+  aegis_memory_zone_table_init(&mem);
+  if (aegis_namespace_create(&namespaces, 0u, &ns) != 0 ||
+      aegis_namespace_attach_process(&namespaces, 9101u, ns, &local) != 0) {
+    fprintf(stderr, "cross-module namespace setup failed\n");
+    return 1;
+  }
+  if (aegis_ipc_channel_configure(&ipc, 91u, 1024u) != 0 ||
+      aegis_memory_zone_configure(&mem, 91u, AEGIS_MEMORY_ZONE_USER, 4096u) != 0) {
+    fprintf(stderr, "cross-module ipc/memory setup failed\n");
+    return 1;
+  }
+  for (i = 0; i < 16; ++i) {
+    if (aegis_namespace_translate_local_to_global(&namespaces, ns, local, &global) != 0 ||
+        global != 9101u ||
+        aegis_namespace_can_inspect(&namespaces, 9101u, 9101u, &visible) != 0 ||
+        visible != 1u ||
+        aegis_ipc_channel_reserve_send(&ipc, 91u, 16u, &accepted) < 0 ||
+        aegis_memory_zone_charge(&mem, 91u, 8u, &accepted) < 0) {
+      fprintf(stderr, "cross-module mixed operation failed\n");
+      return 1;
+    }
+  }
+  if (namespaces.lookup_cache_hits == 0u ||
+      ipc.lookup_cache_hits == 0u ||
+      mem.lookup_cache_hits == 0u) {
+    fprintf(stderr, "cross-module expected cache hits in all modules\n");
     return 1;
   }
   return 0;
@@ -1416,6 +1581,8 @@ static int test_scheduler_fairness_snapshot_json_endpoint(void) {
   }
   if (strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"queue_depth\":3") == 0 ||
+      strstr(json, "\"pid_lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"bulk_apply_calls\":") == 0 ||
       strstr(json, "\"process_id\":9801") == 0 ||
       strstr(json, "\"dispatch_share_bps\":") == 0 ||
       strstr(json, "\"wait_ticks_total\":") == 0) {
@@ -1648,6 +1815,9 @@ int main(void) {
   if (test_vm_region_split_and_permission_update() != 0) {
     return 1;
   }
+  if (test_vm_query_cache_invalidation_after_mutation() != 0) {
+    return 1;
+  }
   if (test_ipc_envelope_format_helpers() != 0) {
     return 1;
   }
@@ -1687,10 +1857,16 @@ int main(void) {
   if (test_scheduler_bulk_apply_api_and_metrics() != 0) {
     return 1;
   }
+  if (test_scheduler_bulk_apply_rejection_paths() != 0) {
+    return 1;
+  }
   if (test_scheduler_priority_count_tracking_after_reprioritize() != 0) {
     return 1;
   }
   if (test_scheduler_turbo_candidate_cache_reuse() != 0) {
+    return 1;
+  }
+  if (test_scheduler_wait_latency_clamp_and_turbo_adapt() != 0) {
     return 1;
   }
   if (test_namespace_isolation_simulator() != 0) {
@@ -1703,6 +1879,9 @@ int main(void) {
     return 1;
   }
   if (test_memory_zone_accounting_and_reclaim_hooks() != 0) {
+    return 1;
+  }
+  if (test_lookup_cache_cross_module_stress() != 0) {
     return 1;
   }
   if (test_scheduler_metrics() != 0) {
