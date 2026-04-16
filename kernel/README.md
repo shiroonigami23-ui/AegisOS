@@ -35,6 +35,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - includes tick-based wait-time and last-latency counters per process.
   - includes aggregate wait report (`mean`, `p95`, `max`) for tuning and diagnostics.
   - wait-report percentile path now uses selection-based computation to reduce metrics overhead.
+  - includes PID lookup-cache fast path for repeated scheduler control-plane queries.
   - includes wait-report snapshot endpoint with capture tick and queue metadata.
 - `aegis_process_checkpoint_table_t`: process checkpoint capture/restore for recovery workflows.
   - supports process runtime registration and per-reason checkpoint capture.
