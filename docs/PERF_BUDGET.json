@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "iterations_ci": 120000,
+  "thresholds": {
+    "scheduler_next": {
+      "min_ops_per_sec": 10000.0,
+      "max_ns_per_op": 100000.0
+    },
+    "namespace_translate_local_to_global": {
+      "min_ops_per_sec": 10000.0,
+      "max_ns_per_op": 100000.0
+    },
+    "namespace_can_inspect": {
+      "min_ops_per_sec": 10000.0,
+      "max_ns_per_op": 100000.0
+    },
+    "ipc_reserve_send_plus_drain": {
+      "min_ops_per_sec": 10000.0,
+      "max_ns_per_op": 100000.0
+    },
+    "memory_charge_plus_release": {
+      "min_ops_per_sec": 10000.0,
+      "max_ns_per_op": 100000.0
+    }
+  }
+}

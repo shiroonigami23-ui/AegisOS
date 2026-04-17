@@ -24,3 +24,5 @@ Helper scripts for local development and automation live here.
 - `package_signature_verifier.py`: verifies HMAC-SHA256 package signatures from repository index entries using keyring input.
 - `sandbox_escape_fuzz_corpus.py`: generates deterministic path+DNS sandbox-escape fuzz corpus from seed sets with reason-coded expected blocks.
 - `scheduler_turbo_benchmark.py`: deterministic benchmark comparing round-robin vs turbo scheduler latency metrics.
+- `kernel_hotpath_benchmark.py`: compiles/runs cross-module kernel hotpath microbenchmark (scheduler/namespace/ipc/memory) and emits JSON metrics.
+- `kernel_perf_budget_gate.py`: enforces `docs/PERF_BUDGET.json` thresholds using benchmark output, supports emitting benchmark JSON artifact for CI.
