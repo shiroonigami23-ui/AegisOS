@@ -77,3 +77,4 @@ Kernel direction, interfaces, and implementation notes live here.
 - cross-module hotpath benchmark source: `tools/benchmarks/kernel_hotpath_bench.c`
 - local runner: `python scripts/kernel_hotpath_benchmark.py --iterations 200000`
 - CI budget gate: `.github/workflows/perf-budget.yml` with thresholds in `docs/PERF_BUDGET.json`
+- snapshot schema ledger: `docs/SNAPSHOT_SCHEMA_LEDGER.md` validated by `scripts/validate_snapshot_schema_ledger.py`

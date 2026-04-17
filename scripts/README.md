@@ -26,3 +26,4 @@ Helper scripts for local development and automation live here.
 - `scheduler_turbo_benchmark.py`: deterministic benchmark comparing round-robin vs turbo scheduler latency metrics.
 - `kernel_hotpath_benchmark.py`: compiles/runs cross-module kernel hotpath microbenchmark (scheduler/namespace/ipc/memory) and emits JSON metrics.
 - `kernel_perf_budget_gate.py`: enforces `docs/PERF_BUDGET.json` thresholds using benchmark output, supports emitting benchmark JSON artifact for CI.
+- `validate_snapshot_schema_ledger.py`: validates `docs/SNAPSHOT_SCHEMA_LEDGER.json` patterns against source to catch snapshot schema drift.
