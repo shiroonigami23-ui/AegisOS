@@ -36,11 +36,20 @@ static void nonce_record(aegis_secure_time_attestor_t *attestor, const char *non
   if (attestor == 0 || nonce == 0 || nonce[0] == '\0') {
     return;
   }
+  if (attestor->recent_nonce_count >= 8u) {
+    attestor->nonce_window_overwrites += 1u;
+    attestor->nonce_window_saturation_events += 1u;
+  } else {
+    attestor->nonce_window_inserts += 1u;
+  }
   head = attestor->recent_nonce_head % 8u;
   snprintf(attestor->recent_nonces[head], sizeof(attestor->recent_nonces[head]), "%s", nonce);
   attestor->recent_nonce_head = (uint8_t)((head + 1u) % 8u);
   if (attestor->recent_nonce_count < 8u) {
     attestor->recent_nonce_count += 1u;
+  }
+  if (attestor->recent_nonce_count > attestor->nonce_window_high_watermark) {
+    attestor->nonce_window_high_watermark = attestor->recent_nonce_count;
   }
   snprintf(attestor->nonce_lookup_cache, sizeof(attestor->nonce_lookup_cache), "%s", nonce);
   attestor->nonce_lookup_cache_valid = 1u;
@@ -185,7 +194,9 @@ int aegis_secure_time_attestor_snapshot_json(const aegis_secure_time_attestor_t 
                      "\"attestations_ok\":%llu,\"attestations_failed\":%llu,"
                      "\"rollback_detected\":%llu,\"drift_violations\":%llu,"
                      "\"nonce_replay_detected\":%llu,\"nonce_lookup_cache_hits\":%llu,"
-                     "\"nonce_lookup_cache_misses\":%llu,\"drift_budget_clamp_events\":%llu}",
+                     "\"nonce_lookup_cache_misses\":%llu,\"nonce_window_inserts\":%llu,"
+                     "\"nonce_window_overwrites\":%llu,\"nonce_window_saturation_events\":%llu,"
+                     "\"nonce_window_high_watermark\":%u,\"drift_budget_clamp_events\":%llu}",
                      (unsigned int)attestor->boot_id,
                      (unsigned long long)attestor->last_wallclock_epoch,
                      (unsigned long long)attestor->last_monotonic_tick,
@@ -197,6 +208,10 @@ int aegis_secure_time_attestor_snapshot_json(const aegis_secure_time_attestor_t 
                      (unsigned long long)attestor->nonce_replay_detected,
                      (unsigned long long)attestor->nonce_lookup_cache_hits,
                      (unsigned long long)attestor->nonce_lookup_cache_misses,
+                     (unsigned long long)attestor->nonce_window_inserts,
+                     (unsigned long long)attestor->nonce_window_overwrites,
+                     (unsigned long long)attestor->nonce_window_saturation_events,
+                     (unsigned int)attestor->nonce_window_high_watermark,
                      (unsigned long long)attestor->drift_budget_clamp_events);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;

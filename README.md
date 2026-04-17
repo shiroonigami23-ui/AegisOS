@@ -83,10 +83,12 @@ This repository contains:
 - IPC burst-budget autotune with up/down adjustment telemetry for sustained burst workloads.
 - Memory unknown-zone request, release-underflow clamp, and reclaim-shortfall telemetry in zone snapshots.
 - Memory-zone reclaim efficiency scoring (`current` + `EMA`) in zone telemetry.
+- Memory pressure level API (`low`/`medium`/`high`) for policy loops and adaptive throttling.
 - Scheduler PID lookup upgraded to dual-entry cache (primary + victim) to reduce repeated linear scans.
 - Scheduler dispatch scan-depth telemetry to quantify round-robin/turbo hot-path scan cost.
 - Scheduler ready-bitmap popcount fastpath for single-class runnable dispatch cycles.
 - Namespace requester/target inspect-pair cache fastpath with hit/miss telemetry.
+- Secure-time nonce-window saturation counters in attestor snapshots (`inserts`, `overwrites`, `high_watermark`).
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
 - Installer secure bootstrap state machine with recovery and attestation hook gates.
 

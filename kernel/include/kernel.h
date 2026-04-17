@@ -295,6 +295,12 @@ typedef enum {
   AEGIS_MEMORY_ZONE_CACHE = 4
 } aegis_memory_zone_kind_t;
 
+typedef enum {
+  AEGIS_MEMORY_PRESSURE_LOW = 1,
+  AEGIS_MEMORY_PRESSURE_MEDIUM = 2,
+  AEGIS_MEMORY_PRESSURE_HIGH = 3
+} aegis_memory_pressure_level_t;
+
 typedef struct {
   uint32_t zone_id;
   uint8_t zone_kind;
@@ -398,6 +404,10 @@ typedef struct {
   uint8_t nonce_lookup_cache_valid;
   uint64_t nonce_lookup_cache_hits;
   uint64_t nonce_lookup_cache_misses;
+  uint64_t nonce_window_inserts;
+  uint64_t nonce_window_overwrites;
+  uint64_t nonce_window_saturation_events;
+  uint8_t nonce_window_high_watermark;
   uint64_t drift_budget_clamp_events;
   uint8_t initialized;
 } aegis_secure_time_attestor_t;
@@ -637,6 +647,9 @@ int aegis_memory_zone_charge(aegis_memory_zone_table_t *table,
 int aegis_memory_zone_release(aegis_memory_zone_table_t *table,
                               uint32_t zone_id,
                               uint64_t bytes);
+int aegis_memory_zone_pressure_level(const aegis_memory_zone_table_t *table,
+                                     uint32_t zone_id,
+                                     uint8_t *level_out);
 int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
                                     char *out,
                                     size_t out_size);

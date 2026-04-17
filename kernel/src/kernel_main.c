@@ -3396,6 +3396,36 @@ int aegis_memory_zone_release(aegis_memory_zone_table_t *table,
   return 0;
 }
 
+int aegis_memory_zone_pressure_level(const aegis_memory_zone_table_t *table,
+                                     uint32_t zone_id,
+                                     uint8_t *level_out) {
+  size_t idx = 0u;
+  uint64_t budget = 0u;
+  uint64_t used = 0u;
+  uint64_t ratio_bps = 0u;
+  if (table == 0 || zone_id == 0u || level_out == 0) {
+    return -1;
+  }
+  if (!memory_zone_find_index(table, zone_id, &idx)) {
+    return -1;
+  }
+  budget = table->zones[idx].budget_bytes;
+  used = table->zones[idx].used_bytes;
+  if (budget == 0u) {
+    *level_out = AEGIS_MEMORY_PRESSURE_HIGH;
+    return 0;
+  }
+  ratio_bps = (used * 10000ull) / budget;
+  if (ratio_bps >= 8500ull) {
+    *level_out = AEGIS_MEMORY_PRESSURE_HIGH;
+  } else if (ratio_bps >= 6000ull) {
+    *level_out = AEGIS_MEMORY_PRESSURE_MEDIUM;
+  } else {
+    *level_out = AEGIS_MEMORY_PRESSURE_LOW;
+  }
+  return 0;
+}
+
 int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
                                     char *out,
                                     size_t out_size) {
@@ -3428,9 +3458,11 @@ int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
   offset = (size_t)written;
   for (i = 0; i < AEGIS_MEMORY_ZONE_CAPACITY; ++i) {
     const aegis_memory_zone_t *zone = &table->zones[i];
+    uint8_t pressure_level = AEGIS_MEMORY_PRESSURE_LOW;
     if (zone->active == 0u) {
       continue;
     }
+    (void)aegis_memory_zone_pressure_level(table, zone->zone_id, &pressure_level);
     written = snprintf(
         out + offset,
         out_size - offset,
@@ -3438,7 +3470,8 @@ int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
         "\"high_watermark_bytes\":%llu,\"reclaim_target_bytes\":%llu,\"reclaim_attempts\":%llu,"
         "\"reclaim_successes\":%llu,\"reclaim_bytes_attempted\":%llu,"
         "\"reclaim_bytes_recovered\":%llu,\"reclaim_efficiency_bps\":%u,"
-        "\"reclaim_efficiency_bps_ema\":%u,\"reclaim_hook_enabled\":%u}",
+        "\"reclaim_efficiency_bps_ema\":%u,\"pressure_level\":%u,"
+        "\"reclaim_hook_enabled\":%u}",
         first ? "" : ",",
         zone->zone_id,
         (unsigned int)zone->zone_kind,
@@ -3452,6 +3485,7 @@ int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
         (unsigned long long)zone->reclaim_bytes_recovered,
         (unsigned int)zone->reclaim_efficiency_bps,
         (unsigned int)zone->reclaim_efficiency_bps_ema,
+        (unsigned int)pressure_level,
         (unsigned int)zone->reclaim_hook_enabled);
     if (written < 0 || (size_t)written >= (out_size - offset)) {
       return -1;

@@ -54,6 +54,7 @@ Kernel direction, interfaces, and implementation notes live here.
 - `aegis_secure_time_attestor_t`:
   - includes nonce lookup-cache fast path for repeated nonce-replay checks.
   - tracks drift-budget clamp events and nonce cache hit/miss telemetry in snapshot JSON.
+  - tracks nonce-window saturation telemetry (`inserts`, `overwrites`, `high_watermark`) for replay-window observability.
 - `aegis_syscall_gate_matrix_t`: syscall capability enforcement matrix.
   - includes decision-cache fast path for hot process/syscall pairs.
   - includes process/rule lookup-cache fast paths to reduce repeated linear scans.
@@ -67,6 +68,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - include IPC burst-budget autotune (quota up/down adjustments) based on sustained pressure/drain behavior.
   - include memory unknown-zone, release-underflow clamp, and reclaim-shortfall counters.
   - include per-zone reclaim efficiency telemetry (current + EMA) for reclaim policy tuning.
+  - expose memory pressure level helper API (`low`/`medium`/`high`) for userland policy loops.
 - `aegis_namespace_table_t`:
   - includes lookup-cache fast paths for local/global pid translation.
   - includes requester/target inspect-pair cache fastpath for repeated visibility checks.
