@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "vm_summary_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"region_count\":"
+    },
+    {
+      "id": "scheduler_turbo_state_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"dispatch_strategy\":"
+    },
+    {
+      "id": "scheduler_quantum_autotune_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"quantum_ticks\":"
+    },
+    {
+      "id": "scheduler_metrics_snapshot_schema_constant",
+      "file": "kernel/include/kernel.h",
+      "pattern": "#define AEGIS_SCHEDULER_SNAPSHOT_SCHEMA_VERSION 2u"
+    },
+    {
+      "id": "scheduler_metrics_snapshot_json_schema_dynamic",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":%u,\"queue_depth\":"
+    },
+    {
+      "id": "scheduler_histogram_window_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"requested_window\":"
+    },
+    {
+      "id": "scheduler_fairness_snapshot_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"queue_depth\":%llu,\"total_dispatches\":"
+    },
+    {
+      "id": "scheduler_admission_snapshot_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"profile_id\":"
+    },
+    {
+      "id": "namespace_snapshot_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"namespace_count\":"
+    },
+    {
+      "id": "syscall_gate_snapshot_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"allow_count\":"
+    },
+    {
+      "id": "ipc_channel_snapshot_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"total_accepted_messages\":"
+    },
+    {
+      "id": "memory_zone_snapshot_json_v1",
+      "file": "kernel/src/kernel_main.c",
+      "pattern": "{\"schema_version\":1,\"total_budget_bytes\":"
+    }
+  ]
+}

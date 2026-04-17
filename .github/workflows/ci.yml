@@ -30,3 +30,6 @@ jobs:
 
       - name: Test
         run: ctest --test-dir out --output-on-failure
+
+      - name: Validate Snapshot Schema Ledger
+        run: python scripts/validate_snapshot_schema_ledger.py
