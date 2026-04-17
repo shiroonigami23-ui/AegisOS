@@ -71,3 +71,9 @@ Kernel direction, interfaces, and implementation notes live here.
   - exposes lookup-cache hit/miss telemetry in namespace snapshot JSON.
   - tracks attach/detach/translate/inspect failure counters for error-path observability.
   - tracks namespace cache invalidation count to expose mutation churn.
+
+## Performance Governance
+
+- cross-module hotpath benchmark source: `tools/benchmarks/kernel_hotpath_bench.c`
+- local runner: `python scripts/kernel_hotpath_benchmark.py --iterations 200000`
+- CI budget gate: `.github/workflows/perf-budget.yml` with thresholds in `docs/PERF_BUDGET.json`

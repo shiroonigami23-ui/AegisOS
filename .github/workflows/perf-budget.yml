@@ -1,0 +1,35 @@
+name: Kernel Perf Budget
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "EXPLAIN.md"
+      - "CHANGELOG.md"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "EXPLAIN.md"
+      - "CHANGELOG.md"
+
+jobs:
+  kernel-perf-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run kernel perf budget gate
+        run: python scripts/kernel_perf_budget_gate.py --emit-benchmark-json out_kernel_hotpath_bench.json
+
+      - name: Upload benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-hotpath-benchmark-json
+          path: out_kernel_hotpath_bench.json

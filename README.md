@@ -106,6 +106,10 @@ This repository contains:
   - includes ASAN/UBSAN sanitizer jobs for memory and undefined behavior checks.
   - sanitizer suppression baseline and policy docs: [`docs/SANITIZERS.md`](docs/SANITIZERS.md).
   - includes trace JSON property smoke profiling for regression triage: [`docs/TRACE_JSON_PROPERTY.md`](docs/TRACE_JSON_PROPERTY.md).
+- [`Kernel Perf Budget workflow`](.github/workflows/perf-budget.yml) runs cross-module hotpath benchmark and fails CI on budget regressions.
+  - budget profile: [`docs/PERF_BUDGET.json`](docs/PERF_BUDGET.json).
+  - local benchmark CLI: `python scripts/kernel_hotpath_benchmark.py --iterations 200000`.
+  - local gate run: `python scripts/kernel_perf_budget_gate.py`.
 
 ## Collaboration
 
