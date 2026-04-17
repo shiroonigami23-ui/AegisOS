@@ -80,7 +80,9 @@ This repository contains:
 - Namespace attach/detach/translate/inspect failure counters plus cache-invalidation telemetry in namespace snapshots.
 - IPC unknown-channel request and drain-underflow clamp telemetry in channel snapshots.
 - IPC drop-reason breakdown counters (`quota`, `unknown_channel`, `policy_gate`) in channel snapshots.
+- IPC burst-budget autotune with up/down adjustment telemetry for sustained burst workloads.
 - Memory unknown-zone request, release-underflow clamp, and reclaim-shortfall telemetry in zone snapshots.
+- Memory-zone reclaim efficiency scoring (`current` + `EMA`) in zone telemetry.
 - Scheduler PID lookup upgraded to dual-entry cache (primary + victim) to reduce repeated linear scans.
 - Scheduler dispatch scan-depth telemetry to quantify round-robin/turbo hot-path scan cost.
 - Scheduler ready-bitmap popcount fastpath for single-class runnable dispatch cycles.

@@ -258,8 +258,11 @@ typedef struct {
 
 typedef struct {
   uint32_t channel_id;
+  uint32_t base_quota_bytes;
   uint32_t quota_bytes;
   uint32_t inflight_bytes;
+  uint32_t backpressure_streak;
+  uint32_t idle_drain_streak;
   uint64_t accepted_messages;
   uint64_t dropped_messages;
   uint64_t backpressure_events;
@@ -281,6 +284,8 @@ typedef struct {
   uint64_t drop_reason_quota;
   uint64_t drop_reason_unknown_channel;
   uint64_t drop_reason_policy_gate;
+  uint64_t burst_autotune_up_adjustments;
+  uint64_t burst_autotune_down_adjustments;
 } aegis_ipc_channel_table_t;
 
 typedef enum {
@@ -299,6 +304,10 @@ typedef struct {
   uint64_t reclaim_target_bytes;
   uint64_t reclaim_attempts;
   uint64_t reclaim_successes;
+  uint64_t reclaim_bytes_attempted;
+  uint64_t reclaim_bytes_recovered;
+  uint32_t reclaim_efficiency_bps;
+  uint32_t reclaim_efficiency_bps_ema;
   uint8_t reclaim_hook_enabled;
   uint8_t active;
 } aegis_memory_zone_t;

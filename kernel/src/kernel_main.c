@@ -2871,6 +2871,85 @@ static int ipc_channel_find_index(const aegis_ipc_channel_table_t *table,
   return 0;
 }
 
+static uint32_t ipc_quota_growth_step(uint32_t quota_bytes) {
+  uint32_t step = quota_bytes / 4u;
+  if (step < 64u) {
+    step = 64u;
+  }
+  return step;
+}
+
+static uint32_t ipc_quota_shrink_step(uint32_t quota_bytes) {
+  uint32_t step = quota_bytes / 8u;
+  if (step < 64u) {
+    step = 64u;
+  }
+  return step;
+}
+
+static void ipc_channel_autotune_on_backpressure(aegis_ipc_channel_table_t *table, size_t index) {
+  aegis_ipc_channel_state_t *channel;
+  uint32_t max_quota;
+  uint32_t step;
+  if (table == 0 || index >= AEGIS_IPC_CHANNEL_CAPACITY) {
+    return;
+  }
+  channel = &table->channels[index];
+  channel->backpressure_streak += 1u;
+  channel->idle_drain_streak = 0u;
+  if (channel->base_quota_bytes == 0u) {
+    return;
+  }
+  if (channel->backpressure_streak < 3u) {
+    return;
+  }
+  max_quota = channel->base_quota_bytes * 4u;
+  if (max_quota < channel->base_quota_bytes) {
+    max_quota = 0xFFFFFFFFu;
+  }
+  if (channel->quota_bytes >= max_quota) {
+    return;
+  }
+  step = ipc_quota_growth_step(channel->quota_bytes);
+  if (channel->quota_bytes + step < channel->quota_bytes ||
+      channel->quota_bytes + step > max_quota) {
+    channel->quota_bytes = max_quota;
+  } else {
+    channel->quota_bytes += step;
+  }
+  channel->backpressure_streak = 0u;
+  table->burst_autotune_up_adjustments += 1u;
+}
+
+static void ipc_channel_autotune_on_drain(aegis_ipc_channel_table_t *table, size_t index) {
+  aegis_ipc_channel_state_t *channel;
+  uint32_t step;
+  if (table == 0 || index >= AEGIS_IPC_CHANNEL_CAPACITY) {
+    return;
+  }
+  channel = &table->channels[index];
+  channel->backpressure_streak = 0u;
+  if (channel->inflight_bytes != 0u) {
+    channel->idle_drain_streak = 0u;
+    return;
+  }
+  channel->idle_drain_streak += 1u;
+  if (channel->idle_drain_streak < 6u) {
+    return;
+  }
+  if (channel->quota_bytes <= channel->base_quota_bytes) {
+    return;
+  }
+  step = ipc_quota_shrink_step(channel->quota_bytes);
+  if (channel->quota_bytes <= channel->base_quota_bytes + step) {
+    channel->quota_bytes = channel->base_quota_bytes;
+  } else {
+    channel->quota_bytes -= step;
+  }
+  channel->idle_drain_streak = 0u;
+  table->burst_autotune_down_adjustments += 1u;
+}
+
 void aegis_ipc_channel_table_init(aegis_ipc_channel_table_t *table) {
   size_t i;
   if (table == 0) {
@@ -2878,8 +2957,11 @@ void aegis_ipc_channel_table_init(aegis_ipc_channel_table_t *table) {
   }
   for (i = 0; i < AEGIS_IPC_CHANNEL_CAPACITY; ++i) {
     table->channels[i].channel_id = 0u;
+    table->channels[i].base_quota_bytes = 0u;
     table->channels[i].quota_bytes = 0u;
     table->channels[i].inflight_bytes = 0u;
+    table->channels[i].backpressure_streak = 0u;
+    table->channels[i].idle_drain_streak = 0u;
     table->channels[i].accepted_messages = 0u;
     table->channels[i].dropped_messages = 0u;
     table->channels[i].backpressure_events = 0u;
@@ -2898,6 +2980,8 @@ void aegis_ipc_channel_table_init(aegis_ipc_channel_table_t *table) {
   table->drop_reason_quota = 0u;
   table->drop_reason_unknown_channel = 0u;
   table->drop_reason_policy_gate = 0u;
+  table->burst_autotune_up_adjustments = 0u;
+  table->burst_autotune_down_adjustments = 0u;
 }
 
 int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
@@ -2909,10 +2993,13 @@ int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
     return -1;
   }
   if (ipc_channel_find_index(table, channel_id, &existing)) {
+    table->channels[existing].base_quota_bytes = quota_bytes;
     table->channels[existing].quota_bytes = quota_bytes;
     if (table->channels[existing].inflight_bytes > quota_bytes) {
       table->channels[existing].inflight_bytes = quota_bytes;
     }
+    table->channels[existing].backpressure_streak = 0u;
+    table->channels[existing].idle_drain_streak = 0u;
     table->lookup_cache_valid = 1u;
     table->lookup_cache_channel_id = channel_id;
     table->lookup_cache_index = (uint16_t)existing;
@@ -2923,8 +3010,11 @@ int aegis_ipc_channel_configure(aegis_ipc_channel_table_t *table,
       continue;
     }
     table->channels[i].channel_id = channel_id;
+    table->channels[i].base_quota_bytes = quota_bytes;
     table->channels[i].quota_bytes = quota_bytes;
     table->channels[i].inflight_bytes = 0u;
+    table->channels[i].backpressure_streak = 0u;
+    table->channels[i].idle_drain_streak = 0u;
     table->channels[i].accepted_messages = 0u;
     table->channels[i].dropped_messages = 0u;
     table->channels[i].backpressure_events = 0u;
@@ -2959,9 +3049,11 @@ int aegis_ipc_channel_reserve_send(aegis_ipc_channel_table_t *table,
     table->total_dropped_messages += 1u;
     table->total_backpressure_events += 1u;
     table->drop_reason_quota += 1u;
+    ipc_channel_autotune_on_backpressure(table, index);
     return 0;
   }
   table->channels[index].inflight_bytes = (uint32_t)projected;
+  table->channels[index].backpressure_streak = 0u;
   table->channels[index].accepted_messages += 1u;
   table->total_accepted_messages += 1u;
   *accepted_out = 1u;
@@ -2984,9 +3076,11 @@ int aegis_ipc_channel_drain(aegis_ipc_channel_table_t *table,
       table->drain_underflow_clamps += 1u;
     }
     table->channels[index].inflight_bytes = 0u;
+    ipc_channel_autotune_on_drain(table, index);
     return 0;
   }
   table->channels[index].inflight_bytes -= drained_bytes;
+  ipc_channel_autotune_on_drain(table, index);
   return 0;
 }
 
@@ -3008,6 +3102,8 @@ int aegis_ipc_channel_snapshot_json(const aegis_ipc_channel_table_t *table,
                      "\"unknown_channel_requests\":%llu,\"drain_underflow_clamps\":%llu,"
                      "\"drop_reason_quota\":%llu,\"drop_reason_unknown_channel\":%llu,"
                      "\"drop_reason_policy_gate\":%llu,"
+                     "\"burst_autotune_up_adjustments\":%llu,"
+                     "\"burst_autotune_down_adjustments\":%llu,"
                      "\"channels\":[",
                      (unsigned long long)table->total_accepted_messages,
                      (unsigned long long)table->total_dropped_messages,
@@ -3018,7 +3114,9 @@ int aegis_ipc_channel_snapshot_json(const aegis_ipc_channel_table_t *table,
                      (unsigned long long)table->drain_underflow_clamps,
                      (unsigned long long)table->drop_reason_quota,
                      (unsigned long long)table->drop_reason_unknown_channel,
-                     (unsigned long long)table->drop_reason_policy_gate);
+                     (unsigned long long)table->drop_reason_policy_gate,
+                     (unsigned long long)table->burst_autotune_up_adjustments,
+                     (unsigned long long)table->burst_autotune_down_adjustments);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
   }
@@ -3031,12 +3129,14 @@ int aegis_ipc_channel_snapshot_json(const aegis_ipc_channel_table_t *table,
     written = snprintf(out + offset,
                        out_size - offset,
                        "%s{\"channel_id\":%u,\"quota_bytes\":%u,\"inflight_bytes\":%u,"
+                       "\"base_quota_bytes\":%u,"
                        "\"accepted_messages\":%llu,\"dropped_messages\":%llu,"
                        "\"backpressure_events\":%llu}",
                        first ? "" : ",",
                        ch->channel_id,
                        ch->quota_bytes,
                        ch->inflight_bytes,
+                       ch->base_quota_bytes,
                        (unsigned long long)ch->accepted_messages,
                        (unsigned long long)ch->dropped_messages,
                        (unsigned long long)ch->backpressure_events);
@@ -3109,6 +3209,10 @@ void aegis_memory_zone_table_init(aegis_memory_zone_table_t *table) {
     table->zones[i].reclaim_target_bytes = 0u;
     table->zones[i].reclaim_attempts = 0u;
     table->zones[i].reclaim_successes = 0u;
+    table->zones[i].reclaim_bytes_attempted = 0u;
+    table->zones[i].reclaim_bytes_recovered = 0u;
+    table->zones[i].reclaim_efficiency_bps = 0u;
+    table->zones[i].reclaim_efficiency_bps_ema = 0u;
     table->zones[i].reclaim_hook_enabled = 0u;
     table->zones[i].active = 0u;
   }
@@ -3131,6 +3235,10 @@ int aegis_memory_zone_configure(aegis_memory_zone_table_t *table,
     old_budget = table->zones[idx].budget_bytes;
     table->zones[idx].zone_kind = zone_kind;
     table->zones[idx].budget_bytes = budget_bytes;
+    table->zones[idx].reclaim_bytes_attempted = 0u;
+    table->zones[idx].reclaim_bytes_recovered = 0u;
+    table->zones[idx].reclaim_efficiency_bps = 0u;
+    table->zones[idx].reclaim_efficiency_bps_ema = 0u;
     if (table->total_budget_bytes >= old_budget) {
       table->total_budget_bytes -= old_budget;
     }
@@ -3155,6 +3263,10 @@ int aegis_memory_zone_configure(aegis_memory_zone_table_t *table,
     table->zones[i].reclaim_target_bytes = 0u;
     table->zones[i].reclaim_attempts = 0u;
     table->zones[i].reclaim_successes = 0u;
+    table->zones[i].reclaim_bytes_attempted = 0u;
+    table->zones[i].reclaim_bytes_recovered = 0u;
+    table->zones[i].reclaim_efficiency_bps = 0u;
+    table->zones[i].reclaim_efficiency_bps_ema = 0u;
     table->zones[i].reclaim_hook_enabled = 0u;
     table->zones[i].active = 1u;
     table->total_budget_bytes += budget_bytes;
@@ -3207,11 +3319,33 @@ int aegis_memory_zone_charge(aegis_memory_zone_table_t *table,
     return 1;
   }
   if (table->zones[idx].reclaim_hook_enabled != 0u && table->zones[idx].reclaim_target_bytes > 0u) {
+    uint64_t attempted = table->zones[idx].reclaim_target_bytes;
     uint64_t reclaimed = table->zones[idx].reclaim_target_bytes;
+    uint64_t current_efficiency = 0u;
     table->zones[idx].reclaim_attempts += 1u;
+    table->zones[idx].reclaim_bytes_attempted += attempted;
     table->reclaim_events += 1u;
     if (reclaimed > table->zones[idx].used_bytes) {
       reclaimed = table->zones[idx].used_bytes;
+    }
+    table->zones[idx].reclaim_bytes_recovered += reclaimed;
+    if (attempted > 0u) {
+      current_efficiency = (reclaimed * 10000ull) / attempted;
+      if (current_efficiency > 10000ull) {
+        current_efficiency = 10000ull;
+      }
+    }
+    table->zones[idx].reclaim_efficiency_bps = (uint32_t)current_efficiency;
+    if (table->zones[idx].reclaim_attempts == 1u) {
+      table->zones[idx].reclaim_efficiency_bps_ema = (uint32_t)current_efficiency;
+    } else {
+      uint64_t ema = ((uint64_t)table->zones[idx].reclaim_efficiency_bps_ema * 7ull +
+                      current_efficiency * 3ull) /
+                     10ull;
+      if (ema > 10000ull) {
+        ema = 10000ull;
+      }
+      table->zones[idx].reclaim_efficiency_bps_ema = (uint32_t)ema;
     }
     table->zones[idx].used_bytes -= reclaimed;
     if (table->total_used_bytes >= reclaimed) {
@@ -3302,7 +3436,9 @@ int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
         out_size - offset,
         "%s{\"zone_id\":%u,\"zone_kind\":%u,\"budget_bytes\":%llu,\"used_bytes\":%llu,"
         "\"high_watermark_bytes\":%llu,\"reclaim_target_bytes\":%llu,\"reclaim_attempts\":%llu,"
-        "\"reclaim_successes\":%llu,\"reclaim_hook_enabled\":%u}",
+        "\"reclaim_successes\":%llu,\"reclaim_bytes_attempted\":%llu,"
+        "\"reclaim_bytes_recovered\":%llu,\"reclaim_efficiency_bps\":%u,"
+        "\"reclaim_efficiency_bps_ema\":%u,\"reclaim_hook_enabled\":%u}",
         first ? "" : ",",
         zone->zone_id,
         (unsigned int)zone->zone_kind,
@@ -3312,6 +3448,10 @@ int aegis_memory_zone_snapshot_json(const aegis_memory_zone_table_t *table,
         (unsigned long long)zone->reclaim_target_bytes,
         (unsigned long long)zone->reclaim_attempts,
         (unsigned long long)zone->reclaim_successes,
+        (unsigned long long)zone->reclaim_bytes_attempted,
+        (unsigned long long)zone->reclaim_bytes_recovered,
+        (unsigned int)zone->reclaim_efficiency_bps,
+        (unsigned int)zone->reclaim_efficiency_bps_ema,
         (unsigned int)zone->reclaim_hook_enabled);
     if (written < 0 || (size_t)written >= (out_size - offset)) {
       return -1;
