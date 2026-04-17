@@ -1038,6 +1038,8 @@ static int test_ipc_channel_quota_and_backpressure(void) {
       strstr(json, "\"drop_reason_quota\":1") == 0 ||
       strstr(json, "\"drop_reason_unknown_channel\":1") == 0 ||
       strstr(json, "\"drop_reason_policy_gate\":0") == 0 ||
+      strstr(json, "\"burst_autotune_up_adjustments\":0") == 0 ||
+      strstr(json, "\"burst_autotune_down_adjustments\":0") == 0 ||
       strstr(json, "\"lookup_cache_hits\":") == 0 ||
       strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"channel_id\":42") == 0 ||
@@ -1113,12 +1115,70 @@ static int test_memory_zone_accounting_and_reclaim_hooks(void) {
       strstr(json, "\"lookup_cache_hits\":") == 0 ||
       strstr(json, "\"lookup_cache_misses\":") == 0 ||
       strstr(json, "\"zone_id\":1") == 0 ||
-      strstr(json, "\"reclaim_successes\":1") == 0) {
+      strstr(json, "\"reclaim_successes\":1") == 0 ||
+      strstr(json, "\"reclaim_bytes_attempted\":512") == 0 ||
+      strstr(json, "\"reclaim_bytes_recovered\":512") == 0 ||
+      strstr(json, "\"reclaim_efficiency_bps\":10000") == 0 ||
+      strstr(json, "\"reclaim_efficiency_bps_ema\":10000") == 0) {
     fprintf(stderr, "memory zone snapshot mismatch: %s\n", json);
     return 1;
   }
   if (aegis_memory_zone_snapshot_json(&table, tiny, sizeof(tiny)) >= 0) {
     fprintf(stderr, "expected tiny memory zone snapshot failure\n");
+    return 1;
+  }
+  return 0;
+}
+
+static int test_ipc_channel_burst_budget_autotune(void) {
+  aegis_ipc_channel_table_t table;
+  uint8_t accepted = 0u;
+  char json[4096];
+  uint32_t i;
+  aegis_ipc_channel_table_init(&table);
+  if (aegis_ipc_channel_configure(&table, 55u, 256u) != 0) {
+    fprintf(stderr, "ipc autotune channel configure failed\n");
+    return 1;
+  }
+
+  if (aegis_ipc_channel_reserve_send(&table, 55u, 250u, &accepted) != 1 || accepted != 1u) {
+    fprintf(stderr, "ipc autotune expected initial accepted send\n");
+    return 1;
+  }
+  for (i = 0u; i < 3u; ++i) {
+    if (aegis_ipc_channel_reserve_send(&table, 55u, 250u, &accepted) != 0 || accepted != 0u) {
+      fprintf(stderr, "ipc autotune expected backpressure drop\n");
+      return 1;
+    }
+  }
+  if (aegis_ipc_channel_drain(&table, 55u, 250u) != 0) {
+    fprintf(stderr, "ipc autotune warm-up drain failed\n");
+    return 1;
+  }
+
+  if (aegis_ipc_channel_snapshot_json(&table, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"burst_autotune_up_adjustments\":") == 0 ||
+      strstr(json, "\"burst_autotune_down_adjustments\":") == 0 ||
+      strstr(json, "\"burst_autotune_up_adjustments\":0") != 0 ||
+      strstr(json, "\"base_quota_bytes\":256") == 0) {
+    fprintf(stderr, "ipc autotune snapshot missing expected growth telemetry: %s\n", json);
+    return 1;
+  }
+
+  for (i = 0u; i < 18u; ++i) {
+    if (aegis_ipc_channel_reserve_send(&table, 55u, 64u, &accepted) != 1 || accepted != 1u) {
+      fprintf(stderr, "ipc autotune expected accepted low-pressure send\n");
+      return 1;
+    }
+    if (aegis_ipc_channel_drain(&table, 55u, 64u) != 0) {
+      fprintf(stderr, "ipc autotune low-pressure drain failed\n");
+      return 1;
+    }
+  }
+
+  if (aegis_ipc_channel_snapshot_json(&table, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"burst_autotune_down_adjustments\":0") != 0) {
+    fprintf(stderr, "ipc autotune snapshot missing expected shrink telemetry: %s\n", json);
     return 1;
   }
   return 0;
@@ -2075,6 +2135,9 @@ int main(void) {
     return 1;
   }
   if (test_ipc_channel_quota_and_backpressure() != 0) {
+    return 1;
+  }
+  if (test_ipc_channel_burst_budget_autotune() != 0) {
     return 1;
   }
   if (test_memory_zone_accounting_and_reclaim_hooks() != 0) {

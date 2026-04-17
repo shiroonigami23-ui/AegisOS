@@ -64,7 +64,9 @@ Kernel direction, interfaces, and implementation notes live here.
   - expose lookup-cache hit/miss telemetry in JSON snapshots.
   - include IPC unknown-channel and drain-underflow clamp counters in snapshot telemetry.
   - include IPC drop-reason breakdown counters (`quota`, `unknown_channel`, `policy_gate`) for triage.
+  - include IPC burst-budget autotune (quota up/down adjustments) based on sustained pressure/drain behavior.
   - include memory unknown-zone, release-underflow clamp, and reclaim-shortfall counters.
+  - include per-zone reclaim efficiency telemetry (current + EMA) for reclaim policy tuning.
 - `aegis_namespace_table_t`:
   - includes lookup-cache fast paths for local/global pid translation.
   - includes requester/target inspect-pair cache fastpath for repeated visibility checks.
