@@ -1057,6 +1057,7 @@ static int test_ipc_channel_quota_and_backpressure(void) {
 static int test_memory_zone_accounting_and_reclaim_hooks(void) {
   aegis_memory_zone_table_t table;
   uint8_t accepted = 0u;
+  uint8_t pressure = 0u;
   char json[4096];
   char tiny[32];
   aegis_memory_zone_table_init(&table);
@@ -1105,6 +1106,11 @@ static int test_memory_zone_accounting_and_reclaim_hooks(void) {
     fprintf(stderr, "memory zone release underflow clamp path failed\n");
     return 1;
   }
+  if (aegis_memory_zone_pressure_level(&table, 1u, &pressure) != 0 ||
+      pressure != AEGIS_MEMORY_PRESSURE_LOW) {
+    fprintf(stderr, "memory zone pressure level expected low after release\n");
+    return 1;
+  }
   if (aegis_memory_zone_snapshot_json(&table, json, sizeof(json)) <= 0 ||
       strstr(json, "\"schema_version\":1") == 0 ||
       strstr(json, "\"denied_charges\":2") == 0 ||
@@ -1119,12 +1125,50 @@ static int test_memory_zone_accounting_and_reclaim_hooks(void) {
       strstr(json, "\"reclaim_bytes_attempted\":512") == 0 ||
       strstr(json, "\"reclaim_bytes_recovered\":512") == 0 ||
       strstr(json, "\"reclaim_efficiency_bps\":10000") == 0 ||
-      strstr(json, "\"reclaim_efficiency_bps_ema\":10000") == 0) {
+      strstr(json, "\"reclaim_efficiency_bps_ema\":10000") == 0 ||
+      strstr(json, "\"pressure_level\":1") == 0) {
     fprintf(stderr, "memory zone snapshot mismatch: %s\n", json);
     return 1;
   }
   if (aegis_memory_zone_snapshot_json(&table, tiny, sizeof(tiny)) >= 0) {
     fprintf(stderr, "expected tiny memory zone snapshot failure\n");
+    return 1;
+  }
+  return 0;
+}
+
+static int test_memory_zone_pressure_level_api(void) {
+  aegis_memory_zone_table_t table;
+  uint8_t accepted = 0u;
+  uint8_t pressure = 0u;
+  aegis_memory_zone_table_init(&table);
+  if (aegis_memory_zone_configure(&table, 44u, AEGIS_MEMORY_ZONE_USER, 1000u) != 0) {
+    fprintf(stderr, "memory pressure api configure failed\n");
+    return 1;
+  }
+  if (aegis_memory_zone_charge(&table, 44u, 500u, &accepted) != 1 ||
+      accepted != 1u ||
+      aegis_memory_zone_pressure_level(&table, 44u, &pressure) != 0 ||
+      pressure != AEGIS_MEMORY_PRESSURE_LOW) {
+    fprintf(stderr, "memory pressure api low level mismatch\n");
+    return 1;
+  }
+  if (aegis_memory_zone_charge(&table, 44u, 150u, &accepted) != 1 ||
+      accepted != 1u ||
+      aegis_memory_zone_pressure_level(&table, 44u, &pressure) != 0 ||
+      pressure != AEGIS_MEMORY_PRESSURE_MEDIUM) {
+    fprintf(stderr, "memory pressure api medium level mismatch\n");
+    return 1;
+  }
+  if (aegis_memory_zone_charge(&table, 44u, 250u, &accepted) != 1 ||
+      accepted != 1u ||
+      aegis_memory_zone_pressure_level(&table, 44u, &pressure) != 0 ||
+      pressure != AEGIS_MEMORY_PRESSURE_HIGH) {
+    fprintf(stderr, "memory pressure api high level mismatch\n");
+    return 1;
+  }
+  if (aegis_memory_zone_pressure_level(&table, 999u, &pressure) == 0) {
+    fprintf(stderr, "memory pressure api unknown zone should fail\n");
     return 1;
   }
   return 0;
@@ -2054,8 +2098,40 @@ static int test_secure_time_source_attestation(void) {
       strstr(snapshot_json, "\"nonce_replay_detected\":1") == 0 ||
       strstr(snapshot_json, "\"nonce_lookup_cache_hits\":1") == 0 ||
       strstr(snapshot_json, "\"nonce_lookup_cache_misses\":3") == 0 ||
+      strstr(snapshot_json, "\"nonce_window_inserts\":1") == 0 ||
+      strstr(snapshot_json, "\"nonce_window_overwrites\":0") == 0 ||
+      strstr(snapshot_json, "\"nonce_window_saturation_events\":0") == 0 ||
+      strstr(snapshot_json, "\"nonce_window_high_watermark\":1") == 0 ||
       strstr(snapshot_json, "\"drift_budget_clamp_events\":0") == 0) {
     fprintf(stderr, "secure time snapshot mismatch: %s\n", snapshot_json);
+    return 1;
+  }
+  return 0;
+}
+
+static int test_secure_time_nonce_window_saturation_stats(void) {
+  aegis_secure_time_attestor_t attestor;
+  aegis_secure_time_attestation_result_t result;
+  char nonce[32];
+  char snapshot_json[1024];
+  uint32_t i;
+  memset(&attestor, 0, sizeof(attestor));
+  memset(&result, 0, sizeof(result));
+  aegis_secure_time_attestor_init(&attestor, 99u, 1800000000u, 500u, 1000000u);
+  for (i = 1u; i <= 10u; ++i) {
+    snprintf(nonce, sizeof(nonce), "n-%u", i);
+    if (aegis_secure_time_attest(&attestor, 1800000000u + i, 500u + i, nonce, &result) != 1 ||
+        result.accepted != 1u) {
+      fprintf(stderr, "secure time saturation setup attest failed at %u\n", i);
+      return 1;
+    }
+  }
+  if (aegis_secure_time_attestor_snapshot_json(&attestor, snapshot_json, sizeof(snapshot_json)) <= 0 ||
+      strstr(snapshot_json, "\"nonce_window_inserts\":8") == 0 ||
+      strstr(snapshot_json, "\"nonce_window_overwrites\":2") == 0 ||
+      strstr(snapshot_json, "\"nonce_window_saturation_events\":2") == 0 ||
+      strstr(snapshot_json, "\"nonce_window_high_watermark\":8") == 0) {
+    fprintf(stderr, "secure time saturation snapshot mismatch: %s\n", snapshot_json);
     return 1;
   }
   return 0;
@@ -2143,6 +2219,9 @@ int main(void) {
   if (test_memory_zone_accounting_and_reclaim_hooks() != 0) {
     return 1;
   }
+  if (test_memory_zone_pressure_level_api() != 0) {
+    return 1;
+  }
   if (test_lookup_cache_cross_module_stress() != 0) {
     return 1;
   }
@@ -2186,6 +2265,9 @@ int main(void) {
     return 1;
   }
   if (test_secure_time_source_attestation() != 0) {
+    return 1;
+  }
+  if (test_secure_time_nonce_window_saturation_stats() != 0) {
     return 1;
   }
   puts("kernel simulation check passed");
