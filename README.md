@@ -1,5 +1,17 @@
 # AegisOS
 
+<p align="center">
+  <img src="assets/images/logo/aegios-logo.svg" alt="Aegios logo" width="220" />
+</p>
+
+<p align="center">
+  <img src="assets/images/wiki/ios.svg" alt="iOS" height="40" />
+  <img src="assets/images/wiki/linux.svg" alt="Linux" height="40" />
+  <img src="assets/images/wiki/windows.svg" alt="Windows" height="40" />
+  <img src="assets/images/wiki/macos.svg" alt="macOS" height="40" />
+  <img src="assets/images/wiki/android.svg" alt="Android" height="40" />
+</p>
+
 Secure like iOS, lightweight and customizable like Linux, compatible like Windows, polished like macOS, and hardware-flexible like Android with adbanced and fastest kernel algorithm that supports att hardware lvl
 
 [![CI](https://github.com/shiroonigami23-ui/AegisOS/actions/workflows/ci.yml/badge.svg)](https://github.com/shiroonigami23-ui/AegisOS/actions/workflows/ci.yml)
@@ -78,6 +90,7 @@ This repository contains:
 - Secure-time nonce lookup-cache telemetry and drift-budget clamp-event tracking for attestation observability.
 - Namespace translation lookup-cache and scheduler percentile-selection fast path for lower runtime metrics overhead.
 - Namespace attach/detach/translate/inspect failure counters plus cache-invalidation telemetry in namespace snapshots.
+- Namespace compact snapshot endpoint for lightweight telemetry export without full namespace/process arrays.
 - IPC unknown-channel request and drain-underflow clamp telemetry in channel snapshots.
 - IPC drop-reason breakdown counters (`quota`, `unknown_channel`, `policy_gate`) in channel snapshots.
 - IPC burst-budget autotune with up/down adjustment telemetry for sustained burst workloads.

@@ -73,6 +73,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - includes lookup-cache fast paths for local/global pid translation.
   - includes requester/target inspect-pair cache fastpath for repeated visibility checks.
   - exposes lookup-cache hit/miss telemetry in namespace snapshot JSON.
+  - includes compact namespace snapshot JSON endpoint for low-overhead telemetry pulls.
   - tracks attach/detach/translate/inspect failure counters for error-path observability.
   - tracks namespace cache invalidation count to expose mutation churn.
 
