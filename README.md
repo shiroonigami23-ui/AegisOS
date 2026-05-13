@@ -114,6 +114,9 @@ This repository contains:
   - budget profile: [`docs/PERF_BUDGET.json`](docs/PERF_BUDGET.json).
   - local benchmark CLI: `python scripts/kernel_hotpath_benchmark.py --iterations 200000`.
   - local gate run: `python scripts/kernel_perf_budget_gate.py`.
+- [`Benchmark Monitor workflow`](.github/workflows/benchmark-monitor.yml) continuously updates benchmark history and status markdown.
+  - status dashboard: [`docs/BENCHMARK_STATUS.md`](docs/BENCHMARK_STATUS.md).
+  - latest benchmark snapshot: `benchmarks/latest/kernel_hotpath_latest.json`.
 - Snapshot schema ledger is validated in CI to prevent silent snapshot-contract drift.
   - ledger docs: [`docs/SNAPSHOT_SCHEMA_LEDGER.md`](docs/SNAPSHOT_SCHEMA_LEDGER.md).
   - machine ledger: [`docs/SNAPSHOT_SCHEMA_LEDGER.json`](docs/SNAPSHOT_SCHEMA_LEDGER.json).
