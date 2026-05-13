@@ -1316,6 +1316,43 @@ static int test_scheduler_turbo_pressure_guard_v2(void) {
   return 0;
 }
 
+static int test_scheduler_turbo_fairness_floor_v1(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0u;
+  char turbo_json[512];
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_enable_turbo(&scheduler, 1u);
+  if (aegis_scheduler_add_with_priority(&scheduler, 16001u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 16002u, AEGIS_PRIORITY_HIGH) != 0 ||
+      aegis_scheduler_add_with_priority(&scheduler, 16003u, AEGIS_PRIORITY_LOW) != 0) {
+    fprintf(stderr, "turbo fairness floor setup add failed\n");
+    return 1;
+  }
+  scheduler.total_dispatches = 120u;
+  scheduler.dispatch_counts[0] = 70u;
+  scheduler.dispatch_counts[1] = 45u;
+  scheduler.dispatch_counts[2] = 1u;
+  scheduler.scheduler_ticks = 200u;
+  scheduler.enqueued_tick[0] = 180u;
+  scheduler.enqueued_tick[1] = 182u;
+  scheduler.enqueued_tick[2] = 150u;
+  if (aegis_scheduler_next(&scheduler, &pid) != 0 || pid != 16003u) {
+    fprintf(stderr, "turbo fairness floor expected to select starving pid 16003\n");
+    return 1;
+  }
+  if (scheduler.turbo_fairness_floor_trips == 0u) {
+    fprintf(stderr, "turbo fairness floor expected trip count > 0\n");
+    return 1;
+  }
+  if (aegis_scheduler_turbo_state_json(&scheduler, turbo_json, sizeof(turbo_json)) <= 0 ||
+      strstr(turbo_json, "\"turbo_fairness_floor_trips\":") == 0 ||
+      strstr(turbo_json, "\"turbo_fairness_floor_trips\":0") != 0) {
+    fprintf(stderr, "turbo fairness floor json mismatch: %s\n", turbo_json);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_lookup_cache_cross_module_stress(void) {
   aegis_namespace_table_t namespaces;
   aegis_ipc_channel_table_t ipc;
@@ -2260,6 +2297,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_turbo_pressure_guard_v2() != 0) {
+    return 1;
+  }
+  if (test_scheduler_turbo_fairness_floor_v1() != 0) {
     return 1;
   }
   if (test_namespace_isolation_simulator() != 0) {

@@ -1,10 +1,6 @@
 # AegisOS
 
 <p align="center">
-  <img src="assets/images/logo/aegios-logo.svg" alt="Aegios logo" width="220" />
-</p>
-
-<p align="center">
   <img src="assets/images/wiki/ios.svg" alt="iOS" height="40" />
   <img src="assets/images/wiki/linux.svg" alt="Linux" height="40" />
   <img src="assets/images/wiki/windows.svg" alt="Windows" height="40" />
@@ -101,6 +97,7 @@ This repository contains:
 - Scheduler dispatch scan-depth telemetry to quantify round-robin/turbo hot-path scan cost.
 - Scheduler ready-bitmap popcount fastpath for single-class runnable dispatch cycles.
 - Scheduler turbo candidate pressure-guard v2 to avoid over-reusing a dominant cached PID under high dispatch pressure.
+- Scheduler turbo fairness floor v1 to prioritize starved runnable tasks under sustained skewed dispatch pressure.
 - Namespace requester/target inspect-pair cache fastpath with hit/miss telemetry.
 - Secure-time nonce-window saturation counters in attestor snapshots (`inserts`, `overwrites`, `high_watermark`).
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).
