@@ -567,11 +567,30 @@ static int scheduler_pick_turbo_index(const aegis_scheduler_t *scheduler, size_t
       scheduler->turbo_candidate_cache_index < scheduler->count &&
       scheduler->turbo_candidate_cache_budget > 0u) {
     size_t cached_idx = scheduler->turbo_candidate_cache_index;
+    uint64_t dominant_dispatches = 0u;
+    size_t dominant_idx = 0u;
+    for (i = 0; i < scheduler->count; ++i) {
+      if (scheduler->dispatch_counts[i] > dominant_dispatches) {
+        dominant_dispatches = scheduler->dispatch_counts[i];
+        dominant_idx = i;
+      }
+    }
+    if (scheduler->count >= 8u &&
+        scheduler->total_dispatches >= (uint64_t)(scheduler->count * 10u) &&
+        dominant_dispatches > 0u &&
+        dominant_idx == cached_idx &&
+        (dominant_dispatches * 100u) >= (scheduler->total_dispatches * 55u)) {
+      ((aegis_scheduler_t *)scheduler)->turbo_pressure_guard_trips += 1u;
+      ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_valid = 0u;
+      ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_budget = 0u;
+    }
     if (scheduler->credits[cached_idx] > 0u) {
-      *index_out = cached_idx;
-      ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_budget -= 1u;
-      ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_hits += 1u;
-      return 1;
+      if (scheduler->turbo_candidate_cache_valid != 0u) {
+        *index_out = cached_idx;
+        ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_budget -= 1u;
+        ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_hits += 1u;
+        return 1;
+      }
     }
   }
   ((aegis_scheduler_t *)scheduler)->turbo_candidate_cache_misses += 1u;
@@ -714,6 +733,7 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->turbo_candidate_cache_index = 0u;
   scheduler->turbo_candidate_cache_hits = 0u;
   scheduler->turbo_candidate_cache_misses = 0u;
+  scheduler->turbo_pressure_guard_trips = 0u;
   scheduler->pid_lookup_cache_process_id = 0u;
   scheduler->pid_lookup_cache_index = 0u;
   scheduler->pid_lookup_cache_valid = 0u;
@@ -770,6 +790,7 @@ void aegis_scheduler_init(aegis_scheduler_t *scheduler) {
   scheduler->turbo_candidate_cache_budget = 0u;
   scheduler->turbo_candidate_cache_hits = 0u;
   scheduler->turbo_candidate_cache_misses = 0u;
+  scheduler->turbo_pressure_guard_trips = 0u;
   scheduler->pid_lookup_cache_process_id = 0u;
   scheduler->pid_lookup_cache_index = 0u;
   scheduler->pid_lookup_cache_valid = 0u;
@@ -1386,7 +1407,9 @@ int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *o
                      "\"turbo_priority_weight\":%u,\"turbo_autotune_enabled\":%u,"
                      "\"turbo_autotune_interval_ticks\":%u,\"turbo_autotune_adjustments\":%llu,"
                      "\"turbo_last_pid\":%u,\"turbo_candidate_cache_hits\":%llu,"
-                     "\"turbo_candidate_cache_misses\":%llu,\"turbo_candidate_cache_reuse_budget\":%u}",
+                     "\"turbo_candidate_cache_misses\":%llu,"
+                     "\"turbo_pressure_guard_trips\":%llu,"
+                     "\"turbo_candidate_cache_reuse_budget\":%u}",
                      (unsigned int)scheduler->dispatch_strategy,
                      (unsigned int)scheduler->turbo_wait_weight,
                      (unsigned int)scheduler->turbo_priority_weight,
@@ -1396,6 +1419,7 @@ int aegis_scheduler_turbo_state_json(const aegis_scheduler_t *scheduler, char *o
                      scheduler->turbo_last_pid,
                      (unsigned long long)scheduler->turbo_candidate_cache_hits,
                      (unsigned long long)scheduler->turbo_candidate_cache_misses,
+                     (unsigned long long)scheduler->turbo_pressure_guard_trips,
                      (unsigned int)scheduler->turbo_candidate_cache_budget);
   if (written < 0 || (size_t)written >= out_size) {
     return -1;
@@ -1903,6 +1927,7 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      "\"bulk_ops_succeeded\":%llu,\"bulk_ops_failed\":%llu,"
                      "\"bulk_ops_unknown\":%llu,\"bulk_results_dropped\":%llu,"
                      "\"turbo_reuse_budget_adaptations\":%llu,"
+                     "\"turbo_pressure_guard_trips\":%llu,"
                      "\"wait_latency_clamp_events\":%llu,"
                      "\"limits\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
                      "\"counts\":{\"high\":%u,\"normal\":%u,\"low\":%u},"
@@ -1926,6 +1951,7 @@ int aegis_scheduler_admission_snapshot_json(const aegis_scheduler_t *scheduler,
                      (unsigned long long)scheduler->bulk_ops_unknown,
                      (unsigned long long)scheduler->bulk_results_dropped,
                      (unsigned long long)scheduler->turbo_reuse_budget_adaptations,
+                     (unsigned long long)scheduler->turbo_pressure_guard_trips,
                      (unsigned long long)scheduler->wait_latency_clamp_events,
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_HIGH],
                      (unsigned int)scheduler->admission_limits[AEGIS_PRIORITY_NORMAL],
