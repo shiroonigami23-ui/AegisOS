@@ -1,0 +1,54 @@
+name: Benchmark Monitor
+
+on:
+  schedule:
+    - cron: "15 2 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/BENCHMARK_STATUS.md"
+      - "benchmarks/**"
+      - "EXPLAIN.md"
+      - "CHANGELOG.md"
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark-monitor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run benchmark monitor
+        run: python scripts/benchmark_monitor.py --iterations 120000
+
+      - name: Commit benchmark status if changed
+        run: |
+          if git diff --quiet -- docs/BENCHMARK_STATUS.md benchmarks/latest/kernel_hotpath_latest.json benchmarks/history/kernel_hotpath_history.jsonl; then
+            echo "No benchmark docs changes."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/BENCHMARK_STATUS.md benchmarks/latest/kernel_hotpath_latest.json benchmarks/history/kernel_hotpath_history.jsonl
+            git commit -m "docs: auto-update benchmark status"
+            git push
+          fi
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-monitor-artifacts
+          path: |
+            docs/BENCHMARK_STATUS.md
+            benchmarks/latest/kernel_hotpath_latest.json
+            benchmarks/history/kernel_hotpath_history.jsonl
