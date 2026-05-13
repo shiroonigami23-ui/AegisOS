@@ -58,6 +58,23 @@ def _check_thresholds(bench: dict, budget: dict) -> list[str]:
   return failures
 
 
+def _resolve_profile_budget(budget: dict, profile: str) -> dict:
+  if int(budget.get("schema_version", 0)) == 1:
+    return budget
+  if int(budget.get("schema_version", 0)) != 2:
+    raise ValueError("unsupported PERF_BUDGET schema_version")
+  profiles = budget.get("profiles", {})
+  if not isinstance(profiles, dict):
+    raise ValueError("PERF_BUDGET profiles missing or invalid")
+  if profile not in profiles:
+    known = ", ".join(sorted(profiles.keys()))
+    raise ValueError(f"unknown perf profile '{profile}', expected one of: {known}")
+  selected = profiles.get(profile, {})
+  if not isinstance(selected, dict):
+    raise ValueError(f"invalid profile config for '{profile}'")
+  return selected
+
+
 def main() -> int:
   parser = argparse.ArgumentParser(description="Kernel perf budget gate for cross-module hotpath benchmark.")
   parser.add_argument("--budget", default="docs/PERF_BUDGET.json")
@@ -65,32 +82,35 @@ def main() -> int:
                       help="Optional precomputed benchmark JSON path. If omitted, benchmark is executed.")
   parser.add_argument("--emit-benchmark-json", default=None,
                       help="Optional output path to write benchmark payload used by this gate.")
+  parser.add_argument("--profile", default="desktop",
+                      help="Perf budget profile (minimal|desktop|server).")
   args = parser.parse_args()
 
   repo_root = Path(__file__).resolve().parents[1]
   budget_path = repo_root / args.budget
   budget = _load_json(budget_path)
-  if int(budget.get("schema_version", 0)) != 1:
-    raise ValueError("unsupported PERF_BUDGET schema_version")
+  selected_budget = _resolve_profile_budget(budget, args.profile)
 
   if args.benchmark_json:
     bench = _load_json(repo_root / args.benchmark_json)
   else:
-    iterations = int(budget.get("iterations_ci", 120000))
+    iterations = int(selected_budget.get("iterations_ci", 120000))
     bench = _run_benchmark(repo_root, iterations)
 
   if args.emit_benchmark_json:
     out_path = repo_root / args.emit_benchmark_json
     out_path.write_text(json.dumps(bench, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
 
-  failures = _check_thresholds(bench, budget)
+  failures = _check_thresholds(bench, selected_budget)
   if failures:
     print("Kernel perf budget gate: FAILED")
+    print(f"profile={args.profile}")
     for line in failures:
       print(f"- {line}")
     return 1
 
   print("Kernel perf budget gate: PASSED")
+  print(f"profile={args.profile}")
   print(json.dumps(bench, sort_keys=True, separators=(",", ":")))
   return 0
 
