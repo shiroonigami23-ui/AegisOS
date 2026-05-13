@@ -598,6 +598,9 @@ int aegis_namespace_can_inspect(const aegis_namespace_table_t *table,
 int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
                                   char *out,
                                   size_t out_size);
+int aegis_namespace_snapshot_json_compact(const aegis_namespace_table_t *table,
+                                          char *out,
+                                          size_t out_size);
 void aegis_syscall_gate_matrix_init(aegis_syscall_gate_matrix_t *matrix);
 int aegis_syscall_gate_set_process_caps(aegis_syscall_gate_matrix_t *matrix,
                                         uint32_t process_id,

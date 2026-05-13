@@ -2431,6 +2431,40 @@ int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
   return (int)offset;
 }
 
+int aegis_namespace_snapshot_json_compact(const aegis_namespace_table_t *table,
+                                          char *out,
+                                          size_t out_size) {
+  int written;
+  if (table == 0 || out == 0 || out_size == 0u) {
+    return -1;
+  }
+  written = snprintf(out,
+                     out_size,
+                     "{\"schema_version\":1,\"mode\":\"compact\","
+                     "\"namespace_count\":%llu,\"process_count\":%llu,"
+                     "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
+                     "\"attach_failures\":%llu,\"detach_failures\":%llu,"
+                     "\"translate_local_failures\":%llu,\"translate_global_failures\":%llu,"
+                     "\"inspect_failures\":%llu,\"cache_invalidations\":%llu,"
+                     "\"inspect_cache_hits\":%llu,\"inspect_cache_misses\":%llu}",
+                     (unsigned long long)table->namespace_count,
+                     (unsigned long long)table->process_count,
+                     (unsigned long long)table->lookup_cache_hits,
+                     (unsigned long long)table->lookup_cache_misses,
+                     (unsigned long long)table->attach_failures,
+                     (unsigned long long)table->detach_failures,
+                     (unsigned long long)table->translate_local_failures,
+                     (unsigned long long)table->translate_global_failures,
+                     (unsigned long long)table->inspect_failures,
+                     (unsigned long long)table->cache_invalidations,
+                     (unsigned long long)table->inspect_cache_hits,
+                     (unsigned long long)table->inspect_cache_misses);
+  if (written < 0 || (size_t)written >= out_size) {
+    return -1;
+  }
+  return written;
+}
+
 static int syscall_process_find_index(const aegis_syscall_gate_matrix_t *matrix,
                                       uint32_t process_id,
                                       size_t *index_out) {

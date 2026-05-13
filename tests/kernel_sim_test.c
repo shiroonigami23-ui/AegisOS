@@ -880,6 +880,21 @@ static int test_namespace_isolation_simulator(void) {
     fprintf(stderr, "expected tiny namespace snapshot buffer failure\n");
     return 1;
   }
+  if (aegis_namespace_snapshot_json_compact(&table, json, sizeof(json)) <= 0 ||
+      strstr(json, "\"mode\":\"compact\"") == 0 ||
+      strstr(json, "\"namespace_count\":3") == 0 ||
+      strstr(json, "\"process_count\":2") == 0 ||
+      strstr(json, "\"lookup_cache_hits\":") == 0 ||
+      strstr(json, "\"inspect_cache_misses\":") == 0 ||
+      strstr(json, "\"namespaces\"") != 0 ||
+      strstr(json, "\"processes\"") != 0) {
+    fprintf(stderr, "compact namespace snapshot mismatch: %s\n", json);
+    return 1;
+  }
+  if (aegis_namespace_snapshot_json_compact(&table, tiny, sizeof(tiny)) >= 0) {
+    fprintf(stderr, "expected tiny compact namespace snapshot buffer failure\n");
+    return 1;
+  }
   if (aegis_namespace_destroy(&table, ns_a) == 0) {
     fprintf(stderr, "destroy should fail while namespace has members\n");
     return 1;
