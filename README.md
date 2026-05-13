@@ -123,8 +123,9 @@ This repository contains:
   - includes trace JSON property smoke profiling for regression triage: [`docs/TRACE_JSON_PROPERTY.md`](docs/TRACE_JSON_PROPERTY.md).
 - [`Kernel Perf Budget workflow`](.github/workflows/perf-budget.yml) runs cross-module hotpath benchmark and fails CI on budget regressions.
   - budget profile: [`docs/PERF_BUDGET.json`](docs/PERF_BUDGET.json).
+  - runs profile-aware gates (`minimal`, `desktop`, `server`) for broader real-world hardware envelopes.
   - local benchmark CLI: `python scripts/kernel_hotpath_benchmark.py --iterations 200000`.
-  - local gate run: `python scripts/kernel_perf_budget_gate.py`.
+  - local gate run: `python scripts/kernel_perf_budget_gate.py --profile desktop`.
 - [`Benchmark Monitor workflow`](.github/workflows/benchmark-monitor.yml) continuously updates benchmark history and status markdown.
   - status dashboard: [`docs/BENCHMARK_STATUS.md`](docs/BENCHMARK_STATUS.md).
   - latest benchmark snapshot: `benchmarks/latest/kernel_hotpath_latest.json`.

@@ -15,6 +15,10 @@ on:
 jobs:
   kernel-perf-budget:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal, desktop, server]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,11 +29,11 @@ jobs:
           python-version: "3.x"
 
       - name: Run kernel perf budget gate
-        run: python scripts/kernel_perf_budget_gate.py --emit-benchmark-json out_kernel_hotpath_bench.json
+        run: python scripts/kernel_perf_budget_gate.py --profile ${{ matrix.profile }} --emit-benchmark-json out_kernel_hotpath_bench_${{ matrix.profile }}.json
 
       - name: Upload benchmark artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-hotpath-benchmark-json
-          path: out_kernel_hotpath_bench.json
+          name: kernel-hotpath-benchmark-json-${{ matrix.profile }}
+          path: out_kernel_hotpath_bench_${{ matrix.profile }}.json
