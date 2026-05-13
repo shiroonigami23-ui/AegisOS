@@ -100,6 +100,7 @@ This repository contains:
 - Scheduler PID lookup upgraded to dual-entry cache (primary + victim) to reduce repeated linear scans.
 - Scheduler dispatch scan-depth telemetry to quantify round-robin/turbo hot-path scan cost.
 - Scheduler ready-bitmap popcount fastpath for single-class runnable dispatch cycles.
+- Scheduler turbo candidate pressure-guard v2 to avoid over-reusing a dominant cached PID under high dispatch pressure.
 - Namespace requester/target inspect-pair cache fastpath with hit/miss telemetry.
 - Secure-time nonce-window saturation counters in attestor snapshots (`inserts`, `overwrites`, `high_watermark`).
 - Permission center policy diff endpoint plus policy-change audit exports (JSON/CSV).

@@ -41,6 +41,7 @@ Kernel direction, interfaces, and implementation notes live here.
   - PID lookup now uses dual-entry (primary + victim) cache with promotion for repeated churned PID access.
   - includes bulk scheduler operation API (`add/remove/reprioritize`) with execution telemetry counters.
   - turbo scheduler now adapts candidate cache reuse budget by queue pressure and switch patterns.
+  - turbo scheduler includes pressure-guard v2 that invalidates cache reuse for dispatch-dominant cached candidates.
   - turbo scoring now penalizes runaway dispatch dominance to preserve fairness under heavy load.
   - wait-latency accounting includes safety clamps for non-monotonic tick edge cases.
   - includes wait-report snapshot endpoint with capture tick and queue metadata.

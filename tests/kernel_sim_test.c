@@ -1276,6 +1276,46 @@ static int test_scheduler_wait_latency_clamp_and_turbo_adapt(void) {
   return 0;
 }
 
+static int test_scheduler_turbo_pressure_guard_v2(void) {
+  aegis_scheduler_t scheduler;
+  uint32_t pid = 0u;
+  char turbo_json[512];
+  int i;
+  aegis_scheduler_init(&scheduler);
+  aegis_scheduler_enable_turbo(&scheduler, 1u);
+  for (i = 0; i < 10; ++i) {
+    if (aegis_scheduler_add_with_priority(&scheduler, (uint32_t)(15000u + (uint32_t)i),
+                                          AEGIS_PRIORITY_HIGH) != 0) {
+      fprintf(stderr, "turbo pressure guard setup add failed\n");
+      return 1;
+    }
+    scheduler.enqueued_tick[i] = (uint64_t)(1u + (uint32_t)i);
+  }
+  scheduler.total_dispatches = 200u;
+  scheduler.dispatch_counts[0] = 140u;
+  for (i = 1; i < 10; ++i) {
+    scheduler.dispatch_counts[i] = 3u;
+  }
+  scheduler.turbo_candidate_cache_valid = 1u;
+  scheduler.turbo_candidate_cache_index = 0u;
+  scheduler.turbo_candidate_cache_budget = 3u;
+  if (aegis_scheduler_next(&scheduler, &pid) != 0) {
+    fprintf(stderr, "turbo pressure guard next failed\n");
+    return 1;
+  }
+  if (scheduler.turbo_pressure_guard_trips == 0u) {
+    fprintf(stderr, "turbo pressure guard expected trip count > 0\n");
+    return 1;
+  }
+  if (aegis_scheduler_turbo_state_json(&scheduler, turbo_json, sizeof(turbo_json)) <= 0 ||
+      strstr(turbo_json, "\"turbo_pressure_guard_trips\":") == 0 ||
+      strstr(turbo_json, "\"turbo_pressure_guard_trips\":0") != 0) {
+    fprintf(stderr, "turbo pressure guard json mismatch: %s\n", turbo_json);
+    return 1;
+  }
+  return 0;
+}
+
 static int test_lookup_cache_cross_module_stress(void) {
   aegis_namespace_table_t namespaces;
   aegis_ipc_channel_table_t ipc;
@@ -2217,6 +2257,9 @@ int main(void) {
     return 1;
   }
   if (test_scheduler_wait_latency_clamp_and_turbo_adapt() != 0) {
+    return 1;
+  }
+  if (test_scheduler_turbo_pressure_guard_v2() != 0) {
     return 1;
   }
   if (test_namespace_isolation_simulator() != 0) {
