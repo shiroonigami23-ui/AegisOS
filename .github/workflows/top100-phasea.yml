@@ -1,0 +1,36 @@
+﻿name: Top100 Phase A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/top100_phasea_runner.py"
+      - "scripts/algorithm_selection_benchmark.py"
+      - "scripts/scheduler_turbo_benchmark.py"
+      - ".github/workflows/top100-phasea.yml"
+
+jobs:
+  phasea:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run phase A runner
+        run: python scripts/top100_phasea_runner.py
+
+      - name: Commit artifacts
+        run: |
+          if [[ -n "$(git status --porcelain docs/TOP100_PHASEA_STATUS.md benchmarks/latest/top100_phasea_latest.json benchmarks/history/top100_phasea_history.jsonl)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/TOP100_PHASEA_STATUS.md benchmarks/latest/top100_phasea_latest.json benchmarks/history/top100_phasea_history.jsonl
+            git commit -m "ci: update top100 phase-a status"
+            git push
+          fi
