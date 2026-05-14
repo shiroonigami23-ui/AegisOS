@@ -10,6 +10,7 @@
 #define AEGIS_IPC_ENVELOPE_SCHEMA_VERSION 1u
 #define AEGIS_NAMESPACE_CAPACITY 64u
 #define AEGIS_NAMESPACE_PROCESS_CAPACITY 256u
+#define AEGIS_NAMESPACE_GLOBAL_PID_HASH_BUCKETS 128u
 #define AEGIS_SYSCALL_GATE_CAPACITY 128u
 #define AEGIS_SYSCALL_RULE_CAPACITY 64u
 #define AEGIS_SYSCALL_DECISION_CACHE_CAPACITY 64u
@@ -446,6 +447,8 @@ typedef struct {
 typedef struct {
   aegis_namespace_entry_t namespaces[AEGIS_NAMESPACE_CAPACITY];
   aegis_namespace_process_entry_t processes[AEGIS_NAMESPACE_PROCESS_CAPACITY];
+  uint16_t process_hash_heads[AEGIS_NAMESPACE_GLOBAL_PID_HASH_BUCKETS];
+  uint16_t process_hash_next[AEGIS_NAMESPACE_PROCESS_CAPACITY];
   uint32_t next_namespace_id;
   size_t namespace_count;
   size_t process_count;
@@ -458,6 +461,8 @@ typedef struct {
   uint64_t lookup_cache_misses;
   uint64_t attach_failures;
   uint64_t detach_failures;
+  uint64_t global_hash_hits;
+  uint64_t global_hash_misses;
   uint64_t translate_local_failures;
   uint64_t translate_global_failures;
   uint64_t inspect_failures;

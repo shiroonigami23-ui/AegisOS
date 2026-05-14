@@ -27,4 +27,6 @@ Helper scripts for local development and automation live here.
 - `kernel_hotpath_benchmark.py`: compiles/runs cross-module kernel hotpath microbenchmark (scheduler/namespace/ipc/memory) and emits JSON metrics.
 - `kernel_perf_budget_gate.py`: enforces `docs/PERF_BUDGET.json` thresholds using benchmark output, supports emitting benchmark JSON artifact for CI.
 - `benchmark_monitor.py`: runs hotpath benchmark, appends run history, writes latest snapshot JSON, and regenerates `docs/BENCHMARK_STATUS.md`.
+- `algorithm_selection_benchmark.py`: simulation benchmark that compares algorithm candidates (lookup and ready-pick strategies) and reports winners.
+- `algorithm_benchmark_monitor.py`: persists algorithm benchmark history/latest snapshots and regenerates `docs/ALGORITHM_LAB_STATUS.md`.
 - `validate_snapshot_schema_ledger.py`: validates `docs/SNAPSHOT_SCHEMA_LEDGER.json` patterns against source to catch snapshot schema drift.
