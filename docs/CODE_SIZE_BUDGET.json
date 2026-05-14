@@ -1,0 +1,21 @@
+﻿{
+  "schema_version": 1,
+  "budgets": {
+    "kernel_c": {
+      "glob": "kernel/src/*.c",
+      "max_loc": 5200
+    },
+    "kernel_h": {
+      "glob": "kernel/include/*.h",
+      "max_loc": 900
+    },
+    "tests_c": {
+      "glob": "tests/*.c",
+      "max_loc": 5600
+    },
+    "scripts_py": {
+      "glob": "scripts/*.py",
+      "max_loc": 5200
+    }
+  }
+}

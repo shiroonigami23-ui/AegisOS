@@ -86,6 +86,10 @@ def main() -> int:
   latest_json = root / "benchmarks" / "latest" / "perf_scorecard_latest.json"
   latest_json.parent.mkdir(parents=True, exist_ok=True)
   latest_json.write_text(json.dumps(out, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+  history_jsonl = root / "benchmarks" / "history" / "perf_scorecard_history.jsonl"
+  history_jsonl.parent.mkdir(parents=True, exist_ok=True)
+  with history_jsonl.open("a", encoding="utf-8") as f:
+    f.write(json.dumps(out, sort_keys=True, separators=(",", ":")) + "\n")
 
   md = _render_md(out)
   (root / "docs" / "PERF_SCORECARD.md").write_text(md, encoding="utf-8")

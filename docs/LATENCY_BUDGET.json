@@ -1,0 +1,32 @@
+﻿{
+  "schema_version": 1,
+  "profiles": {
+    "minimal": {
+      "turbo": {
+        "max_p50_wait": 6,
+        "max_p95_wait": 7,
+        "max_p99_wait": 8,
+        "max_high_priority_p95_wait": 6,
+        "max_mean_wait": 5.5
+      }
+    },
+    "desktop": {
+      "turbo": {
+        "max_p50_wait": 6,
+        "max_p95_wait": 7,
+        "max_p99_wait": 8,
+        "max_high_priority_p95_wait": 6,
+        "max_mean_wait": 5.5
+      }
+    },
+    "server": {
+      "turbo": {
+        "max_p50_wait": 6,
+        "max_p95_wait": 7,
+        "max_p99_wait": 8,
+        "max_high_priority_p95_wait": 6,
+        "max_mean_wait": 5.5
+      }
+    }
+  }
+}

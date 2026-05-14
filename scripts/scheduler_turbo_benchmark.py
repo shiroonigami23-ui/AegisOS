@@ -32,11 +32,11 @@ def _pick_turbo(tasks: List[Task], now_tick: int, wait_weight: int = 2, priority
   return best_idx
 
 
-def _p95(values: List[int]) -> int:
+def _percentile(values: List[int], pct: float) -> int:
   if not values:
     return 0
   ordered = sorted(values)
-  idx = int(0.95 * (len(ordered) - 1))
+  idx = int(pct * (len(ordered) - 1))
   return ordered[idx]
 
 
@@ -83,8 +83,10 @@ def simulate(strategy: str, ticks: int = 300, seed: int = 1337) -> Dict[str, obj
       "strategy": strategy,
       "ticks": ticks,
       "mean_wait": round(sum(wait_samples) / len(wait_samples), 3),
-      "p95_wait": _p95(wait_samples),
-      "high_priority_p95_wait": _p95(high_priority_wait_samples),
+      "p50_wait": _percentile(wait_samples, 0.50),
+      "p95_wait": _percentile(wait_samples, 0.95),
+      "p99_wait": _percentile(wait_samples, 0.99),
+      "high_priority_p95_wait": _percentile(high_priority_wait_samples, 0.95),
       "max_wait": max(wait_samples),
       "per_task": per_task,
   }
@@ -101,7 +103,9 @@ def compare(ticks: int = 300, seed: int = 1337) -> Dict[str, object]:
       "turbo": turbo,
       "delta": {
           "mean_wait_improvement": round(rr["mean_wait"] - turbo["mean_wait"], 3),
+          "p50_wait_improvement": rr["p50_wait"] - turbo["p50_wait"],
           "p95_wait_improvement": rr["p95_wait"] - turbo["p95_wait"],
+          "p99_wait_improvement": rr["p99_wait"] - turbo["p99_wait"],
           "high_priority_p95_wait_improvement": rr["high_priority_p95_wait"] - turbo["high_priority_p95_wait"],
           "max_wait_improvement": rr["max_wait"] - turbo["max_wait"],
       },

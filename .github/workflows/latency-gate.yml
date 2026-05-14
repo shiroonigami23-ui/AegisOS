@@ -1,0 +1,32 @@
+﻿name: Scheduler Latency Gate
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "EXPLAIN.md"
+      - "CHANGELOG.md"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "EXPLAIN.md"
+      - "CHANGELOG.md"
+
+jobs:
+  latency-gate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal, desktop, server]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run scheduler latency gate
+        run: python scripts/scheduler_latency_gate.py --profile ${{ matrix.profile }} --ticks 800 --seed 1337

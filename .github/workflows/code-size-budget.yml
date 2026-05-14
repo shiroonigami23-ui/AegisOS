@@ -1,0 +1,28 @@
+﻿name: Code Size Budget
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "EXPLAIN.md"
+      - "CHANGELOG.md"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "EXPLAIN.md"
+      - "CHANGELOG.md"
+
+jobs:
+  code-size-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run code size budget gate
+        run: python scripts/code_size_budget_gate.py
