@@ -1,0 +1,41 @@
+﻿name: Algorithm Lab Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - "kernel/**"
+      - "tools/benchmarks/**"
+      - "scripts/algorithm_selection_benchmark.py"
+      - "scripts/algorithm_benchmark_monitor.py"
+      - ".github/workflows/algorithm-lab.yml"
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run algorithm lab monitor
+        run: python scripts/algorithm_benchmark_monitor.py --iterations 250000
+
+      - name: Commit updates
+        run: |
+          if [[ -n "$(git status --porcelain docs/ALGORITHM_LAB_STATUS.md benchmarks/latest/algorithm_selection_latest.json benchmarks/history/algorithm_selection_history.jsonl)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/ALGORITHM_LAB_STATUS.md benchmarks/latest/algorithm_selection_latest.json benchmarks/history/algorithm_selection_history.jsonl
+            git commit -m "ci: update algorithm lab status"
+            git push
+          fi

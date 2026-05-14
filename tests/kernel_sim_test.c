@@ -858,6 +858,8 @@ static int test_namespace_isolation_simulator(void) {
       strstr(json, "\"process_count\":2") == 0 ||
       strstr(json, "\"lookup_cache_hits\":") == 0 ||
       strstr(json, "\"lookup_cache_misses\":") == 0 ||
+      strstr(json, "\"global_hash_hits\":") == 0 ||
+      strstr(json, "\"global_hash_misses\":") == 0 ||
       strstr(json, "\"attach_failures\":") == 0 ||
       strstr(json, "\"detach_failures\":") == 0 ||
       strstr(json, "\"translate_local_failures\":") == 0 ||
@@ -866,6 +868,7 @@ static int test_namespace_isolation_simulator(void) {
       strstr(json, "\"cache_invalidations\":") == 0 ||
       strstr(json, "\"inspect_cache_hits\":") == 0 ||
       strstr(json, "\"inspect_cache_misses\":") == 0 ||
+      strstr(json, "\"global_hash_hits\":0") != 0 ||
       strstr(json, "\"inspect_cache_hits\":0") != 0 ||
       strstr(json, "\"attach_failures\":0") != 0 ||
       strstr(json, "\"translate_local_failures\":0") != 0 ||

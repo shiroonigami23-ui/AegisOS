@@ -87,6 +87,7 @@ This repository contains:
 - Namespace translation lookup-cache and scheduler percentile-selection fast path for lower runtime metrics overhead.
 - Namespace attach/detach/translate/inspect failure counters plus cache-invalidation telemetry in namespace snapshots.
 - Namespace compact snapshot endpoint for lightweight telemetry export without full namespace/process arrays.
+- Namespace global PID hash-bucket index for faster process lookup under hot inspect/translate workloads.
 - IPC unknown-channel request and drain-underflow clamp telemetry in channel snapshots.
 - IPC drop-reason breakdown counters (`quota`, `unknown_channel`, `policy_gate`) in channel snapshots.
 - IPC burst-budget autotune with up/down adjustment telemetry for sustained burst workloads.
@@ -129,6 +130,9 @@ This repository contains:
 - [`Benchmark Monitor workflow`](.github/workflows/benchmark-monitor.yml) continuously updates benchmark history and status markdown.
   - status dashboard: [`docs/BENCHMARK_STATUS.md`](docs/BENCHMARK_STATUS.md).
   - latest benchmark snapshot: `benchmarks/latest/kernel_hotpath_latest.json`.
+- [`Algorithm Lab workflow`](.github/workflows/algorithm-lab.yml) runs simulation benchmarks for algorithm choices and records winners over time.
+  - status dashboard: [`docs/ALGORITHM_LAB_STATUS.md`](docs/ALGORITHM_LAB_STATUS.md).
+  - wiki sources: [`docs/ALGORITHM_SOURCES.md`](docs/ALGORITHM_SOURCES.md).
 - Snapshot schema ledger is validated in CI to prevent silent snapshot-contract drift.
   - ledger docs: [`docs/SNAPSHOT_SCHEMA_LEDGER.md`](docs/SNAPSHOT_SCHEMA_LEDGER.md).
   - machine ledger: [`docs/SNAPSHOT_SCHEMA_LEDGER.json`](docs/SNAPSHOT_SCHEMA_LEDGER.json).

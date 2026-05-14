@@ -2058,9 +2058,51 @@ static int namespace_find_index(const aegis_namespace_table_t *table,
   return 0;
 }
 
+static uint16_t namespace_hash_bucket_for_process_id(uint32_t process_id) {
+  return (uint16_t)(process_id % AEGIS_NAMESPACE_GLOBAL_PID_HASH_BUCKETS);
+}
+
+static void namespace_hash_insert(aegis_namespace_table_t *table, uint16_t process_index) {
+  uint16_t bucket;
+  if (table == 0 || process_index >= AEGIS_NAMESPACE_PROCESS_CAPACITY ||
+      table->processes[process_index].active == 0u) {
+    return;
+  }
+  bucket = namespace_hash_bucket_for_process_id(table->processes[process_index].process_id);
+  table->process_hash_next[process_index] = table->process_hash_heads[bucket];
+  table->process_hash_heads[bucket] = process_index;
+}
+
+static void namespace_hash_remove(aegis_namespace_table_t *table, uint16_t process_index) {
+  uint16_t bucket;
+  uint16_t cur;
+  uint16_t prev = 0xFFFFu;
+  if (table == 0 || process_index >= AEGIS_NAMESPACE_PROCESS_CAPACITY) {
+    return;
+  }
+  bucket = namespace_hash_bucket_for_process_id(table->processes[process_index].process_id);
+  cur = table->process_hash_heads[bucket];
+  while (cur != 0xFFFFu) {
+    uint16_t next = table->process_hash_next[cur];
+    if (cur == process_index) {
+      if (prev == 0xFFFFu) {
+        table->process_hash_heads[bucket] = next;
+      } else {
+        table->process_hash_next[prev] = next;
+      }
+      table->process_hash_next[cur] = 0xFFFFu;
+      return;
+    }
+    prev = cur;
+    cur = next;
+  }
+}
+
 static int namespace_process_find_by_global(const aegis_namespace_table_t *table,
                                             uint32_t process_id,
                                             size_t *index_out) {
+  uint16_t bucket;
+  uint16_t cur;
   size_t i;
   if (table == 0 || index_out == 0 || process_id == 0u) {
     return 0;
@@ -2075,10 +2117,31 @@ static int namespace_process_find_by_global(const aegis_namespace_table_t *table
     return 1;
   }
   ((aegis_namespace_table_t *)table)->lookup_cache_misses += 1u;
+  bucket = namespace_hash_bucket_for_process_id(process_id);
+  cur = table->process_hash_heads[bucket];
+  while (cur != 0xFFFFu) {
+    if (cur < AEGIS_NAMESPACE_PROCESS_CAPACITY &&
+        table->processes[cur].active != 0u &&
+        table->processes[cur].process_id == process_id) {
+      *index_out = cur;
+      ((aegis_namespace_table_t *)table)->global_hash_hits += 1u;
+      ((aegis_namespace_table_t *)table)->lookup_cache_valid = 1u;
+      ((aegis_namespace_table_t *)table)->lookup_cache_namespace_id =
+          table->processes[cur].namespace_id;
+      ((aegis_namespace_table_t *)table)->lookup_cache_process_id = process_id;
+      ((aegis_namespace_table_t *)table)->lookup_cache_local_pid = table->processes[cur].local_pid;
+      ((aegis_namespace_table_t *)table)->lookup_cache_index = cur;
+      return 1;
+    }
+    cur = table->process_hash_next[cur];
+  }
+  ((aegis_namespace_table_t *)table)->global_hash_misses += 1u;
+  /* Fallback safety scan; if found, heal hash index. */
   for (i = 0; i < AEGIS_NAMESPACE_PROCESS_CAPACITY; ++i) {
     if (table->processes[i].active != 0u &&
         table->processes[i].process_id == process_id) {
       *index_out = i;
+      namespace_hash_insert((aegis_namespace_table_t *)table, (uint16_t)i);
       ((aegis_namespace_table_t *)table)->lookup_cache_valid = 1u;
       ((aegis_namespace_table_t *)table)->lookup_cache_namespace_id =
           table->processes[i].namespace_id;
@@ -2129,6 +2192,7 @@ static int namespace_process_find_by_local(const aegis_namespace_table_t *table,
 
 void aegis_namespace_table_init(aegis_namespace_table_t *table) {
   size_t i;
+  size_t b;
   if (table == 0) {
     return;
   }
@@ -2144,6 +2208,8 @@ void aegis_namespace_table_init(aegis_namespace_table_t *table) {
   table->lookup_cache_misses = 0u;
   table->attach_failures = 0u;
   table->detach_failures = 0u;
+  table->global_hash_hits = 0u;
+  table->global_hash_misses = 0u;
   table->translate_local_failures = 0u;
   table->translate_global_failures = 0u;
   table->inspect_failures = 0u;
@@ -2166,6 +2232,10 @@ void aegis_namespace_table_init(aegis_namespace_table_t *table) {
     table->processes[i].namespace_id = 0u;
     table->processes[i].local_pid = 0u;
     table->processes[i].active = 0u;
+    table->process_hash_next[i] = 0xFFFFu;
+  }
+  for (b = 0; b < AEGIS_NAMESPACE_GLOBAL_PID_HASH_BUCKETS; ++b) {
+    table->process_hash_heads[b] = 0xFFFFu;
   }
   table->namespaces[0].namespace_id = 1u;
   table->namespaces[0].parent_namespace_id = 0u;
@@ -2282,6 +2352,8 @@ int aegis_namespace_attach_process(aegis_namespace_table_t *table,
     table->processes[i].namespace_id = namespace_id;
     table->processes[i].local_pid = local_pid;
     table->processes[i].active = 1u;
+    table->process_hash_next[i] = 0xFFFFu;
+    namespace_hash_insert(table, (uint16_t)i);
     table->namespaces[ns_index].member_count += 1u;
     table->process_count += 1u;
     *local_pid_out = local_pid;
@@ -2314,6 +2386,7 @@ int aegis_namespace_detach_process(aegis_namespace_table_t *table, uint32_t proc
     table->detach_failures += 1u;
     return -1;
   }
+  namespace_hash_remove(table, (uint16_t)proc_index);
   table->processes[proc_index].active = 0u;
   table->processes[proc_index].process_id = 0u;
   table->processes[proc_index].namespace_id = 0u;
@@ -2411,6 +2484,7 @@ int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
                      out_size,
                      "{\"schema_version\":1,\"namespace_count\":%llu,\"process_count\":%llu,"
                      "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
+                     "\"global_hash_hits\":%llu,\"global_hash_misses\":%llu,"
                      "\"attach_failures\":%llu,\"detach_failures\":%llu,"
                      "\"translate_local_failures\":%llu,\"translate_global_failures\":%llu,"
                      "\"inspect_failures\":%llu,\"cache_invalidations\":%llu,"
@@ -2420,6 +2494,8 @@ int aegis_namespace_snapshot_json(const aegis_namespace_table_t *table,
                      (unsigned long long)table->process_count,
                      (unsigned long long)table->lookup_cache_hits,
                      (unsigned long long)table->lookup_cache_misses,
+                     (unsigned long long)table->global_hash_hits,
+                     (unsigned long long)table->global_hash_misses,
                      (unsigned long long)table->attach_failures,
                      (unsigned long long)table->detach_failures,
                      (unsigned long long)table->translate_local_failures,
@@ -2493,6 +2569,7 @@ int aegis_namespace_snapshot_json_compact(const aegis_namespace_table_t *table,
                      "{\"schema_version\":1,\"mode\":\"compact\","
                      "\"namespace_count\":%llu,\"process_count\":%llu,"
                      "\"lookup_cache_hits\":%llu,\"lookup_cache_misses\":%llu,"
+                     "\"global_hash_hits\":%llu,\"global_hash_misses\":%llu,"
                      "\"attach_failures\":%llu,\"detach_failures\":%llu,"
                      "\"translate_local_failures\":%llu,\"translate_global_failures\":%llu,"
                      "\"inspect_failures\":%llu,\"cache_invalidations\":%llu,"
@@ -2501,6 +2578,8 @@ int aegis_namespace_snapshot_json_compact(const aegis_namespace_table_t *table,
                      (unsigned long long)table->process_count,
                      (unsigned long long)table->lookup_cache_hits,
                      (unsigned long long)table->lookup_cache_misses,
+                     (unsigned long long)table->global_hash_hits,
+                     (unsigned long long)table->global_hash_misses,
                      (unsigned long long)table->attach_failures,
                      (unsigned long long)table->detach_failures,
                      (unsigned long long)table->translate_local_failures,
