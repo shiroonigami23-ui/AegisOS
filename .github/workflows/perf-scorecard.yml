@@ -1,0 +1,36 @@
+﻿name: Perf Scorecard
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "benchmarks/latest/kernel_hotpath_latest.json"
+      - "benchmarks/latest/algorithm_selection_latest.json"
+      - "scripts/perf_scorecard.py"
+      - ".github/workflows/perf-scorecard.yml"
+
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Generate scorecard
+        run: python scripts/perf_scorecard.py
+
+      - name: Commit scorecard updates
+        run: |
+          if [[ -n "$(git status --porcelain docs/PERF_SCORECARD.md benchmarks/latest/perf_scorecard_latest.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/PERF_SCORECARD.md benchmarks/latest/perf_scorecard_latest.json
+            git commit -m "ci: update perf scorecard"
+            git push
+          fi

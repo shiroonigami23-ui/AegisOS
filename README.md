@@ -44,6 +44,7 @@ Build a modern, privacy-first operating system that combines the strongest quali
 3. Read [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md).
 4. Follow milestone plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 5. Use execution backlog in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
+6. Track supreme upgrade batch in [`docs/TOP20_SUPREME_EXECUTION_PLAN.md`](docs/TOP20_SUPREME_EXECUTION_PLAN.md).
 6. Read contributor explainer in [`EXPLAIN.md`](EXPLAIN.md).
 7. Read branch governance profile in [`docs/BRANCH_PROTECTION.md`](docs/BRANCH_PROTECTION.md).
 8. Follow new contributor checklist in [`docs/ONBOARDING.md`](docs/ONBOARDING.md).
@@ -133,6 +134,8 @@ This repository contains:
 - [`Algorithm Lab workflow`](.github/workflows/algorithm-lab.yml) runs simulation benchmarks for algorithm choices and records winners over time.
   - status dashboard: [`docs/ALGORITHM_LAB_STATUS.md`](docs/ALGORITHM_LAB_STATUS.md).
   - wiki sources: [`docs/ALGORITHM_SOURCES.md`](docs/ALGORITHM_SOURCES.md).
+- [`Perf Scorecard workflow`](.github/workflows/perf-scorecard.yml) computes a composite engineering-performance score from latest benchmark artifacts.
+  - scorecard dashboard: [`docs/PERF_SCORECARD.md`](docs/PERF_SCORECARD.md).
 - Snapshot schema ledger is validated in CI to prevent silent snapshot-contract drift.
   - ledger docs: [`docs/SNAPSHOT_SCHEMA_LEDGER.md`](docs/SNAPSHOT_SCHEMA_LEDGER.md).
   - machine ledger: [`docs/SNAPSHOT_SCHEMA_LEDGER.json`](docs/SNAPSHOT_SCHEMA_LEDGER.json).
