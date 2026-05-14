@@ -29,4 +29,5 @@ Helper scripts for local development and automation live here.
 - `benchmark_monitor.py`: runs hotpath benchmark, appends run history, writes latest snapshot JSON, and regenerates `docs/BENCHMARK_STATUS.md`.
 - `algorithm_selection_benchmark.py`: simulation benchmark that compares algorithm candidates (lookup and ready-pick strategies) and reports winners.
 - `algorithm_benchmark_monitor.py`: persists algorithm benchmark history/latest snapshots and regenerates `docs/ALGORITHM_LAB_STATUS.md`.
+- `perf_scorecard.py`: computes composite engineering performance score and regenerates `docs/PERF_SCORECARD.md`.
 - `validate_snapshot_schema_ledger.py`: validates `docs/SNAPSHOT_SCHEMA_LEDGER.json` patterns against source to catch snapshot schema drift.
