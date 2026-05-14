@@ -25,12 +25,15 @@ jobs:
       - name: Generate scorecard
         run: python scripts/perf_scorecard.py
 
+      - name: Enforce scorecard regression gate
+        run: python scripts/perf_scorecard_gate.py --min-samples 5 --max-relative-drop 0.05
+
       - name: Commit scorecard updates
         run: |
-          if [[ -n "$(git status --porcelain docs/PERF_SCORECARD.md benchmarks/latest/perf_scorecard_latest.json)" ]]; then
+          if [[ -n "$(git status --porcelain docs/PERF_SCORECARD.md benchmarks/latest/perf_scorecard_latest.json benchmarks/history/perf_scorecard_history.jsonl)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add docs/PERF_SCORECARD.md benchmarks/latest/perf_scorecard_latest.json
+            git add docs/PERF_SCORECARD.md benchmarks/latest/perf_scorecard_latest.json benchmarks/history/perf_scorecard_history.jsonl
             git commit -m "ci: update perf scorecard"
             git push
           fi

@@ -30,4 +30,7 @@ Helper scripts for local development and automation live here.
 - `algorithm_selection_benchmark.py`: simulation benchmark that compares algorithm candidates (lookup and ready-pick strategies) and reports winners.
 - `algorithm_benchmark_monitor.py`: persists algorithm benchmark history/latest snapshots and regenerates `docs/ALGORITHM_LAB_STATUS.md`.
 - `perf_scorecard.py`: computes composite engineering performance score and regenerates `docs/PERF_SCORECARD.md`.
+- `perf_scorecard_gate.py`: enforces scorecard regression thresholds against recent history.
+- `scheduler_latency_gate.py`: enforces scheduler latency budgets (`p50/p95/p99`) from `docs/LATENCY_BUDGET.json`.
+- `code_size_budget_gate.py`: enforces LOC budgets from `docs/CODE_SIZE_BUDGET.json`.
 - `validate_snapshot_schema_ledger.py`: validates `docs/SNAPSHOT_SCHEMA_LEDGER.json` patterns against source to catch snapshot schema drift.

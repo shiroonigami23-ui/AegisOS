@@ -136,6 +136,11 @@ This repository contains:
   - wiki sources: [`docs/ALGORITHM_SOURCES.md`](docs/ALGORITHM_SOURCES.md).
 - [`Perf Scorecard workflow`](.github/workflows/perf-scorecard.yml) computes a composite engineering-performance score from latest benchmark artifacts.
   - scorecard dashboard: [`docs/PERF_SCORECARD.md`](docs/PERF_SCORECARD.md).
+  - regression gate: `python scripts/perf_scorecard_gate.py`.
+- [`Scheduler Latency Gate workflow`](.github/workflows/latency-gate.yml) enforces scheduler `p50/p95/p99` latency budgets by profile.
+  - policy: [`docs/LATENCY_BUDGET.json`](docs/LATENCY_BUDGET.json).
+- [`Code Size Budget workflow`](.github/workflows/code-size-budget.yml) enforces LOC budgets for core modules.
+  - policy: [`docs/CODE_SIZE_BUDGET.json`](docs/CODE_SIZE_BUDGET.json).
 - Snapshot schema ledger is validated in CI to prevent silent snapshot-contract drift.
   - ledger docs: [`docs/SNAPSHOT_SCHEMA_LEDGER.md`](docs/SNAPSHOT_SCHEMA_LEDGER.md).
   - machine ledger: [`docs/SNAPSHOT_SCHEMA_LEDGER.json`](docs/SNAPSHOT_SCHEMA_LEDGER.json).
