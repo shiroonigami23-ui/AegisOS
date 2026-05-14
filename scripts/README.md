@@ -33,4 +33,5 @@ Helper scripts for local development and automation live here.
 - `perf_scorecard_gate.py`: enforces scorecard regression thresholds against recent history.
 - `scheduler_latency_gate.py`: enforces scheduler latency budgets (`p50/p95/p99`) from `docs/LATENCY_BUDGET.json`.
 - `code_size_budget_gate.py`: enforces LOC budgets from `docs/CODE_SIZE_BUDGET.json`.
+- `top100_phasea_runner.py`: runs Top100 Phase-A execution tracks (`021-040`) and records status/history artifacts.
 - `validate_snapshot_schema_ledger.py`: validates `docs/SNAPSHOT_SCHEMA_LEDGER.json` patterns against source to catch snapshot schema drift.
