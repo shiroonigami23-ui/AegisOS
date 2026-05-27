@@ -143,6 +143,8 @@ This repository contains:
   - policy: [`docs/CODE_SIZE_BUDGET.json`](docs/CODE_SIZE_BUDGET.json).
 - [`Top100 Phase-A workflow`](.github/workflows/top100-phasea.yml) executes and records the first 20-track execution wave (`021-040`).
   - status: [`docs/TOP100_PHASEA_STATUS.md`](docs/TOP100_PHASEA_STATUS.md).
+- [`Top100 Phase-B workflow`](.github/workflows/top100-phaseb.yml) executes and records the second 20-track execution wave (`041-060`).
+  - status: [`docs/TOP100_PHASEB_STATUS.md`](docs/TOP100_PHASEB_STATUS.md).
 - Snapshot schema ledger is validated in CI to prevent silent snapshot-contract drift.
   - ledger docs: [`docs/SNAPSHOT_SCHEMA_LEDGER.md`](docs/SNAPSHOT_SCHEMA_LEDGER.md).
   - machine ledger: [`docs/SNAPSHOT_SCHEMA_LEDGER.json`](docs/SNAPSHOT_SCHEMA_LEDGER.json).
